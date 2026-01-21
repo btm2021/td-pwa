@@ -742,6 +742,17 @@
     min-height: 52px;
 }
 
+/* Fullscreen mode safe area handling for chart */
+.app-shell--fullscreen .chart-screen {
+    /* Add top padding for notch/Dynamic Island */
+    padding-top: env(safe-area-inset-top, 0px);
+}
+
+.app-shell--fullscreen .chart-toolbar {
+    /* Add bottom padding for home indicator */
+    padding-bottom: calc(var(--spacing-sm) + env(safe-area-inset-bottom, 0px));
+}
+
 .chart-toolbar__btn {
     display: flex;
     align-items: center;
@@ -800,26 +811,6 @@
     flex: 1;
 }
 
-/* PWA Chart Toolbar Safe Area */
-@media all and (display-mode: standalone) {
-    .chart-toolbar {
-        /* In PWA mode, ensure toolbar respects bottom safe area */
-        padding-bottom: calc(var(--spacing-sm) + env(safe-area-inset-bottom, 0px));
-    }
-
-    /* When in fullscreen, the app-shell already has safe area, so we need less padding */
-    .app-shell--fullscreen .chart-toolbar {
-        padding-bottom: var(--spacing-sm);
-    }
-
-    /* Ensure chart screen fills properly in PWA */
-    .chart-screen {
-        /* Use flex to properly distribute space */
-        min-height: 0;
-        flex: 1;
-    }
-}
-
 /* ===== Symbol Picker ===== */
 .symbol-picker {
     position: fixed;
@@ -836,7 +827,6 @@
     align-items: center;
     gap: var(--spacing-md);
     padding: var(--spacing-md) var(--spacing-lg);
-    padding-top: calc(var(--spacing-md) + env(safe-area-inset-top, 0px));
     background: var(--bg-secondary);
     border-bottom: 1px solid var(--border-primary);
 }
@@ -933,7 +923,7 @@
     background: var(--bg-secondary);
     border-radius: var(--radius-xl) var(--radius-xl) 0 0;
     z-index: 500;
-    padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding-bottom: var(--safe-area-bottom);
     animation: slideUp 0.3s ease;
 }
 
@@ -1008,7 +998,7 @@
     background: var(--bg-secondary);
     border-radius: var(--radius-xl) var(--radius-xl) 0 0;
     z-index: 500;
-    padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding-bottom: var(--safe-area-bottom);
     animation: slideUp 0.3s ease;
 }
 
