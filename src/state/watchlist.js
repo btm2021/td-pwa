@@ -28,6 +28,9 @@ export const categories = signal([...defaultCategories]);
 // Active category
 export const activeCategory = signal('favorites');
 
+// Loading state
+export const isWatchlistLoading = signal(true);
+
 // Get symbols for active category
 export const activeCategorySymbols = computed(() => {
     const cat = categories.value.find(c => c.id === activeCategory.value);
@@ -40,6 +43,201 @@ export const tickerData = signal({});
 // WebSocket connection
 let ws = null;
 let reconnectTimeout = null;
+
+// ============================================
+// FIREBASE HELPERS
+// ============================================
+const FIREBASE_USER_ID = 'anonymous'; // Can be changed for multi-user
+
+// Firebase config (same as save-load-adapter)
+const firebaseConfig = {
+    apiKey: "AIzaSyCX5ICsjsD0fJFm1jxfUEitBwZ2Ru00fm0",
+    authDomain: "papertrading-6332a.firebaseapp.com",
+    projectId: "papertrading-6332a",
+    storageBucket: "papertrading-6332a.firebasestorage.app",
+    messagingSenderId: "11611248436",
+    appId: "1:11611248436:web:cfe3c2caad6fa9ae3d3761"
+};
+
+let db = null;
+let firebaseInitialized = false;
+
+// Initialize Firebase
+function initializeFirebase() {
+    if (firebaseInitialized) return true;
+
+    if (typeof window === 'undefined' || !window.firebase) {
+        console.warn('[Watchlist] Firebase SDK not loaded');
+        return false;
+    }
+
+    try {
+        // Check if already initialized
+        if (!window.firebase.apps.length) {
+            window.firebase.initializeApp(firebaseConfig);
+            console.log('[Watchlist] Firebase initialized');
+        }
+
+        db = window.firebase.firestore();
+        firebaseInitialized = true;
+        return true;
+    } catch (error) {
+        console.error('[Watchlist] Firebase init error:', error);
+        return false;
+    }
+}
+
+function getFirestoreDb() {
+    if (!firebaseInitialized) {
+        initializeFirebase();
+    }
+    return db;
+}
+
+function getWatchlistCollection() {
+    const firestore = getFirestoreDb();
+    if (!firestore) return null;
+    return firestore.collection('users').doc(FIREBASE_USER_ID).collection('watchlist');
+}
+
+// ============================================
+// FIREBASE SAVE/LOAD
+// ============================================
+
+// Save categories to Firebase
+async function saveCategoriesToFirebase() {
+    try {
+        const watchlistRef = getWatchlistCollection();
+        if (!watchlistRef) {
+            console.warn('[Watchlist] Firebase not available, saving to localStorage');
+            saveCategoriesToLocalStorage();
+            return;
+        }
+
+        // Save categories document
+        await watchlistRef.doc('categories').set({
+            categories: categories.value,
+            activeCategory: activeCategory.value,
+            updatedAt: Date.now()
+        });
+
+        console.log('[Watchlist] Saved to Firebase:', categories.value.length, 'categories');
+    } catch (error) {
+        console.error('[Watchlist] Error saving to Firebase:', error);
+        // Fallback to localStorage
+        saveCategoriesToLocalStorage();
+    }
+}
+
+// Load categories from Firebase
+async function loadCategoriesFromFirebase() {
+    try {
+        const watchlistRef = getWatchlistCollection();
+        if (!watchlistRef) {
+            console.warn('[Watchlist] Firebase not available, loading from localStorage');
+            loadCategoriesFromLocalStorage();
+            return;
+        }
+
+        const doc = await watchlistRef.doc('categories').get();
+
+        if (doc.exists) {
+            const data = doc.data();
+
+            if (data.categories && Array.isArray(data.categories) && data.categories.length > 0) {
+                categories.value = data.categories;
+                console.log('[Watchlist] Loaded from Firebase:', data.categories.length, 'categories');
+            }
+
+            if (data.activeCategory && categories.value.some(c => c.id === data.activeCategory)) {
+                activeCategory.value = data.activeCategory;
+            }
+        } else {
+            console.log('[Watchlist] No data in Firebase, using defaults');
+            // Try to migrate from localStorage if exists
+            const localSaved = localStorage.getItem('watchlist_categories');
+            if (localSaved) {
+                console.log('[Watchlist] Migrating data from localStorage to Firebase');
+                loadCategoriesFromLocalStorage();
+                await saveCategoriesToFirebase();
+            }
+        }
+    } catch (error) {
+        console.error('[Watchlist] Error loading from Firebase:', error);
+        // Fallback to localStorage
+        loadCategoriesFromLocalStorage();
+    } finally {
+        isWatchlistLoading.value = false;
+    }
+}
+
+// LocalStorage fallback
+function saveCategoriesToLocalStorage() {
+    try {
+        localStorage.setItem('watchlist_categories', JSON.stringify(categories.value));
+        localStorage.setItem('watchlist_active_category', activeCategory.value);
+    } catch (e) {
+        console.warn('[Watchlist] Could not save to localStorage:', e);
+    }
+}
+
+function loadCategoriesFromLocalStorage() {
+    try {
+        const saved = localStorage.getItem('watchlist_categories');
+        const savedActive = localStorage.getItem('watchlist_active_category');
+
+        if (saved) {
+            const parsed = JSON.parse(saved);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+                categories.value = parsed;
+            }
+        }
+
+        if (savedActive && categories.value.some(c => c.id === savedActive)) {
+            activeCategory.value = savedActive;
+        }
+    } catch (e) {
+        console.warn('[Watchlist] Could not load from localStorage:', e);
+    } finally {
+        isWatchlistLoading.value = false;
+    }
+}
+
+// Public save function (debounced)
+let saveTimeout = null;
+function saveCategoriesToStorage() {
+    // Debounce saves
+    if (saveTimeout) clearTimeout(saveTimeout);
+    saveTimeout = setTimeout(() => {
+        saveCategoriesToFirebase();
+    }, 500);
+}
+
+// Public load function
+export function loadCategoriesFromStorage() {
+    isWatchlistLoading.value = true;
+
+    // Wait for Firebase to be ready
+    const checkFirebase = () => {
+        if (typeof window !== 'undefined' && window.firebase && window.firebase.firestore) {
+            loadCategoriesFromFirebase();
+        } else {
+            // Retry after a short delay
+            setTimeout(checkFirebase, 100);
+        }
+    };
+
+    // Start checking after DOM is ready
+    if (document.readyState === 'complete') {
+        checkFirebase();
+    } else {
+        window.addEventListener('load', checkFirebase);
+    }
+}
+
+// ============================================
+// WEBSOCKET SUBSCRIPTIONS
+// ============================================
 
 // Subscribe to Binance Futures ticker stream
 export function subscribeToTickers() {
@@ -113,6 +311,10 @@ export function getTicker(symbol) {
     return tickerData.value[symbol] || null;
 }
 
+// ============================================
+// UTILITY FUNCTIONS
+// ============================================
+
 // Get base asset from symbol
 export function getBaseAsset(symbol) {
     // Remove USDT, USDC, BUSD suffix
@@ -167,9 +369,14 @@ export function formatVolume(volume) {
     return volume.toFixed(2);
 }
 
+// ============================================
+// CATEGORY MANAGEMENT
+// ============================================
+
 // Set active category
 export function setActiveCategory(categoryId) {
     activeCategory.value = categoryId;
+    saveCategoriesToStorage();
 }
 
 // Add symbol to category
@@ -181,6 +388,7 @@ export function addSymbolToCategory(categoryId, symbol) {
         return cat;
     });
     categories.value = cats;
+    saveCategoriesToStorage();
 }
 
 // Remove symbol from category
@@ -241,36 +449,9 @@ export function removeCategory(categoryId) {
     }
 }
 
-// Save categories to localStorage
-function saveCategoriesToStorage() {
-    try {
-        localStorage.setItem('watchlist_categories', JSON.stringify(categories.value));
-        localStorage.setItem('watchlist_active_category', activeCategory.value);
-    } catch (e) {
-        console.warn('Could not save categories to localStorage:', e);
-    }
-}
+// ============================================
+// INITIALIZATION
+// ============================================
 
-// Load categories from localStorage
-export function loadCategoriesFromStorage() {
-    try {
-        const saved = localStorage.getItem('watchlist_categories');
-        const savedActive = localStorage.getItem('watchlist_active_category');
-
-        if (saved) {
-            const parsed = JSON.parse(saved);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-                categories.value = parsed;
-            }
-        }
-
-        if (savedActive && categories.value.some(c => c.id === savedActive)) {
-            activeCategory.value = savedActive;
-        }
-    } catch (e) {
-        console.warn('Could not load categories from localStorage:', e);
-    }
-}
-
-// Initialize: load from storage
+// Initialize: load from Firebase/storage
 loadCategoriesFromStorage();

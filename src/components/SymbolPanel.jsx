@@ -2,9 +2,11 @@ import { useState } from 'preact/hooks';
 import { Icon } from '../components/Icon';
 import { formatPrice, formatPercent, formatVolume, getCoinLogoUrl, getBaseAsset } from '../state/watchlist';
 import { navigateToChart } from '../state/store';
+import { deviceMode } from '../hooks/useDeviceMode';
 
 export function SymbolPanel({ symbol, ticker, onClose }) {
     const [imgError, setImgError] = useState(false);
+    const isDesktop = deviceMode.value === 'desktop';
 
     if (!ticker) return null;
 
@@ -16,6 +18,123 @@ export function SymbolPanel({ symbol, ticker, onClose }) {
         onClose();
     };
 
+    const handleBackdropClick = (e) => {
+        if (e.target === e.currentTarget) {
+            onClose();
+        }
+    };
+
+    // Desktop Modal Layout
+    if (isDesktop) {
+        return (
+            <>
+                {/* Backdrop */}
+                <div
+                    className="symbol-modal__backdrop"
+                    onClick={handleBackdropClick}
+                >
+                    {/* Modal */}
+                    <div className="symbol-modal">
+                        {/* Header */}
+                        <div className="symbol-modal__header">
+                            <div className="symbol-modal__icon">
+                                {!imgError ? (
+                                    <img
+                                        src={getCoinLogoUrl(symbol)}
+                                        alt={baseAsset}
+                                        onError={() => setImgError(true)}
+                                    />
+                                ) : (
+                                    <span>{baseAsset.charAt(0)}</span>
+                                )}
+                            </div>
+                            <div className="symbol-modal__title">
+                                <h2>{symbol}</h2>
+                                <span>{baseAsset} / USDT Perpetual</span>
+                            </div>
+                            <button className="symbol-modal__close" onClick={onClose}>
+                                <Icon name="close" size={20} />
+                            </button>
+                        </div>
+
+                        {/* Price Section */}
+                        <div className="symbol-modal__price">
+                            <span className="symbol-modal__price-value">
+                                ${formatPrice(ticker.price)}
+                            </span>
+                            <span className={`symbol-modal__price-change ${isPositive ? 'positive' : 'negative'}`}>
+                                {formatPercent(ticker.priceChangePercent)}
+                            </span>
+                        </div>
+
+                        {/* Mini Chart */}
+                        <div className="symbol-modal__chart">
+                            <svg width="100%" height="120" viewBox="0 0 400 120" preserveAspectRatio="none">
+                                <defs>
+                                    <linearGradient id={`chartGradient-desktop-${symbol}`} x1="0%" y1="0%" x2="0%" y2="100%">
+                                        <stop offset="0%" stopColor={isPositive ? '#00C853' : '#FF3B30'} stopOpacity="0.3" />
+                                        <stop offset="100%" stopColor={isPositive ? '#00C853' : '#FF3B30'} stopOpacity="0" />
+                                    </linearGradient>
+                                </defs>
+                                {(() => {
+                                    const seed = symbol.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+                                    const points = [];
+                                    for (let i = 0; i <= 15; i++) {
+                                        const x = (i / 15) * 400;
+                                        const y = 30 + Math.sin(seed + i * 0.5) * 25 + Math.cos(seed * 0.3 + i) * 20 + (isPositive ? (15 - i) * 4 : i * 4);
+                                        points.push(`${x},${Math.max(15, Math.min(105, y))}`);
+                                    }
+                                    const linePath = `M${points.join(' L')}`;
+                                    const areaPath = `${linePath} L400,120 L0,120 Z`;
+
+                                    return (
+                                        <>
+                                            <path d={areaPath} fill={`url(#chartGradient-desktop-${symbol})`} />
+                                            <path d={linePath} fill="none" stroke={isPositive ? '#00C853' : '#FF3B30'} strokeWidth="2" />
+                                        </>
+                                    );
+                                })()}
+                            </svg>
+                        </div>
+
+                        {/* Stats Grid - 2x2 */}
+                        <div className="symbol-modal__stats">
+                            <div className="symbol-modal__stat">
+                                <span className="label">24h High</span>
+                                <span className="value positive">${formatPrice(ticker.high)}</span>
+                            </div>
+                            <div className="symbol-modal__stat">
+                                <span className="label">24h Low</span>
+                                <span className="value negative">${formatPrice(ticker.low)}</span>
+                            </div>
+                            <div className="symbol-modal__stat">
+                                <span className="label">24h Volume</span>
+                                <span className="value">{formatVolume(ticker.volume)} {baseAsset}</span>
+                            </div>
+                            <div className="symbol-modal__stat">
+                                <span className="label">24h Turnover</span>
+                                <span className="value">${formatVolume(ticker.quoteVolume)}</span>
+                            </div>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="symbol-modal__actions">
+                            <button className="symbol-modal__btn symbol-modal__btn--primary" onClick={handleGoToChart}>
+                                <Icon name="chart" size={18} />
+                                Open Chart
+                            </button>
+                            <button className="symbol-modal__btn symbol-modal__btn--secondary">
+                                <Icon name="star" size={18} />
+                                Add to Favorites
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </>
+        );
+    }
+
+    // Mobile Bottom Sheet Layout (original)
     return (
         <>
             {/* Backdrop */}

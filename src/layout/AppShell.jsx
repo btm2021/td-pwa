@@ -8,9 +8,10 @@ import { Chart } from '../screens/Chart';
 import { Explore } from '../screens/Explore';
 import { Community } from '../screens/Community';
 import { Menu } from '../screens/Menu';
+import { Account } from '../screens/Account';
 
 // Screens that have their own header (no TopBar needed)
-const screensWithOwnHeader = ['watchlist', 'chart'];
+const screensWithOwnHeader = ['watchlist', 'chart', 'account'];
 
 const topBarConfig = {
     chart: { type: 'chart' },
@@ -25,6 +26,7 @@ const screens = {
     explore: Explore,
     community: Community,
     menu: Menu,
+    account: Account,
 };
 
 export function AppShell() {

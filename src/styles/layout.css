@@ -196,13 +196,20 @@ body {
 
 /* Responsive - Tablet & Desktop */
 @media (min-width: 768px) {
-    .app-shell {
+
+    /* Only apply mobile container styles when NOT in desktop mode */
+    html:not(.desktop-mode) .app-shell {
         max-width: 480px;
         margin: 0 auto;
         box-shadow: var(--shadow-lg);
     }
 
-    body {
+    html:not(.desktop-mode) body {
         background-color: #000;
+    }
+
+    /* Desktop mode - full screen, no constraints */
+    html.desktop-mode body {
+        background-color: #0B0B0E;
     }
 }

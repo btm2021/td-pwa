@@ -4,13 +4,18 @@ import { useState, useEffect } from 'preact/hooks';
 import './styles/theme.css';
 import './styles/layout.css';
 import './styles/components.css';
+import './styles/desktop.css';
+import './styles/account.css';
 
 // Components
 import { SplashScreen } from './components/SplashScreen';
 import { AppShell } from './layout/AppShell';
+import { DesktopShell } from './layout/desktop/DesktopShell';
+import { Icon } from './components/Icon';
 
 // State
 import { subscribeToTickers } from './state/watchlist';
+import { deviceMode, initDeviceMode, loadUserPreference, setDeviceMode } from './hooks/useDeviceMode';
 
 // Google Font
 const fontLink = document.createElement('link');
@@ -41,11 +46,38 @@ appleStatusBar.name = 'apple-mobile-web-app-status-bar-style';
 appleStatusBar.content = 'black-translucent';
 document.head.appendChild(appleStatusBar);
 
+// Mode Toggle Button Component (shown on mobile to switch to desktop)
+function ModeToggle() {
+  const mode = deviceMode.value;
+
+  const handleClick = () => {
+    setDeviceMode(mode === 'mobile' ? 'desktop' : 'mobile');
+  };
+
+  // Only show in mobile mode for switching to desktop
+  if (mode !== 'mobile') return null;
+
+  return (
+    <button
+      className="mode-toggle"
+      onClick={handleClick}
+      title="Switch to Desktop Mode"
+    >
+      <Icon name="desktop" size={20} />
+    </button>
+  );
+}
+
 export function App() {
   const [showSplash, setShowSplash] = useState(true);
   const [isReady, setIsReady] = useState(false);
+  const mode = deviceMode.value;
 
   useEffect(() => {
+    // Initialize device mode detection
+    const cleanupDeviceMode = initDeviceMode();
+    loadUserPreference();
+
     // Subscribe to ticker data during splash
     subscribeToTickers();
 
@@ -54,7 +86,10 @@ export function App() {
       setIsReady(true);
     }, 1500);
 
-    return () => clearTimeout(timeout);
+    return () => {
+      clearTimeout(timeout);
+      cleanupDeviceMode();
+    };
   }, []);
 
   const handleSplashComplete = () => {
@@ -73,5 +108,11 @@ export function App() {
     return <SplashScreen onComplete={handleSplashComplete} />;
   }
 
-  return <AppShell />;
+  // Render based on device mode
+  return (
+    <>
+      {mode === 'desktop' ? <DesktopShell /> : <AppShell />}
+      {mode === 'mobile' && <ModeToggle />}
+    </>
+  );
 }
