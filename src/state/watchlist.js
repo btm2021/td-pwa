@@ -239,8 +239,19 @@ export function loadCategoriesFromStorage() {
 // WEBSOCKET SUBSCRIPTIONS
 // ============================================
 
-// Subscribe to Binance Futures ticker stream
+// OANDA Polling State
+let oandaInterval = null;
+const OANDA_ACCOUNT_ID = '101-004-27015242-001';
+const OANDA_API_KEY = '7a53c4eeff879ba6118ddc416c2d2085-4a766a7d07af7bd629c07b451fe92984';
+const OANDA_API_URL = 'https://api-fxpractice.oanda.com/v3';
+
+// Subscribe to Binance Futures ticker stream AND OANDA Polling
 export function subscribeToTickers() {
+    subscribeToBinance();
+    subscribeToOANDA();
+}
+
+function subscribeToBinance() {
     if (ws && ws.readyState === WebSocket.OPEN) {
         return;
     }
@@ -257,12 +268,18 @@ export function subscribeToTickers() {
             try {
                 const data = JSON.parse(event.data);
                 if (Array.isArray(data)) {
+                    // Update only Binance symbols
                     const newTickerData = { ...tickerData.value };
+                    let hasUpdates = false;
 
                     data.forEach(ticker => {
                         const symbol = ticker.s;
+                        // Only update if it's already in watchlist or we want all
+                        // For performance, maybe only update interested symbols?
+                        // For now keep updating all as per original design
                         newTickerData[symbol] = {
                             symbol: symbol,
+                            exchange: 'BINANCE',
                             price: parseFloat(ticker.c),
                             priceChange: parseFloat(ticker.p),
                             priceChangePercent: parseFloat(ticker.P),
@@ -272,9 +289,12 @@ export function subscribeToTickers() {
                             quoteVolume: parseFloat(ticker.q),
                             lastUpdate: Date.now(),
                         };
+                        hasUpdates = true;
                     });
 
-                    tickerData.value = newTickerData;
+                    if (hasUpdates) {
+                        tickerData.value = newTickerData;
+                    }
                 }
             } catch (error) {
                 console.error('[WebSocket] Parse error:', error);
@@ -294,6 +314,105 @@ export function subscribeToTickers() {
     connect();
 }
 
+async function subscribeToOANDA() {
+    if (oandaInterval) return;
+
+    const pollOANDA = async () => {
+        try {
+            const allSymbols = activeCategorySymbols.value;
+
+            // Filter out crypto symbols loosely
+            const forexSymbols = allSymbols.filter(s =>
+                !s.endsWith('USDT') &&
+                !s.endsWith('BUSD') &&
+                !s.endsWith('USDC')
+            );
+
+            if (forexSymbols.length === 0) return;
+
+            // Format for OANDA API: 
+            // 1. Remove "OANDA:" prefix if present
+            // 2. Ensure underscore format (EURUSD -> EUR_USD)
+            const instruments = forexSymbols.map(s => {
+                let clean = s.replace('OANDA:', '');
+
+                // Already has underscore?
+                if (clean.includes('_')) return clean;
+
+                // Gold/Silver special cases
+                if (clean === 'XAUUSD') return 'XAU_USD';
+                if (clean === 'XAGUSD') return 'XAG_USD';
+
+                // Standard 6-char forex pairs (EURUSD, GBPJPY)
+                if (clean.length === 6) {
+                    return `${clean.substring(0, 3)}_${clean.substring(3)}`;
+                }
+
+                // Fallback (might fail if unknown format)
+                return clean;
+            }).join(',');
+
+            // If no valid instruments after processing, skip
+            if (!instruments) return;
+
+            const response = await fetch(`${OANDA_API_URL}/accounts/${OANDA_ACCOUNT_ID}/pricing?instruments=${instruments}`, {
+                headers: {
+                    'Authorization': `Bearer ${OANDA_API_KEY}`
+                }
+            });
+
+            const data = await response.json();
+
+            if (data.prices) {
+                const newTickerData = { ...tickerData.value };
+                let hasUpdates = false;
+
+                data.prices.forEach(price => {
+                    // Convert back from EUR_USD to EURUSD if that's how we stored it
+                    // But wait, our search panel returns "EURUSD" (no underscore) from binance logic fallback?
+                    // Actually unified feed returns whatever the source returns. 
+                    // Let's standardize: Store in watchlist as "EURUSD", map to "EUR_USD" for API.
+
+                    const instrument = price.instrument; // "EUR_USD"
+                    const symbol = instrument.replace('_', ''); // "EURUSD"
+
+                    const bid = parseFloat(price.bids[0].price);
+                    const ask = parseFloat(price.asks[0].price);
+                    const currentPrice = (bid + ask) / 2;
+
+                    // OANDA doesn't give 24h change easily in pricing endpoint
+                    // We can estimate or leave 0 for now
+
+                    newTickerData[symbol] = {
+                        symbol: symbol,
+                        exchange: 'OANDA',
+                        price: currentPrice,
+                        priceChange: 0,
+                        priceChangePercent: 0,
+                        high: currentPrice, // Placeholder
+                        low: currentPrice,  // Placeholder
+                        volume: 0,
+                        quoteVolume: 0,
+                        lastUpdate: Date.now(),
+                    };
+                    hasUpdates = true;
+                });
+
+                if (hasUpdates) {
+                    tickerData.value = newTickerData;
+                }
+            }
+
+        } catch (error) {
+            console.warn('[Watchlist] OANDA Poll error:', error);
+        }
+    };
+
+    // Poll every 3 seconds
+    pollOANDA(); // Initial
+    oandaInterval = setInterval(pollOANDA, 3000);
+}
+
 // Unsubscribe from tickers
 export function unsubscribeFromTickers() {
     if (reconnectTimeout) {
@@ -303,6 +422,10 @@ export function unsubscribeFromTickers() {
     if (ws) {
         ws.close();
         ws = null;
+    }
+    if (oandaInterval) {
+        clearInterval(oandaInterval);
+        oandaInterval = null;
     }
 }
 
@@ -317,17 +440,52 @@ export function getTicker(symbol) {
 
 // Get base asset from symbol
 export function getBaseAsset(symbol) {
+    if (!symbol) return '';
+
+    // Check for Forex (no USDT suffix)
+    if (!symbol.includes('USDT') && !symbol.includes('BUSD') && !symbol.includes('PERP')) {
+        // Assume format is like EURUSD, XAUUSD
+        if (symbol.length === 6) {
+            return symbol.substring(0, 3);
+        }
+    }
+
     // Remove USDT, USDC, BUSD suffix
     return symbol
         .replace(/USDT$|USDC$|BUSD$|PERP$/i, '')
         .toLowerCase()
         .replace(/^1000/, '')  // Handle 1000PEPE etc
-        .replace(/^10+/, '');   // Handle other prefixes
+        .replace(/^10+/, '')   // Handle other prefixes
+        .replace('_', ''); // Handle potential underscores
 }
 
 // Get coin logo URL
 export function getCoinLogoUrl(symbol) {
-    const baseAsset = getBaseAsset(symbol);
+    const baseAsset = getBaseAsset(symbol).toLowerCase();
+
+    // Check for Forex pairs
+    if (!symbol.includes('USDT') && !symbol.includes('BUSD')) {
+        // Forex flags/icons
+        // Using a general flag service or fallback
+        // For major currencies we can map to known flags if needed
+        const forexMap = {
+            'eur': 'https://s3-symbol-logo.tradingview.com/country/EU.svg',
+            'usd': 'https://s3-symbol-logo.tradingview.com/country/US.svg',
+            'gbp': 'https://s3-symbol-logo.tradingview.com/country/GB.svg',
+            'jpy': 'https://s3-symbol-logo.tradingview.com/country/JP.svg',
+            'aud': 'https://s3-symbol-logo.tradingview.com/country/AU.svg',
+            'chf': 'https://s3-symbol-logo.tradingview.com/country/CH.svg',
+            'cad': 'https://s3-symbol-logo.tradingview.com/country/CA.svg',
+            'nzd': 'https://s3-symbol-logo.tradingview.com/country/NZ.svg',
+            'xau': 'https://s3-symbol-logo.tradingview.com/metal/gold.svg',
+            'xag': 'https://s3-symbol-logo.tradingview.com/metal/silver.svg'
+        };
+
+        if (forexMap[baseAsset]) {
+            return forexMap[baseAsset];
+        }
+    }
+
     return `https://huobicfg.s3.amazonaws.com/currency_icon/${baseAsset}.png`;
 }
 

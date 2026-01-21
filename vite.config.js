@@ -53,15 +53,17 @@ export default defineConfig({
     serveChartPlugin(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
+      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'pwa-192x192.png', 'pwa-512x512.png'],
       manifest: {
-        name: 'TradingView PWA',
-        short_name: 'TradingApp',
+        name: 'Mint Hunter',
+        short_name: 'Mint',
         description: 'Professional trading application with advanced charting',
         theme_color: '#0B0B0E',
         background_color: '#0B0B0E',
         display: 'standalone',
-        orientation: 'portrait',
+        orientation: 'any',
+        start_url: '/',
+        scope: '/',
         icons: [
           {
             src: 'pwa-192x192.png',
@@ -78,6 +80,32 @@ export default defineConfig({
             sizes: '512x512',
             type: 'image/png',
             purpose: 'any maskable'
+          }
+        ]
+      },
+      workbox: {
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/fstream\.binance\.com\/.*/i,
+            handler: 'NetworkOnly',
+            options: {
+              cacheName: 'binance-websocket'
+            }
+          },
+          {
+            urlPattern: /^https:\/\/huobicfg\.s3\.amazonaws\.com\/.*/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'coin-icons',
+              expiration: {
+                maxEntries: 100,
+                maxAgeSeconds: 60 * 60 * 24 * 30 // 30 days
+              },
+              cacheableResponse: {
+                statuses: [0, 200]
+              }
+            }
           }
         ]
       }

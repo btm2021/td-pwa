@@ -40,13 +40,21 @@ export function DesktopChart() {
             if (!chartContainerRef.current) return;
             chartContainerRef.current.innerHTML = '';
 
-            if (typeof TradingView === 'undefined' || typeof BinanceDatafeed === 'undefined') {
-                console.warn('TradingView or BinanceDatafeed not loaded');
+            if (typeof TradingView === 'undefined') {
+                console.warn('TradingView not loaded');
+                return;
+            }
+
+            // Check if datafeed is available (UnifiedDatafeed or BinanceDatafeed)
+            const DatafeedClass = typeof UnifiedDatafeed !== 'undefined' ? UnifiedDatafeed :
+                typeof BinanceDatafeed !== 'undefined' ? BinanceDatafeed : null;
+            if (!DatafeedClass) {
+                console.warn('No datafeed loaded yet');
                 return;
             }
 
             try {
-                const datafeed = new BinanceDatafeed();
+                const datafeed = new DatafeedClass();
                 let saveLoadAdapter = null;
                 if (typeof SaveLoadAdapter !== 'undefined') {
                     try {
@@ -67,7 +75,7 @@ export function DesktopChart() {
                 const widgetOptions = {
                     symbol: symbol.symbol.replace('.P', ''),
                     datafeed: datafeed,
-                    interval: intervalMap[currentTimeframe] || '5',
+                    interval: intervalMap[currentTimeframe] || '15',
                     container: chartContainerRef.current,
                     library_path: '/chart/charting_library/',
                     locale: 'en',
@@ -82,9 +90,17 @@ export function DesktopChart() {
 
                     // Desktop features enabled
                     disabled_features: [
-                        'header_symbol_search',
+
                         'header_compare',
                         'use_localstorage_for_settings',
+                        'timeframes_toolbar',
+                        'show_object_tree',
+                        'popup_hints',
+                        'bottom_toolbar',
+                        'control_bar',
+                        'open_account_manager',
+                        'trading_account_manager',
+                        'trading_notifications'
                     ],
 
                     enabled_features: [
@@ -105,7 +121,10 @@ export function DesktopChart() {
                         backgroundColor: '#0B0B0E',
                         foregroundColor: '#2979FF'
                     },
-
+                    favorites: {
+                        intervals: ['1', '15', '60', '240'],
+                        chartTypes: ['Candles', 'Line']
+                    },
                     overrides: {
                         'paneProperties.background': '#0B0B0E',
                         'paneProperties.backgroundType': 'solid',
