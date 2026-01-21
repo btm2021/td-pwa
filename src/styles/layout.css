@@ -49,12 +49,12 @@ body {
 
 /* Top Bar / Header */
 .top-bar {
-    height: var(--header-height);
-    min-height: var(--header-height);
+    height: calc(var(--header-height) + env(safe-area-inset-top));
+    min-height: calc(var(--header-height) + env(safe-area-inset-top));
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 var(--spacing-lg);
+    padding: env(safe-area-inset-top) var(--spacing-lg) 0;
     background-color: var(--bg-secondary);
     border-bottom: 1px solid var(--border-primary);
     z-index: var(--z-nav);
@@ -191,7 +191,9 @@ body {
 }
 
 .app-shell--fullscreen .main-content {
-    height: 100vh;
+    height: 100%;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
 }
 
 /* Responsive - Tablet & Desktop */
