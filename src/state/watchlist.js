@@ -239,11 +239,12 @@ export function loadCategoriesFromStorage() {
 // WEBSOCKET SUBSCRIPTIONS
 // ============================================
 
-// OANDA Polling State
-let oandaInterval = null;
+// OANDA Streaming State
+let oandaAbortController = null;
 const OANDA_ACCOUNT_ID = '101-004-27015242-001';
 const OANDA_API_KEY = '7a53c4eeff879ba6118ddc416c2d2085-4a766a7d07af7bd629c07b451fe92984';
 const OANDA_API_URL = 'https://api-fxpractice.oanda.com/v3';
+const OANDA_STREAM_URL = 'https://stream-fxpractice.oanda.com/v3';
 
 // Subscribe to Binance Futures ticker stream AND OANDA Polling
 export function subscribeToTickers() {
@@ -315,102 +316,110 @@ function subscribeToBinance() {
 }
 
 async function subscribeToOANDA() {
-    if (oandaInterval) return;
+    if (oandaAbortController) return;
 
-    const pollOANDA = async () => {
+    let lastInstruments = '';
+
+    const startStream = async () => {
+        if (oandaAbortController) {
+            oandaAbortController.abort();
+        }
+        oandaAbortController = new AbortController();
+
         try {
             const allSymbols = activeCategorySymbols.value;
-
-            // Filter out crypto symbols loosely
             const forexSymbols = allSymbols.filter(s =>
                 !s.endsWith('USDT') &&
                 !s.endsWith('BUSD') &&
                 !s.endsWith('USDC')
             );
 
-            if (forexSymbols.length === 0) return;
+            if (forexSymbols.length === 0) {
+                lastInstruments = '';
+                return;
+            }
 
-            // Format for OANDA API: 
-            // 1. Remove "OANDA:" prefix if present
-            // 2. Ensure underscore format (EURUSD -> EUR_USD)
             const instruments = forexSymbols.map(s => {
                 let clean = s.replace('OANDA:', '');
-
-                // Already has underscore?
                 if (clean.includes('_')) return clean;
-
-                // Gold/Silver special cases
                 if (clean === 'XAUUSD') return 'XAU_USD';
                 if (clean === 'XAGUSD') return 'XAG_USD';
-
-                // Standard 6-char forex pairs (EURUSD, GBPJPY)
                 if (clean.length === 6) {
                     return `${clean.substring(0, 3)}_${clean.substring(3)}`;
                 }
-
-                // Fallback (might fail if unknown format)
                 return clean;
             }).join(',');
 
-            // If no valid instruments after processing, skip
-            if (!instruments) return;
+            if (!instruments || instruments === lastInstruments) return;
+            lastInstruments = instruments;
 
-            const response = await fetch(`${OANDA_API_URL}/accounts/${OANDA_ACCOUNT_ID}/pricing?instruments=${instruments}`, {
+            console.log(`[OANDA] Starting stream for: ${instruments}`);
+
+            const response = await fetch(`${OANDA_STREAM_URL}/accounts/${OANDA_ACCOUNT_ID}/pricing/stream?instruments=${instruments}`, {
                 headers: {
                     'Authorization': `Bearer ${OANDA_API_KEY}`
-                }
+                },
+                signal: oandaAbortController.signal
             });
 
-            const data = await response.json();
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
 
-            if (data.prices) {
-                const newTickerData = { ...tickerData.value };
-                let hasUpdates = false;
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) break;
 
-                data.prices.forEach(price => {
-                    // Convert back from EUR_USD to EURUSD if that's how we stored it
-                    // But wait, our search panel returns "EURUSD" (no underscore) from binance logic fallback?
-                    // Actually unified feed returns whatever the source returns. 
-                    // Let's standardize: Store in watchlist as "EURUSD", map to "EUR_USD" for API.
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop();
 
-                    const instrument = price.instrument; // "EUR_USD"
-                    const symbol = instrument.replace('_', ''); // "EURUSD"
+                for (const line of lines) {
+                    if (line.trim()) {
+                        try {
+                            const data = JSON.parse(line);
+                            if (data.type === 'PRICE') {
+                                const symbol = data.instrument.replace('_', '');
+                                const bid = parseFloat(data.bids[0].price);
+                                const ask = parseFloat(data.asks[0].price);
+                                const currentPrice = (bid + ask) / 2;
 
-                    const bid = parseFloat(price.bids[0].price);
-                    const ask = parseFloat(price.asks[0].price);
-                    const currentPrice = (bid + ask) / 2;
-
-                    // OANDA doesn't give 24h change easily in pricing endpoint
-                    // We can estimate or leave 0 for now
-
-                    newTickerData[symbol] = {
-                        symbol: symbol,
-                        exchange: 'OANDA',
-                        price: currentPrice,
-                        priceChange: 0,
-                        priceChangePercent: 0,
-                        high: currentPrice, // Placeholder
-                        low: currentPrice,  // Placeholder
-                        volume: 0,
-                        quoteVolume: 0,
-                        lastUpdate: Date.now(),
-                    };
-                    hasUpdates = true;
-                });
-
-                if (hasUpdates) {
-                    tickerData.value = newTickerData;
+                                tickerData.value = {
+                                    ...tickerData.value,
+                                    [symbol]: {
+                                        symbol: symbol,
+                                        exchange: 'OANDA',
+                                        price: currentPrice,
+                                        priceChange: 0,
+                                        priceChangePercent: 0,
+                                        high: currentPrice,
+                                        low: currentPrice,
+                                        volume: 0,
+                                        quoteVolume: 0,
+                                        lastUpdate: Date.now(),
+                                    }
+                                };
+                            }
+                        } catch (e) {
+                            // Heartbeat or malformed
+                        }
+                    }
                 }
             }
-
         } catch (error) {
-            console.warn('[Watchlist] OANDA Poll error:', error);
+            if (error.name !== 'AbortError') {
+                console.warn('[OANDA] Stream error, reconnecting in 5s...', error);
+                setTimeout(startStream, 5000);
+            }
         }
     };
 
-    // Poll every 3 seconds
-    pollOANDA(); // Initial
-    oandaInterval = setInterval(pollOANDA, 3000);
+    // Watch for symbol changes to restart stream if needed
+    activeCategorySymbols.subscribe(() => {
+        startStream();
+    });
+
+    startStream();
 }
 
 // Unsubscribe from tickers
@@ -423,15 +432,24 @@ export function unsubscribeFromTickers() {
         ws.close();
         ws = null;
     }
-    if (oandaInterval) {
-        clearInterval(oandaInterval);
-        oandaInterval = null;
+    if (oandaAbortController) {
+        oandaAbortController.abort();
+        oandaAbortController = null;
     }
 }
 
-// Get ticker for a symbol
+// Get ticker for a symbol (handles prefixes like BINANCE:BTCUSDT)
 export function getTicker(symbol) {
-    return tickerData.value[symbol] || null;
+    if (!symbol) return null;
+
+    // Direct lookup
+    if (tickerData.value[symbol]) return tickerData.value[symbol];
+
+    // Prefix lookup (strip BINANCE: etc)
+    const cleanSymbol = symbol.includes(':') ? symbol.split(':')[1].toUpperCase() : symbol.toUpperCase();
+    if (tickerData.value[cleanSymbol]) return tickerData.value[cleanSymbol];
+
+    return null;
 }
 
 // ============================================
@@ -442,50 +460,41 @@ export function getTicker(symbol) {
 export function getBaseAsset(symbol) {
     if (!symbol) return '';
 
-    // Check for Forex (no USDT suffix)
-    if (!symbol.includes('USDT') && !symbol.includes('BUSD') && !symbol.includes('PERP')) {
+    // Remove exchange prefix if present (e.g., "binance:btcusdt" -> "btcusdt")
+    const cleanSymbol = symbol.includes(':') ? symbol.split(':')[1] : symbol;
+
+    // Check for Forex (no USDT/USDC/BUSD/PERP suffix)
+    if (!cleanSymbol.includes('USDT') && !cleanSymbol.includes('BUSD') && !cleanSymbol.includes('USDC') && !cleanSymbol.includes('PERP')) {
         // Assume format is like EURUSD, XAUUSD
-        if (symbol.length === 6) {
-            return symbol.substring(0, 3);
+        if (cleanSymbol.length === 6) {
+            return cleanSymbol.substring(0, 3).toUpperCase();
         }
+        return cleanSymbol.toUpperCase();
     }
 
     // Remove USDT, USDC, BUSD suffix
-    return symbol
+    return cleanSymbol
         .replace(/USDT$|USDC$|BUSD$|PERP$/i, '')
         .toLowerCase()
         .replace(/^1000/, '')  // Handle 1000PEPE etc
         .replace(/^10+/, '')   // Handle other prefixes
-        .replace('_', ''); // Handle potential underscores
+        .replace('_', '')      // Handle potential underscores
+        .toUpperCase();
 }
 
 // Get coin logo URL
 export function getCoinLogoUrl(symbol) {
-    const baseAsset = getBaseAsset(symbol).toLowerCase();
+    if (!symbol) return null;
 
-    // Check for Forex pairs
-    if (!symbol.includes('USDT') && !symbol.includes('BUSD')) {
-        // Forex flags/icons
-        // Using a general flag service or fallback
-        // For major currencies we can map to known flags if needed
-        const forexMap = {
-            'eur': 'https://s3-symbol-logo.tradingview.com/country/EU.svg',
-            'usd': 'https://s3-symbol-logo.tradingview.com/country/US.svg',
-            'gbp': 'https://s3-symbol-logo.tradingview.com/country/GB.svg',
-            'jpy': 'https://s3-symbol-logo.tradingview.com/country/JP.svg',
-            'aud': 'https://s3-symbol-logo.tradingview.com/country/AU.svg',
-            'chf': 'https://s3-symbol-logo.tradingview.com/country/CH.svg',
-            'cad': 'https://s3-symbol-logo.tradingview.com/country/CA.svg',
-            'nzd': 'https://s3-symbol-logo.tradingview.com/country/NZ.svg',
-            'xau': 'https://s3-symbol-logo.tradingview.com/metal/gold.svg',
-            'xag': 'https://s3-symbol-logo.tradingview.com/metal/silver.svg'
-        };
+    // Check if it's a crypto symbol (contains USDT, USDC, BUSD, or PERP)
+    const isCrypto = /USDT|USDC|BUSD|PERP/i.test(symbol);
 
-        if (forexMap[baseAsset]) {
-            return forexMap[baseAsset];
-        }
+    if (!isCrypto) {
+        // For Forex/Commodities, return null as per user request to use text initials
+        return null;
     }
 
+    const baseAsset = getBaseAsset(symbol).toLowerCase();
     return `https://huobicfg.s3.amazonaws.com/currency_icon/${baseAsset}.png`;
 }
 

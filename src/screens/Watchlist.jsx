@@ -23,7 +23,7 @@ import {
     removeSymbolFromCategory,
 } from '../state/watchlist';
 
-function SymbolRow({ symbol, ticker, onClick }) {
+function SymbolRow({ symbol, ticker, onClick, onRemove }) {
     const [imgError, setImgError] = useState(false);
     const [priceColor, setPriceColor] = useState(''); // 'positive' or 'negative'
     const prevPriceRef = useRef(0);
@@ -47,24 +47,34 @@ function SymbolRow({ symbol, ticker, onClick }) {
         }
     }, [price]);
 
+    const handleRemove = (e) => {
+        e.stopPropagation();
+        if (onRemove) onRemove(symbol);
+    };
+
+    const logoUrl = getCoinLogoUrl(symbol);
+    const hasLogo = logoUrl !== null;
+
     return (
         <div className="watchlist-row" onClick={onClick}>
             <div className="watchlist-row__icon">
-                {!imgError ? (
+                {hasLogo && !imgError ? (
                     <img
-                        src={getCoinLogoUrl(symbol)}
+                        src={logoUrl}
                         alt={baseAsset}
                         onError={() => setImgError(true)}
                         loading="lazy"
                     />
                 ) : (
-                    <span className="watchlist-row__icon-fallback">{baseAsset.charAt(0)}</span>
+                    <span className="watchlist-row__icon-fallback">{baseAsset}</span>
                 )}
             </div>
 
             <div className="watchlist-row__info">
-                <div className="watchlist-row__symbol">{symbol}</div>
-                <div className="watchlist-row__name">{baseAsset} / USDT Perp</div>
+                <div className="watchlist-row__symbol">{symbol.includes(':') ? symbol.split(':')[1].toUpperCase() : symbol.toUpperCase()}</div>
+                <div className="watchlist-row__name">
+                    {/USDT|USDC|BUSD|PERP/i.test(symbol) ? `${baseAsset} / USDT PERP` : `${baseAsset} / FX`}
+                </div>
             </div>
 
             <div className="watchlist-row__data">
@@ -73,6 +83,10 @@ function SymbolRow({ symbol, ticker, onClick }) {
                     {formatPercent(changePercent)}
                 </div>
             </div>
+
+            <button className="watchlist-row__remove" onClick={handleRemove} title="Remove from watchlist">
+                <Icon name="close" size={16} />
+            </button>
         </div>
     );
 }
@@ -182,8 +196,9 @@ export function Watchlist() {
                     <SymbolRow
                         key={symbol}
                         symbol={symbol}
-                        ticker={tickers[symbol]}
+                        ticker={getTicker(symbol)}
                         onClick={() => handleSymbolClick(symbol)}
+                        onRemove={(sym) => removeSymbolFromCategory(activeCat, sym)}
                     />
                 ))}
 

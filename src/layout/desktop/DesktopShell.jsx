@@ -1,6 +1,5 @@
 import { useEffect } from 'preact/hooks';
 import { SideNav } from './SideNav';
-import { TopNav } from './TopNav';
 import { isFullscreen, activeTab } from '../../state/store';
 
 // Screens
@@ -43,9 +42,6 @@ export function DesktopShell() {
 
     return (
         <div className={`desktop-shell ${fullscreen ? 'desktop-shell--fullscreen' : ''}`}>
-            {/* Top Navigation */}
-            {!fullscreen && <TopNav />}
-
             <div className="desktop-main">
                 {/* Side Navigation */}
                 {!fullscreen && <SideNav />}

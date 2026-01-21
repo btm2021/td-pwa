@@ -27,7 +27,10 @@ export function SideNav() {
     return (
         <nav className="side-nav">
             {/* Logo */}
-
+            <div className="side-nav__logo">
+                <h1 className="side-nav__brand-initial">M</h1>
+                <h1 className="side-nav__brand-name">Mint</h1>
+            </div>
 
             {/* Main Nav Items */}
             <div className="side-nav__main">

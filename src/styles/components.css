@@ -91,12 +91,11 @@
 /* ===== Watchlist Categories ===== */
 .watchlist-categories {
     display: flex;
-    gap: var(--spacing-sm);
-    padding: var(--spacing-md) var(--spacing-lg);
-    overflow-x: auto;
-    background: var(--bg-secondary);
+    gap: 0;
+    padding: 0;
+    background: var(--bg-primary);
     border-bottom: 1px solid var(--border-primary);
-    -webkit-overflow-scrolling: touch;
+    overflow-x: auto;
 }
 
 .watchlist-categories::-webkit-scrollbar {
@@ -107,31 +106,32 @@
     display: flex;
     align-items: center;
     gap: var(--spacing-xs);
-    padding: var(--spacing-sm) var(--spacing-md);
-    background: var(--bg-tertiary);
-    border: 1px solid var(--border-primary);
-    border-radius: var(--radius-full);
-    color: var(--text-secondary);
-    font-size: var(--font-size-sm);
+    padding: var(--spacing-sm) var(--spacing-lg);
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+    color: var(--text-muted);
+    font-size: 13px;
     font-weight: var(--font-weight-medium);
     white-space: nowrap;
     cursor: pointer;
-    transition: all var(--transition-fast);
+    transition: all 0.2s ease;
 }
 
 .watchlist-category:hover {
-    background: var(--bg-elevated);
+    color: var(--text-primary);
+    background: var(--bg-secondary);
 }
 
 .watchlist-category.active {
-    background: color-mix(in srgb, var(--category-color) 20%, var(--bg-tertiary));
-    border-color: var(--category-color);
     color: var(--text-primary);
+    border-bottom-color: var(--category-color, var(--accent-blue));
 }
 
 .watchlist-category__dot {
-    width: 8px;
-    height: 8px;
+    width: 6px;
+    height: 6px;
     border-radius: 50%;
     background: var(--category-color);
 }
@@ -144,31 +144,35 @@
 .watchlist-list {
     flex: 1;
     overflow-y: auto;
+    background: var(--bg-primary);
 }
 
 .watchlist-row {
     display: flex;
     align-items: center;
     gap: var(--spacing-md);
-    padding: var(--spacing-md) var(--spacing-lg);
-    background: var(--bg-secondary);
+    padding: 10px var(--spacing-lg);
+    background: var(--bg-primary);
     border-bottom: 1px solid var(--border-primary);
     cursor: pointer;
-    transition: background var(--transition-fast);
+    transition: background 0.1s ease;
+    position: relative;
+    margin: 0;
+    border-radius: 0;
 }
 
 .watchlist-row:hover {
-    background: var(--bg-tertiary);
+    background: var(--bg-secondary);
 }
 
 .watchlist-row:active {
-    background: var(--bg-elevated);
+    background: var(--bg-tertiary);
 }
 
 .watchlist-row__icon {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-sm);
     background: var(--bg-tertiary);
     display: flex;
     align-items: center;
@@ -178,15 +182,16 @@
 }
 
 .watchlist-row__icon img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
+    width: 20px;
+    height: 20px;
+    object-fit: contain;
 }
 
 .watchlist-row__icon-fallback {
-    font-size: var(--font-size-lg);
+    font-size: 11px;
     font-weight: var(--font-weight-bold);
     color: var(--text-secondary);
+    letter-spacing: -0.2px;
 }
 
 .watchlist-row__info {
@@ -201,9 +206,11 @@
 }
 
 .watchlist-row__name {
-    font-size: var(--font-size-xs);
-    color: var(--text-tertiary);
-    margin-top: 2px;
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 1px;
+    text-transform: uppercase;
+    letter-spacing: 0.2px;
 }
 
 .watchlist-row__data {
@@ -216,7 +223,6 @@
     font-weight: var(--font-weight-semibold);
     color: var(--text-primary);
     font-family: var(--font-mono);
-    transition: color 0.2s ease;
 }
 
 .watchlist-row__price.positive {
@@ -227,23 +233,79 @@
     color: var(--accent-red);
 }
 
+@keyframes pulse-glow-green {
+
+    0%,
+    100% {
+        text-shadow: 0 0 8px rgba(0, 200, 83, 0.3), 0 2px 8px rgba(0, 0, 0, 0.4);
+    }
+
+    50% {
+        text-shadow: 0 0 16px rgba(0, 200, 83, 0.6), 0 2px 8px rgba(0, 0, 0, 0.4);
+    }
+}
+
+@keyframes pulse-glow-red {
+
+    0%,
+    100% {
+        text-shadow: 0 0 8px rgba(255, 59, 48, 0.3), 0 2px 8px rgba(0, 0, 0, 0.4);
+    }
+
+    50% {
+        text-shadow: 0 0 16px rgba(255, 59, 48, 0.6), 0 2px 8px rgba(0, 0, 0, 0.4);
+    }
+}
+
 .watchlist-row__change {
-    font-size: var(--font-size-sm);
-    font-weight: var(--font-weight-medium);
+    font-size: 11px;
+    font-weight: var(--font-weight-bold);
     margin-top: 2px;
-    padding: 2px 8px;
+    padding: 2px 6px;
     border-radius: var(--radius-sm);
     display: inline-block;
+    font-family: var(--font-mono);
 }
 
 .watchlist-row__change.positive {
     color: var(--accent-green);
-    background: var(--accent-green-bg);
+    background: rgba(0, 200, 83, 0.1);
 }
 
 .watchlist-row__change.negative {
     color: var(--accent-red);
-    background: var(--accent-red-bg);
+    background: rgba(255, 59, 48, 0.1);
+}
+
+.watchlist-row__remove {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(20, 20, 25, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-sm);
+    color: var(--text-tertiary);
+    cursor: pointer;
+    opacity: 0;
+    transform: scale(0.8);
+    transition: all 0.2s ease;
+    z-index: 2;
+}
+
+.watchlist-row:hover .watchlist-row__remove {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.watchlist-row__remove:hover {
+    background: rgba(255, 59, 48, 0.2);
+    color: var(--accent-red);
+    border-color: rgba(255, 59, 48, 0.4);
 }
 
 .watchlist-empty {
@@ -1287,13 +1349,13 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: var(--spacing-lg);
-    background: var(--bg-secondary);
+    padding: var(--spacing-md) var(--spacing-lg);
+    background: var(--bg-primary);
     border-bottom: 1px solid var(--border-primary);
 }
 
 .watchlist-header h1 {
-    font-size: var(--font-size-xl);
+    font-size: var(--font-size-lg);
     font-weight: var(--font-weight-bold);
     color: var(--text-primary);
     margin: 0;
