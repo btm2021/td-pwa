@@ -8,13 +8,26 @@ export function SymbolPanel({ symbol, ticker, onClose }) {
     const [imgError, setImgError] = useState(false);
     const isDesktop = deviceMode.value === 'desktop';
 
-    if (!ticker) return null;
+    // Fallback ticker if data not yet available
+    const displayTicker = ticker || {
+        price: 0,
+        priceChangePercent: 0,
+        high: 0,
+        low: 0,
+        volume: 0,
+        quoteVolume: 0
+    };
 
-    const isPositive = ticker.priceChangePercent >= 0;
+    const isPositive = displayTicker.priceChangePercent >= 0;
     const baseAsset = getBaseAsset(symbol).toUpperCase();
+    const isForex = !symbol.includes('USDT') && !symbol.includes('BUSD');
+    const quoteAsset = isForex ? symbol.substring(3) : 'USDT';
+    const subtitle = isForex ? `${baseAsset} / ${quoteAsset}` : `${baseAsset} / USDT Perpetual`;
 
     const handleGoToChart = () => {
-        navigateToChart(symbol);
+        // Ensure OANDA prefix for forex
+        const chartSymbol = isForex && !symbol.startsWith('OANDA:') ? `OANDA:${symbol}` : symbol;
+        navigateToChart(chartSymbol);
         onClose();
     };
 
@@ -50,7 +63,7 @@ export function SymbolPanel({ symbol, ticker, onClose }) {
                             </div>
                             <div className="symbol-modal__title">
                                 <h2>{symbol}</h2>
-                                <span>{baseAsset} / USDT Perpetual</span>
+                                <span>{subtitle}</span>
                             </div>
                             <button className="symbol-modal__close" onClick={onClose}>
                                 <Icon name="close" size={20} />
@@ -60,10 +73,10 @@ export function SymbolPanel({ symbol, ticker, onClose }) {
                         {/* Price Section */}
                         <div className="symbol-modal__price">
                             <span className="symbol-modal__price-value">
-                                ${formatPrice(ticker.price)}
+                                ${formatPrice(displayTicker.price)}
                             </span>
                             <span className={`symbol-modal__price-change ${isPositive ? 'positive' : 'negative'}`}>
-                                {formatPercent(ticker.priceChangePercent)}
+                                {formatPercent(displayTicker.priceChangePercent)}
                             </span>
                         </div>
 
@@ -101,19 +114,19 @@ export function SymbolPanel({ symbol, ticker, onClose }) {
                         <div className="symbol-modal__stats">
                             <div className="symbol-modal__stat">
                                 <span className="label">24h High</span>
-                                <span className="value positive">${formatPrice(ticker.high)}</span>
+                                <span className="value positive">${formatPrice(displayTicker.high)}</span>
                             </div>
                             <div className="symbol-modal__stat">
                                 <span className="label">24h Low</span>
-                                <span className="value negative">${formatPrice(ticker.low)}</span>
+                                <span className="value negative">${formatPrice(displayTicker.low)}</span>
                             </div>
                             <div className="symbol-modal__stat">
                                 <span className="label">24h Volume</span>
-                                <span className="value">{formatVolume(ticker.volume)} {baseAsset}</span>
+                                <span className="value">{formatVolume(displayTicker.volume)} {baseAsset}</span>
                             </div>
                             <div className="symbol-modal__stat">
                                 <span className="label">24h Turnover</span>
-                                <span className="value">${formatVolume(ticker.quoteVolume)}</span>
+                                <span className="value">${formatVolume(displayTicker.quoteVolume)}</span>
                             </div>
                         </div>
 
@@ -163,7 +176,7 @@ export function SymbolPanel({ symbol, ticker, onClose }) {
                     </div>
                     <div className="symbol-panel__title">
                         <h2>{symbol}</h2>
-                        <span>{baseAsset} / USDT Perpetual</span>
+                        <span>{subtitle}</span>
                     </div>
                     <div className="symbol-panel__actions-header">
                         <button className="btn--icon-circle" onClick={handleGoToChart} title="Open Chart">
@@ -178,10 +191,10 @@ export function SymbolPanel({ symbol, ticker, onClose }) {
                 {/* Price */}
                 <div className="symbol-panel__price">
                     <span className="symbol-panel__price-value">
-                        ${formatPrice(ticker.price)}
+                        ${formatPrice(displayTicker.price)}
                     </span>
                     <span className={`symbol-panel__price-change ${isPositive ? 'positive' : 'negative'}`}>
-                        {formatPercent(ticker.priceChangePercent)}
+                        {formatPercent(displayTicker.priceChangePercent)}
                     </span>
                 </div>
 
@@ -220,19 +233,19 @@ export function SymbolPanel({ symbol, ticker, onClose }) {
                 <div className="symbol-panel__stats">
                     <div className="symbol-panel__stat">
                         <span className="label">24h High</span>
-                        <span className="value">${formatPrice(ticker.high)}</span>
+                        <span className="value">${formatPrice(displayTicker.high)}</span>
                     </div>
                     <div className="symbol-panel__stat">
                         <span className="label">24h Low</span>
-                        <span className="value">${formatPrice(ticker.low)}</span>
+                        <span className="value">${formatPrice(displayTicker.low)}</span>
                     </div>
                     <div className="symbol-panel__stat">
                         <span className="label">24h Volume</span>
-                        <span className="value">{formatVolume(ticker.volume)} {baseAsset}</span>
+                        <span className="value">{formatVolume(displayTicker.volume)} {baseAsset}</span>
                     </div>
                     <div className="symbol-panel__stat">
                         <span className="label">24h Turnover</span>
-                        <span className="value">${formatVolume(ticker.quoteVolume)}</span>
+                        <span className="value">${formatVolume(displayTicker.quoteVolume)}</span>
                     </div>
                 </div>
 

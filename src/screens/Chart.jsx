@@ -68,15 +68,17 @@ export function Chart() {
                 return;
             }
 
-            // Check if BinanceDatafeed is available
-            if (typeof BinanceDatafeed === 'undefined') {
-                console.warn('BinanceDatafeed not loaded yet');
+            // Check if datafeed is available (UnifiedDatafeed or BinanceDatafeed)
+            const DatafeedClass = typeof UnifiedDatafeed !== 'undefined' ? UnifiedDatafeed :
+                typeof BinanceDatafeed !== 'undefined' ? BinanceDatafeed : null;
+            if (!DatafeedClass) {
+                console.warn('No datafeed loaded yet');
                 return;
             }
 
             try {
                 // Create datafeed instance
-                const datafeed = new BinanceDatafeed();
+                const datafeed = new DatafeedClass();
 
                 // Create save/load adapter if available
                 let saveLoadAdapter = null;
@@ -127,6 +129,7 @@ export function Chart() {
 
                     // Disable features for mobile-like experience
                     disabled_features: [
+                        'show_object_tree',
                         'header_widget',
                         'header_symbol_search',
                         'header_compare',
@@ -143,8 +146,7 @@ export function Chart() {
                         'control_bar',
                         'timeframes_toolbar',
                         'border_around_the_chart',
-                        'go_to_date',
-                        'use_localstorage_for_settings',
+                        'go_to_date'
                     ],
 
                     enabled_features: [
@@ -158,7 +160,7 @@ export function Chart() {
                     fullscreen: false,
                     autosize: true,
 
-                    theme: 'dark',
+                    theme: 'light',
                     timezone: 'Etc/UTC',
 
                     // Dark theme styling

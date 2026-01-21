@@ -76,6 +76,7 @@ html.desktop-mode #app {
     display: flex;
     align-items: center;
     gap: var(--spacing-sm);
+    text-decoration: none;
 }
 
 .top-nav__logo {

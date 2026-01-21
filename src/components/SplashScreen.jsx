@@ -50,8 +50,8 @@ export function SplashScreen({ onComplete }) {
             </div>
 
             {/* App Name */}
-            <h1 className="splash-screen__title">TradingView</h1>
-            <p className="splash-screen__subtitle">Mobile Trading</p>
+            <h1 className="splash-screen__title">Mint</h1>
+            <p className="splash-screen__subtitle">Hunter</p>
 
             {/* Progress Bar */}
             <div className="splash-screen__progress">
