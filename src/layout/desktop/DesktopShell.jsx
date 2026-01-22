@@ -48,7 +48,18 @@ export function DesktopShell() {
 
                 {/* Main Content Area */}
                 <main className={`desktop-content ${currentTab === 'chart' ? 'desktop-content--chart' : ''}`}>
-                    <Screen />
+                    {currentTab === 'watchlist' ? (
+                        <div className="desktop-split-view">
+                            <div className="desktop-split-view__side">
+                                <Watchlist />
+                            </div>
+                            <div className="desktop-split-view__main">
+                                <DesktopChart />
+                            </div>
+                        </div>
+                    ) : (
+                        <Screen />
+                    )}
                 </main>
             </div>
         </div>

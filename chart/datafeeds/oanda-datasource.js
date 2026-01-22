@@ -22,6 +22,10 @@ const OANDA_CONFIG = {
         'EUR_GBP', 'EUR_JPY', 'GBP_JPY', 'EUR_CHF', 'AUD_JPY', 'GBP_CHF', 'EUR_AUD',
         'EUR_CAD', 'GBP_CAD', 'AUD_CAD', 'AUD_NZD', 'CAD_JPY', 'CHF_JPY', 'NZD_JPY',
         'GBP_AUD', 'GBP_NZD', 'EUR_NZD', 'AUD_CHF', 'NZD_CHF', 'CAD_CHF', 'NZD_CAD'
+    ],
+    // Common stock indices
+    indexInstruments: [
+        'US30_USD', 'NAS100_USD', 'SPX500_USD', 'US2000_USD', 'DE30_EUR', 'UK100_GBP', 'HK33_HKD', 'JP225_USD', 'CN50_USD', 'AU200_AUD'
     ]
 };
 
@@ -55,19 +59,24 @@ class OANDADatasource extends BaseDatasource {
         // Check if it's a forex pair (6 characters, all letters)
         // Examples: EURUSD, GBPJPY, AUDUSD
         const cleanSymbol = upper.replace('OANDA:', '').replace('OA:', '');
-        if (cleanSymbol.length === 6 && /^[A-Z]{6}$/.test(cleanSymbol)) {
-            // Check if it's in our forex pairs list
-            const oandaFormat = cleanSymbol.substring(0, 3) + '_' + cleanSymbol.substring(3);
-            return OANDA_CONFIG.forexPairs.includes(oandaFormat);
-        }
+
+        // Manual check against lists
+        const allOandaSymbols = [...OANDA_CONFIG.forexPairs, ...OANDA_CONFIG.indexInstruments];
+
+        // Try direct match with underscore
+        if (allOandaSymbols.includes(cleanSymbol)) return true;
+
+        // Try match without underscore
+        const searchPair = cleanSymbol.includes('_') ? cleanSymbol : (cleanSymbol.length === 6 ? cleanSymbol.substring(0, 3) + '_' + cleanSymbol.substring(3) : cleanSymbol);
+        if (allOandaSymbols.some(s => s.replace('_', '') === cleanSymbol)) return true;
 
         return false;
     }
 
     async fetchExchangeInfo() {
         try {
-            // OANDA không có API list instruments public, dùng danh sách cố định
-            return OANDA_CONFIG.forexPairs
+            const allInstruments = [...OANDA_CONFIG.forexPairs, ...OANDA_CONFIG.indexInstruments];
+            return allInstruments
                 .filter(pair => {
                     for (const pattern of OANDA_CONFIG.blacklistPatterns) {
                         if (pair.includes(pattern)) return false;
@@ -75,7 +84,9 @@ class OANDADatasource extends BaseDatasource {
                     return true;
                 })
                 .map(pair => {
-                    const [base, quote] = pair.split('_');
+                    const parts = pair.split('_');
+                    const base = parts[0];
+                    const quote = parts[1] || '';
                     return {
                         symbol: pair.replace('_', ''),
                         oandaSymbol: pair,
@@ -90,14 +101,19 @@ class OANDADatasource extends BaseDatasource {
     }
 
     searchSymbols(userInput) {
-        const symbols = OANDA_CONFIG.forexPairs.map(pair => {
-            const [base, quote] = pair.split('_');
+        const allInstruments = [...OANDA_CONFIG.forexPairs, ...OANDA_CONFIG.indexInstruments];
+        const symbols = allInstruments.map(pair => {
+            const parts = pair.split('_');
+            const base = parts[0];
+            const quote = parts[1] || '';
+            const type = OANDA_CONFIG.indexInstruments.includes(pair) ? 'index' : 'forex';
+
             return {
                 symbol: pair.replace('_', ''),
                 full_name: `OANDA:${pair.replace('_', '')}`,
-                description: `${base} / ${quote}`,
+                description: type === 'index' ? `${base} Index` : `${base} / ${quote}`,
                 exchange: OANDA_CONFIG.exchange,
-                type: OANDA_CONFIG.type,
+                type: type,
                 baseCurrency: base,
                 quoteCurrency: quote,
                 logo_urls: [OANDA_CONFIG.logo]
@@ -154,13 +170,15 @@ class OANDADatasource extends BaseDatasource {
         const symbol = this.parseSymbolName(symbolName);
 
         // Determine precision
-        let pricescale = 100000; // Default 5 decimals
+        let pricescale = 100000; // Default 5 decimals for forex
         if (symbol.includes('JPY')) {
             pricescale = 1000; // 3 decimals
         } else if (symbol.includes('XAU')) {
             pricescale = 100; // 2 decimals
         } else if (symbol.includes('XAG')) {
             pricescale = 10000; // 4 decimals
+        } else if (['US30', 'NAS100', 'SPX500', 'US2000', 'DE30', 'UK100', 'HK33', 'JP225', 'CN50', 'AU200'].some(idx => symbol.includes(idx))) {
+            pricescale = 100; // 2 decimals for indices
         }
 
         try {
@@ -333,7 +351,11 @@ class OANDADatasource extends BaseDatasource {
     async getBars(symbolInfo, resolution, periodParams) {
         const { from, to } = periodParams;
         const symbol = symbolInfo.name;
-        const oandaSymbol = symbol.replace(/([A-Z]{3})([A-Z]{3})/, '$1_$2');
+
+        // Map symbol to OANDA format (e.g. EURUSD -> EUR_USD, US30USD -> US30_USD)
+        const allInstruments = [...OANDA_CONFIG.forexPairs, ...OANDA_CONFIG.indexInstruments];
+        const match = allInstruments.find(s => s.replace('_', '') === symbol);
+        const oandaSymbol = match || symbol;
 
         try {
             // Đảm bảo 'to' không vượt quá thời gian hiện tại
@@ -395,7 +417,9 @@ class OANDADatasource extends BaseDatasource {
 
     subscribeBars(symbolInfo, resolution, onRealtimeCallback, subscriberUID) {
         const symbol = symbolInfo.name;
-        const oandaSymbol = symbol.replace(/([A-Z]{3})([A-Z]{3})/, '$1_$2');
+        const allInstruments = [...OANDA_CONFIG.forexPairs, ...OANDA_CONFIG.indexInstruments];
+        const match = allInstruments.find(s => s.replace('_', '') === symbol);
+        const oandaSymbol = match || symbol;
 
         console.log(`${OANDA_CONFIG.logPrefix} Subscribing to ${oandaSymbol} (${resolution})`);
 

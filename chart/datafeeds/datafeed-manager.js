@@ -109,6 +109,18 @@ class DatafeedManager {
 
         this.initialized = true;
         console.log('[DatafeedManager] Initialization complete');
+
+        // Sync to watchlist UI if available
+        if (window.syncDatafeedWatchlists) {
+            window.syncDatafeedWatchlists(this.allSymbols);
+        } else {
+            // Wait for module to load if not yet available
+            setTimeout(() => {
+                if (window.syncDatafeedWatchlists) {
+                    window.syncDatafeedWatchlists(this.allSymbols);
+                }
+            }, 1000);
+        }
     }
 
     /**

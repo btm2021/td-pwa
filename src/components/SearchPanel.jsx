@@ -9,7 +9,7 @@ const EXCHANGES = [
     { id: 'OANDA', name: 'OANDA', icon: 'forex' },
 ];
 
-export function SearchPanel({ onClose, onSelectSymbol }) {
+export function SearchPanel({ onClose, onSelectSymbol, currentSymbols = [] }) {
     const [query, setQuery] = useState('');
     const [results, setResults] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -174,7 +174,7 @@ export function SearchPanel({ onClose, onSelectSymbol }) {
                         )}
                     </div>
                     <button className="search-panel__cancel" onClick={onClose}>
-                        Cancel
+                        Done
                     </button>
                 </div>
 
@@ -209,11 +209,13 @@ export function SearchPanel({ onClose, onSelectSymbol }) {
                     ) : (
                         results.map((sym) => {
                             const ticker = tickers[sym.symbol];
+                            const isAdded = currentSymbols.includes(sym.fullName || sym.symbol);
                             return (
                                 <SearchResultItem
                                     key={sym.fullName || sym.symbol}
                                     symbol={sym}
                                     ticker={ticker}
+                                    isAdded={isAdded}
                                     onClick={() => handleSelect(sym)}
                                 />
                             );
@@ -225,7 +227,7 @@ export function SearchPanel({ onClose, onSelectSymbol }) {
     );
 }
 
-function SearchResultItem({ symbol, ticker, onClick }) {
+function SearchResultItem({ symbol, ticker, isAdded, onClick }) {
     const [imgError, setImgError] = useState(false);
     const baseAsset = symbol.baseAsset?.toUpperCase() || getBaseAsset(symbol.symbol).toUpperCase();
     const isOanda = symbol.exchange === 'OANDA';
@@ -249,7 +251,7 @@ function SearchResultItem({ symbol, ticker, onClick }) {
     };
 
     return (
-        <div className="search-result" onClick={onClick}>
+        <div className={`search-result ${isAdded ? 'search-result--added' : ''}`} onClick={() => !isAdded && onClick()}>
             <div className="search-result__icon">
                 {!imgError ? (
                     <img
@@ -291,7 +293,11 @@ function SearchResultItem({ symbol, ticker, onClick }) {
                 </div>
             )}
             <div className="search-result__action">
-                <Icon name="plus" size={20} />
+                {isAdded ? (
+                    <Icon name="check" size={20} color="var(--accent-green)" />
+                ) : (
+                    <Icon name="plus" size={20} />
+                )}
             </div>
         </div>
     );

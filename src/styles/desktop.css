@@ -52,6 +52,34 @@ html.desktop-mode #app {
     background: #0B0B0E;
 }
 
+/* ===== Desktop Split View ===== */
+.desktop-split-view {
+    display: flex;
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    background: #0B0B0E;
+}
+
+.desktop-split-view__side {
+    width: 320px;
+    min-width: 320px;
+    max-width: 380px;
+    height: 100%;
+    border-right: 1px solid rgba(255, 255, 255, 0.05);
+    background: #0B0B0E;
+    display: flex;
+    flex-direction: column;
+}
+
+.desktop-split-view__main {
+    flex: 1;
+    height: 100%;
+    position: relative;
+    min-width: 0;
+    background: #0B0B0E;
+}
+
 /* ===== Top Navigation (DEPRECATED - Not used in new layout) ===== */
 /* .top-nav {
     height: 52px;

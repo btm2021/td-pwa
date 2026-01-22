@@ -1597,6 +1597,11 @@
     background: var(--bg-tertiary);
 }
 
+.search-result--added {
+    opacity: 0.6;
+    cursor: default;
+}
+
 .search-result__icon {
     width: 36px;
     height: 36px;
@@ -1666,6 +1671,219 @@
 .search-result__action {
     color: var(--accent-blue);
     flex-shrink: 0;
+}
+
+/* ===== Watchlist Section ===== */
+.watchlist-screen {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background: #0B0B0E;
+}
+
+.watchlist-header {
+    padding: var(--spacing-lg) var(--spacing-lg) var(--spacing-md);
+    background: #0B0B0E;
+    z-index: 10;
+}
+
+.watchlist-header__title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--spacing-md);
+}
+
+.watchlist-header h1 {
+    font-size: 18px;
+    font-weight: 700;
+    margin: 0;
+    color: var(--text-primary);
+}
+
+.watchlist-categories-container {
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin-bottom: var(--spacing-sm);
+    margin: 0 -var(--spacing-lg);
+    padding: 0 var(--spacing-lg);
+}
+
+.watchlist-categories-container::-webkit-scrollbar {
+    display: none;
+}
+
+.watchlist-categories {
+    display: flex;
+    gap: 4px;
+    background: rgba(255, 255, 255, 0.03);
+    padding: 3px;
+    border-radius: var(--radius-md);
+    width: fit-content;
+}
+
+.watchlist-category {
+    padding: 6px 14px;
+    background: transparent;
+    border: none;
+    border-radius: calc(var(--radius-md) - 2px);
+    color: var(--text-tertiary);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.watchlist-category:hover {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.watchlist-category.active {
+    background: #1A1A1F;
+    color: var(--text-primary);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.watchlist-category--add {
+    padding: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.watchlist-table-container {
+    flex: 1;
+    overflow-y: auto;
+}
+
+.watchlist-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.watchlist-table th {
+    position: sticky;
+    top: 0;
+    padding: 10px var(--spacing-lg);
+    background: #0B0B0E;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    text-align: left;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    z-index: 10;
+}
+
+.watchlist-table th.sortable {
+    cursor: pointer;
+}
+
+.watchlist-table-row {
+    cursor: pointer;
+    transition: background 0.15s ease;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.watchlist-table-row:hover {
+    background: rgba(41, 121, 255, 0.04);
+}
+
+.watchlist-table td {
+    padding: 12px var(--spacing-lg);
+    font-size: 13px;
+    vertical-align: middle;
+}
+
+.symbol-cell__content {
+    display: flex;
+    align-items: baseline;
+    gap: var(--spacing-sm);
+}
+
+.symbol-cell__symbol {
+    color: var(--text-primary);
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.symbol-cell__exchange {
+    font-size: 10px;
+    color: var(--text-muted);
+    background: rgba(255, 255, 255, 0.05);
+    padding: 1px 4px;
+    border-radius: 2px;
+}
+
+.price-cell {
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-weight: 500;
+    transition: background 0.4s ease, color 0.4s ease;
+}
+
+.price-cell.positive-flash {
+    background: rgba(0, 200, 83, 0.1);
+    color: var(--accent-green);
+}
+
+.price-cell.negative-flash {
+    background: rgba(255, 59, 48, 0.1);
+    color: var(--accent-red);
+}
+
+.change-cell {
+    font-family: var(--font-mono);
+    font-weight: 600;
+    font-size: 12px;
+}
+
+.change-cell.positive {
+    color: #00A651;
+}
+
+.change-cell.negative {
+    color: #F04438;
+}
+
+.action-cell {
+    width: 32px;
+    padding-right: var(--spacing-md) !important;
+}
+
+.btn-remove {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    opacity: 0;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+}
+
+.watchlist-table-row:hover .btn-remove {
+    opacity: 1;
+}
+
+.btn-remove:hover {
+    background: rgba(255, 59, 48, 0.1);
+    color: #FF3B30;
+}
+
+.text-right {
+    text-align: right;
+}
+
+.text-center {
+    text-align: center;
 }
 
 /* ===== Modal ===== */

@@ -603,6 +603,64 @@ export function updateCategory(categoryId, updates) {
     saveCategoriesToStorage();
 }
 
+// Sync symbols from datafeed sources into dedicated watchlists
+export function syncDatafeedWatchlists(allSymbols) {
+    if (!allSymbols || allSymbols.length === 0) return;
+
+    const binanceSymbols = allSymbols
+        .filter(s =>
+            (s.exchange && s.exchange.toUpperCase().includes('BINANCE')) ||
+            (s.full_name && s.full_name.startsWith('BINANCE:'))
+        )
+        .map(s => s.full_name);
+
+    const oandaSymbols = allSymbols
+        .filter(s =>
+            (s.exchange && s.exchange.toUpperCase() === 'OANDA') ||
+            (s.full_name && s.full_name.startsWith('OANDA:'))
+        )
+        .map(s => s.full_name);
+
+    let updated = false;
+    const currentCats = [...categories.value];
+
+    // Helper to add or update systemic category
+    const updateSystemCat = (id, label, color, symbols) => {
+        const index = currentCats.findIndex(c => c.id === id);
+        if (index > -1) {
+            // Update existing
+            currentCats[index] = { ...currentCats[index], symbols: symbols };
+        } else {
+            // Add new
+            currentCats.push({
+                id: id,
+                label: label,
+                color: color,
+                symbols: symbols
+            });
+        }
+        updated = true;
+    };
+
+    if (binanceSymbols.length > 0) {
+        updateSystemCat('BINANCE_FUTURE', 'Binance Futures', '#F3BA2F', binanceSymbols);
+    }
+
+    if (oandaSymbols.length > 0) {
+        updateSystemCat('OANDA', 'OANDA Forex', '#00A0DC', oandaSymbols);
+    }
+
+    if (updated) {
+        categories.value = currentCats;
+        saveCategoriesToStorage();
+    }
+}
+
+// Expose to window for datafeed manager to call
+if (typeof window !== 'undefined') {
+    window.syncDatafeedWatchlists = syncDatafeedWatchlists;
+}
+
 // Remove category
 export function removeCategory(categoryId) {
     const cats = categories.value.filter(cat => cat.id !== categoryId);
