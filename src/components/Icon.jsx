@@ -184,6 +184,26 @@ export function Icon({ name, size = 24, className = '' }) {
                 <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z" />
             </svg>
         ),
+        'chevron-down': (
+            <svg viewBox="0 0 24 24" width={size} height={size} fill="currentColor">
+                <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z" />
+            </svg>
+        ),
+        'chevron-up': (
+            <svg viewBox="0 0 24 24" width={size} height={size} fill="currentColor">
+                <path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z" />
+            </svg>
+        ),
+        'arrow-up': (
+            <svg viewBox="0 0 24 24" width={size} height={size} fill="currentColor">
+                <path d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z" />
+            </svg>
+        ),
+        'arrow-down': (
+            <svg viewBox="0 0 24 24" width={size} height={size} fill="currentColor">
+                <path d="M20 12l-1.41-1.41L13 16.17V4h-2v12.17l-5.58-5.59L4 12l8 8 8-8z" />
+            </svg>
+        ),
 
     };
 

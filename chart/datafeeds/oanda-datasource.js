@@ -24,9 +24,7 @@ const OANDA_CONFIG = {
         'GBP_AUD', 'GBP_NZD', 'EUR_NZD', 'AUD_CHF', 'NZD_CHF', 'CAD_CHF', 'NZD_CAD'
     ],
     // Common stock indices
-    indexInstruments: [
-        'US30_USD', 'NAS100_USD', 'SPX500_USD', 'US2000_USD', 'DE30_EUR', 'UK100_GBP', 'HK33_HKD', 'JP225_USD', 'CN50_USD', 'AU200_AUD'
-    ]
+    indexInstruments: []
 };
 
 /**
@@ -177,8 +175,6 @@ class OANDADatasource extends BaseDatasource {
             pricescale = 100; // 2 decimals
         } else if (symbol.includes('XAG')) {
             pricescale = 10000; // 4 decimals
-        } else if (['US30', 'NAS100', 'SPX500', 'US2000', 'DE30', 'UK100', 'HK33', 'JP225', 'CN50', 'AU200'].some(idx => symbol.includes(idx))) {
-            pricescale = 100; // 2 decimals for indices
         }
 
         try {
@@ -352,7 +348,7 @@ class OANDADatasource extends BaseDatasource {
         const { from, to } = periodParams;
         const symbol = symbolInfo.name;
 
-        // Map symbol to OANDA format (e.g. EURUSD -> EUR_USD, US30USD -> US30_USD)
+        // Map symbol to OANDA format (e.g. EURUSD -> EUR_USD)
         const allInstruments = [...OANDA_CONFIG.forexPairs, ...OANDA_CONFIG.indexInstruments];
         const match = allInstruments.find(s => s.replace('_', '') === symbol);
         const oandaSymbol = match || symbol;

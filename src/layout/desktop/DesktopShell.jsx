@@ -10,8 +10,9 @@ import { Community } from '../../screens/Community';
 import { Menu } from '../../screens/Menu';
 import { Account } from '../../screens/Account';
 
-// Desktop-specific Chart
+// Desktop-specific components
 import { DesktopChart } from '../../screens/desktop/DesktopChart';
+import { SymbolInfoPanel } from '../../components/SymbolInfoPanel';
 
 const screens = {
     watchlist: Watchlist,
@@ -50,11 +51,11 @@ export function DesktopShell() {
                 <main className={`desktop-content ${currentTab === 'chart' ? 'desktop-content--chart' : ''}`}>
                     {currentTab === 'watchlist' ? (
                         <div className="desktop-split-view">
-                            <div className="desktop-split-view__side">
+                            <div className="desktop-split-view__side" style={{ width: '40%', minWidth: '400px', maxWidth: 'none' }}>
                                 <Watchlist />
                             </div>
                             <div className="desktop-split-view__main">
-                                <DesktopChart />
+                                <SymbolInfoPanel />
                             </div>
                         </div>
                     ) : (

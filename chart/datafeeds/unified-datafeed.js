@@ -24,6 +24,54 @@ window.initializeDatafeed = function () {
         console.log('[Datafeed] OANDA datasource registered');
     }
 
+    // Register Bybit Futures if available
+    if (typeof BybitFuturesDatasource !== 'undefined') {
+        manager.registerDatasource(new BybitFuturesDatasource(), false);
+        console.log('[Datafeed] Bybit Futures datasource registered');
+    }
+
+    // Register Bybit Spot if available
+    if (typeof BybitSpotDatasource !== 'undefined') {
+        manager.registerDatasource(new BybitSpotDatasource(), false);
+        console.log('[Datafeed] Bybit Spot datasource registered');
+    }
+
+    // Register OKX Futures if available
+    if (typeof OKXFuturesDatasource !== 'undefined') {
+        manager.registerDatasource(new OKXFuturesDatasource(), false);
+        console.log('[Datafeed] OKX Futures datasource registered');
+    }
+
+    // Register OKX Spot if available
+    if (typeof OKXSpotDatasource !== 'undefined') {
+        manager.registerDatasource(new OKXSpotDatasource(), false);
+        console.log('[Datafeed] OKX Spot datasource registered');
+    }
+
+    // Register KuCoin Futures if available
+    if (typeof KuCoinFuturesDatasource !== 'undefined') {
+        manager.registerDatasource(new KuCoinFuturesDatasource(), false);
+        console.log('[Datafeed] KuCoin Futures datasource registered');
+    }
+
+    // Register KuCoin Spot if available
+    if (typeof KuCoinSpotDatasource !== 'undefined') {
+        manager.registerDatasource(new KuCoinSpotDatasource(), false);
+        console.log('[Datafeed] KuCoin Spot datasource registered');
+    }
+
+    // Register MEXC Futures if available
+    if (typeof MEXCFuturesDatasource !== 'undefined') {
+        manager.registerDatasource(new MEXCFuturesDatasource(), false);
+        console.log('[Datafeed] MEXC Futures datasource registered');
+    }
+
+    // Register MEXC Spot if available
+    if (typeof MEXCSpotDatasource !== 'undefined') {
+        manager.registerDatasource(new MEXCSpotDatasource(), false);
+        console.log('[Datafeed] MEXC Spot datasource registered');
+    }
+
     // Initialize all datasources (fetch exchange info)
     manager.initialize().then(() => {
         console.log('[Datafeed] All datasources initialized');
