@@ -110,7 +110,7 @@ export function Chart() {
                 const widgetOptions = {
                     symbol: symbol.symbol.replace('.P', ''),
                     datafeed: datafeed,
-                    interval: intervalMap[currentTimeframe] || '5',
+                    interval: intervalMap[currentTimeframe] || '15',
                     container: chartContainerRef.current,
                     library_path: '/chart/charting_library/',
                     locale: 'en',
@@ -171,15 +171,10 @@ export function Chart() {
                     },
 
                     overrides: {
-                        // Pane background
                         'paneProperties.background': '#0B0B0E',
                         'paneProperties.backgroundType': 'solid',
-
-                        // Grid
                         'paneProperties.vertGridProperties.color': '#1A1A1F',
                         'paneProperties.horzGridProperties.color': '#1A1A1F',
-
-                        // Legend
                         'paneProperties.legendProperties.showStudyArguments': true,
                         'paneProperties.legendProperties.showStudyTitles': true,
                         'paneProperties.legendProperties.showStudyValues': true,
@@ -187,13 +182,9 @@ export function Chart() {
                         'paneProperties.legendProperties.showSeriesOHLC': true,
                         'paneProperties.legendProperties.showLegend': true,
                         'paneProperties.legendProperties.showBarChange': true,
-
-                        // Scales
                         'scalesProperties.textColor': '#A0A0A8',
                         'scalesProperties.lineColor': '#2A2A30',
                         'scalesProperties.backgroundColor': '#0B0B0E',
-
-                        // Candles
                         'mainSeriesProperties.candleStyle.upColor': '#00C853',
                         'mainSeriesProperties.candleStyle.downColor': '#FF3B30',
                         'mainSeriesProperties.candleStyle.drawWick': true,
@@ -203,7 +194,6 @@ export function Chart() {
                         'mainSeriesProperties.candleStyle.wickUpColor': '#00C853',
                         'mainSeriesProperties.candleStyle.wickDownColor': '#FF3B30',
                     },
-
                     studies_overrides: {
                         'volume.volume.color.0': '#FF3B30',
                         'volume.volume.color.1': '#00C853',
@@ -261,7 +251,7 @@ export function Chart() {
             };
 
             try {
-                tvWidgetRef.current.chart().setResolution(intervalMap[currentTimeframe] || '5');
+                tvWidgetRef.current.chart().setResolution(intervalMap[currentTimeframe] || '15');
             } catch (e) {
                 // Chart not ready yet
             }

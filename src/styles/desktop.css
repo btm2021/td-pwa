@@ -398,6 +398,7 @@ html.desktop-mode #app {
     display: flex;
     flex-direction: column;
     height: 100%;
+    position: relative;
     background: var(--bg-primary);
 }
 

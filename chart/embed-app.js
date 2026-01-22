@@ -113,6 +113,52 @@ async function initTradingView() {
 
     window.tvWidget = new TradingView.widget(widgetOptions);
     tvWidget = window.tvWidget;
+
+    // Initialize replay system when widget is ready
+    tvWidget.onChartReady(() => {
+        console.log('[TradingView] Chart ready, initializing replay system...');
+
+        // Initialize replay engine
+        if (window.replayEngine) {
+            window.replayEngine.init(tvWidget, datafeedManager);
+        }
+
+        // Initialize replay UI
+        if (window.replayUI && window.replayEngine) {
+            window.replayUI.init(window.replayEngine);
+        }
+
+        // Add replay button to header using TradingView API
+        try {
+            tvWidget.headerReady().then(() => {
+                const replayBtn = tvWidget.createButton({ align: 'right' });
+                replayBtn.setAttribute('title', 'Bar Replay');
+                replayBtn.innerHTML = `
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                        <line x1="21" y1="6" x2="21" y2="18" stroke-dasharray="2,2"></line>
+                    </svg>
+                `;
+                replayBtn.style.cssText = `
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    cursor: pointer;
+                    color: #787b86;
+                    transition: color 0.2s;
+                `;
+                replayBtn.addEventListener('mouseover', () => replayBtn.style.color = '#2962ff');
+                replayBtn.addEventListener('mouseout', () => replayBtn.style.color = '#787b86');
+                replayBtn.addEventListener('click', () => {
+                    window.embedWidget.toggleReplay();
+                });
+
+                console.log('[TradingView] Replay button added to header');
+            });
+        } catch (e) {
+            console.warn('[TradingView] Could not add replay button:', e);
+        }
+    });
 }
 
 if (document.readyState === 'loading') {
@@ -140,6 +186,21 @@ window.embedWidget = {
     openIndicators: function () {
         if (tvWidget) {
             tvWidget.activeChart().executeActionById('insertIndicator');
+        }
+    },
+    toggleReplay: function () {
+        if (window.replayUI) {
+            window.replayUI.toggle();
+        }
+    },
+    startReplay: function (startPercent = 50) {
+        if (window.replayEngine) {
+            window.replayEngine.startReplay(startPercent);
+        }
+    },
+    stopReplay: function () {
+        if (window.replayEngine) {
+            window.replayEngine.stopReplay();
         }
     }
 };

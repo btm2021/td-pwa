@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { Icon } from '../../components/Icon';
 import { SearchPanel } from '../../components/SearchPanel';
+import { ReplayControls, BarSelectionSidebar, useReplayEngine, replayUIVisible } from '../../components/ReplayControls';
 import { selectedSymbol, selectedTimeframe, setSelectedTimeframe, setSelectedSymbol, toggleFullscreen, isChartReady, setChartReady } from '../../state/store';
 import { timeframes, tickerData, formatPrice, formatPercent } from '../../state/watchlist';
+import '../../styles/replay.css';
 
 // Get custom studies creators
 function getCustomStudies() {
@@ -22,12 +24,17 @@ function getCustomStudies() {
 export function DesktopChart() {
     const chartContainerRef = useRef(null);
     const tvWidgetRef = useRef(null);
+    const datafeedRef = useRef(null);
     const symbol = selectedSymbol.value;
     const currentTimeframe = selectedTimeframe.value;
     const chartReady = isChartReady.value;
     const tickers = tickerData.value;
 
     const [showSearch, setShowSearch] = useState(false);
+    const lastResolutionRef = useRef(null);
+
+    // Replay engine
+    const replayEngine = useReplayEngine(tvWidgetRef, datafeedRef);
 
     // Get ticker data for current symbol
     const ticker = tickers[symbol.symbol] || {};
@@ -55,6 +62,7 @@ export function DesktopChart() {
 
             try {
                 const datafeed = new DatafeedClass();
+                datafeedRef.current = datafeed; // Store for replay engine
                 let saveLoadAdapter = null;
                 if (typeof SaveLoadAdapter !== 'undefined') {
                     try {
@@ -72,13 +80,15 @@ export function DesktopChart() {
 
                 const customStudies = getCustomStudies();
 
+                const currentRes = intervalMap[currentTimeframe] || '15';
+
                 const widgetOptions = {
                     symbol: symbol.symbol.replace('.P', ''),
                     datafeed: datafeed,
-                    interval: intervalMap[currentTimeframe] || '15',
+                    interval: currentRes,
                     container: chartContainerRef.current,
                     library_path: '/chart/charting_library/',
-                    locale: 'en',
+                    locale: 'vi',
                     custom_indicators_getter: customStudies.length > 0
                         ? function (PineJS) {
                             return Promise.resolve(customStudies.map(fn => fn(PineJS)));
@@ -100,7 +110,8 @@ export function DesktopChart() {
                         'control_bar',
                         'open_account_manager',
                         'trading_account_manager',
-                        'trading_notifications'
+                        'trading_notifications',
+                        'header_undo_redo'
                     ],
 
                     enabled_features: [
@@ -161,6 +172,35 @@ export function DesktopChart() {
                 tvWidgetRef.current.onChartReady(() => {
                     console.log('Desktop TradingView chart ready');
                     setChartReady(true);
+
+                    // Add Replay button to TradingView header
+                    tvWidgetRef.current.headerReady().then(() => {
+                        const replayBtn = tvWidgetRef.current.createButton({ align: 'left' });
+                        replayBtn.setAttribute('title', 'Bar Replay');
+                        replayBtn.classList.add('tv-replay-btn');
+                        replayBtn.innerHTML = `
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle;">
+                                <polyline points="1 4 1 10 7 10"></polyline>
+                                <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+                            </svg>
+                         
+                        `;
+                        replayBtn.addEventListener('click', () => {
+                            replayUIVisible.value = !replayUIVisible.value;
+                        });
+                    });
+
+                    // Sync interval change back to state
+                    tvWidgetRef.current.subscribe('onIntervalChanged', (interval) => {
+                        const reverseIntervalMap = {
+                            '1': '1m', '5': '5m', '15': '15m', '30': '30m',
+                            '60': '1h', '240': '4h', '1D': '1d', '1W': '1w'
+                        };
+                        const tf = reverseIntervalMap[interval];
+                        if (tf && tf !== selectedTimeframe.value) {
+                            setSelectedTimeframe(tf);
+                        }
+                    });
                 });
 
             } catch (error) {
@@ -177,20 +217,9 @@ export function DesktopChart() {
                 tvWidgetRef.current = null;
             }
         };
-    }, [symbol.symbol]);
+    }, [symbol.symbol, currentTimeframe]);
 
     // Update timeframe
-    useEffect(() => {
-        if (tvWidgetRef.current && chartReady) {
-            const intervalMap = {
-                '1m': '1', '5m': '5', '15m': '15', '30m': '30',
-                '1h': '60', '4h': '240', '1d': '1D', '1w': '1W',
-            };
-            try {
-                tvWidgetRef.current.chart().setResolution(intervalMap[currentTimeframe] || '5');
-            } catch (e) { }
-        }
-    }, [currentTimeframe, chartReady]);
 
     const handleSymbolSelect = (sym) => {
         setSelectedSymbol(sym);
@@ -200,8 +229,6 @@ export function DesktopChart() {
 
     return (
         <div className="desktop-chart">
-
-
             {/* Chart Container */}
             <div ref={chartContainerRef} className="desktop-chart__container">
                 {!chartReady && (
@@ -213,6 +240,12 @@ export function DesktopChart() {
                     </div>
                 )}
             </div>
+
+            {/* Replay Controls (Sidebar) */}
+            <ReplayControls engine={replayEngine} />
+
+            {/* Bar Selection Sidebar (Sidebar) */}
+            <BarSelectionSidebar engine={replayEngine} />
 
             {/* Search Panel */}
             {showSearch && (
