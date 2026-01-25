@@ -13,6 +13,12 @@
     <header class="top-bar">
         <div class="logo">VSR7 <span style="color:var(--muted); font-weight:400; margin-left: 8px;">Simplified
                 VSR</span></div>
+        <div id="stat-bar"
+            style="margin-right: auto; margin-left: 30px; font-weight: 600; font-size: 11px; display: flex; gap: 16px; background: rgba(0,0,0,0.2); padding: 4px 12px; border-radius: 6px; border: 1px solid var(--border);">
+            <div style="color:var(--cyan)">WIN: <span id="count-win">0</span></div>
+            <div style="color:var(--red)">FAIL: <span id="count-fail">0</span></div>
+            <div style="color:var(--muted)">PENDING: <span id="count-pending">0</span></div>
+        </div>
         <div class="controls">
             <label><input type="checkbox" id="toggle-atrbot"> ATRBot 1</label>
             <label><input type="checkbox" id="toggle-atrbot2" checked> ATRBot 2</label>
@@ -70,7 +76,7 @@
             vsr: { length: 10, threshold: 5 },
             botatr: { multiplier: 1.681, atrLength: 10, emaLength: 34 },
             botatr2: { multiplier: 1, atrLength: 14, emaLength: 10 },
-            rr: 0.5
+            rr: 2
         };
 
         import { calcEMA, calcATR, calcATRBot, calcVSR, calcVWAP } from './indicators.js';
@@ -173,6 +179,27 @@
                     this.ctx.lineTo(fx2, yEntry);
                     this.ctx.stroke();
                     this.ctx.setLineDash([]);
+
+                    // TEXT INFO
+                    if (w > 40) {
+                        const midX = x1 + w / 2;
+                        this.ctx.textAlign = 'center';
+
+                        // Status & ROE
+                        this.ctx.font = 'bold 11px Arial';
+                        const displayStatus = t.status === 'OPEN' ? 'PENDING' : t.status;
+                        this.ctx.fillStyle = displayStatus === 'WIN' ? '#39d353' : (displayStatus === 'FAIL' ? '#f85149' : '#8b949e');
+                        this.ctx.fillText(`${displayStatus} (${(t.roe || 0).toFixed(1)}%)`, midX, yEntry - 25);
+
+                        // Price Details
+                        this.ctx.font = '10px Arial';
+                        this.ctx.fillStyle = 'rgba(255,255,255,0.8)';
+                        this.ctx.fillText(`Entry: ${t.entry.toFixed(4)}`, midX, yEntry - 12);
+                        if (t.status !== 'OPEN' && t.exitPrice) {
+                            this.ctx.fillText(`Exit: ${t.exitPrice.toFixed(4)}`, midX, yEntry + 2);
+                        }
+                        this.ctx.textAlign = 'left'; // Reset
+                    }
                 });
             }
         }
@@ -297,22 +324,48 @@
                 // Finalize trade end times for visualization by checking SL/TP hit (using High/Low)
                 visualTrades.forEach(t => {
                     let exitTime = data[data.length - 1].time;
+                    let exitPrice = data[data.length - 1].close;
+                    let status = 'PENDING';
                     for (let k = t.startIdx; k < data.length; k++) {
                         const bar = data[k];
                         if (t.side === 'LONG') {
-                            if (bar.low <= t.sl || bar.high >= t.tp) {
+                            if (bar.low <= t.sl) {
                                 exitTime = bar.time;
+                                exitPrice = t.sl;
+                                status = 'FAIL';
+                                break;
+                            } else if (bar.high >= t.tp) {
+                                exitTime = bar.time;
+                                exitPrice = t.tp;
+                                status = 'WIN';
                                 break;
                             }
                         } else {
-                            if (bar.high >= t.sl || bar.low <= t.tp) {
+                            if (bar.high >= t.sl) {
                                 exitTime = bar.time;
+                                exitPrice = t.sl;
+                                status = 'FAIL';
+                                break;
+                            } else if (bar.low <= t.tp) {
+                                exitTime = bar.time;
+                                exitPrice = t.tp;
+                                status = 'WIN';
                                 break;
                             }
                         }
                     }
                     t.endTime = exitTime;
+                    t.exitPrice = exitPrice;
+                    t.status = status;
+                    // ROE calculation (Leverage x20)
+                    const pnlPct = (t.exitPrice - t.entry) / t.entry * (t.side === 'LONG' ? 1 : -1);
+                    t.roe = pnlPct * 20 * 100;
                 });
+
+                // Update Navbar Stats
+                document.getElementById('count-win').innerText = visualTrades.filter(t => t.status === 'WIN').length;
+                document.getElementById('count-fail').innerText = visualTrades.filter(t => t.status === 'FAIL').length;
+                document.getElementById('count-pending').innerText = visualTrades.filter(t => t.status === 'PENDING').length;
 
                 function updateChartMarkers() {
                     if (!VIEW.atrbot2) {
