@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VSR7 - Simplified Analysis</title>
+    <script src="https://unpkg.com/lightweight-charts@4.2.1/dist/lightweight-charts.standalone.production.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <header class="top-bar">
+        <div class="logo">VSR7 <span style="color:var(--muted); font-weight:400; margin-left: 8px;">Simplified
+                VSR</span></div>
+        <div class="controls">
+            <label><input type="checkbox" id="toggle-atrbot" checked> ATRBot 1</label>
+            <label><input type="checkbox" id="toggle-atrbot2" checked> ATRBot 2</label>
+            <label><input type="checkbox" id="toggle-atrbot3" checked> ATRBot 3</label>
+            <label><input type="checkbox" id="toggle-vwap" checked> VWAP</label>
+            <label><input type="checkbox" id="toggle-markers" checked> VSR Zones</label>
+            <button id="btn-pnl" class="btn-calc">PNL Tool</button>
+        </div>
+    </header>
+    <div id="chart-container">
+        <div id="loading">
+            <div class="spinner"></div>
+            <div>Loading Market Data...</div>
+        </div>
+        <div id="hint-box" class="hint-text">Click on chart to select ENTRY point</div>
+        <div id="pnl-display"></div>
+        <div id="pnl-tooltip" class="pnl-tooltip"></div>
+    </div>
+
+    <script type="module">
+        /**
+         * ======================================================================================
+         * FILENAME: vsr7.html
+         * DESCRIPTION: Bản giản lược của hệ thống phân tích VSR & ATRBot.
+         * 
+         * CHỨC NĂNG CHÍNH:
+         * 1. Hiển thị Candlestick Chart (Lightweight Charts).
+         * 2. Chỉ báo ATRBot: EMA 14 kết hợp với ATR 5 (Multiplier 1) để xác định xu hướng và trailing stop.
+         * 3. Chỉ báo VWAP: Tính giá trung bình theo khối lượng dựa trên HCL3, reset theo ngày (Session).
+         * 4. VSR (Volume Spread Response): Xác định các vùng biến động volume đột biến (10-5) và vẽ vùng Zone.
+         * 5. PNL Tool: Công cụ đo lường lợi nhuận thực tế (ROE% x20, PnL 100 USDT) dựa trên 2 điểm click chọn.
+         * 
+         * CÁCH TÍNH TOÁN:
+         * - VSR: So sánh tỷ lệ thay đổi volume hiện tại với độ lệch chuẩn (Standard Deviation) của cycle 10 nến.
+         *   Nếu biến động > 5 lần độ lệch chuẩn -> Tạo vùng Zone dựa trên High/Low của nến trước đó.
+         * - VWAP: (Sum of Price * Volume) / (Sum of Volume). Price sử dụng HCL3 = (High + Low + Close) / 3.
+         * - PnL: Dựa trên chênh lệch giá giữa Entry và Exit, áp dụng công thức của Binance Futures.
+         * 
+         * CÔNG DỤNG:
+         * - Giúp trader quan sát nhanh sự tương tác của giá tại các vùng thanh khoản lớn (VSR Zones).
+         * - Xác định xu hướng ngắn hạn qua ATRBot và VWAP.
+         * - Backtest nhanh lợi nhuận của các setup giao dịch bằng công cụ PnL tích hợp.
+         * ======================================================================================
+         */
+        const dataUrl = "data/IMXUSDT_15m_50000.json";
+
+        const CONFIG = {
+            vsr: { length: 10, threshold: 5 },
+            botatr: { multiplier: 1.681, atrLength: 10, emaLength: 34 },
+            botatr2: { multiplier: 1, atrLength: 14, emaLength: 10 },
+            botatr3: { multiplier: 2, atrLength: 14, emaLength: 10 }
+        };
+
+        import { calcEMA, calcATR, calcATRBot, calcVSR, calcVWAP } from './indicators.js';
+
+        const VIEW = { atrbot: true, atrbot2: true, atrbot3: true, markers: true };
+
+
+
+        class VSROverlay {
+            constructor(chart, series, colors) {
+                this.chart = chart;
+                this.series = series;
+                this.zones = [];
+                this.colors = colors;
+                const cont = document.getElementById('chart-container');
+                this.canvas = document.createElement('canvas');
+                Object.assign(this.canvas.style, { position: 'absolute', top: '0', left: '0', width: '100%', height: '100%', pointerEvents: 'none', zIndex: '2' });
+                cont.appendChild(this.canvas);
+                this.ctx = this.canvas.getContext('2d');
+                const redraw = () => { this.draw(); requestAnimationFrame(redraw); }; requestAnimationFrame(redraw);
+                new ResizeObserver(() => { this.canvas.width = cont.clientWidth; this.canvas.height = cont.clientHeight; }).observe(cont);
+            }
+            setData(data, vsr) {
+                this.zones = [];
+                let cur = null;
+                for (let i = 0; i < data.length; i++) {
+                    if (vsr.beg[i]) {
+                        if (cur) { cur.endIdx = i - 1; cur.endTime = data[i - 1].time; this.zones.push(cur); }
+                        cur = { startIdx: i, startTime: data[i].time, endIdx: data.length - 1, endTime: data[data.length - 1].time, zh: vsr.up[i], zl: vsr.lo[i] };
+                    }
+                }
+                if (cur) this.zones.push(cur);
+            }
+            draw() {
+                if (!this.ctx) return;
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                this.zones.forEach(z => {
+                    const ts = this.chart.timeScale();
+                    const x1 = ts.timeToCoordinate(z.startTime), x2 = ts.timeToCoordinate(z.endTime);
+                    const y1 = this.series.priceToCoordinate(z.zh), y2 = this.series.priceToCoordinate(z.zl);
+                    if (y1 === null || y2 === null) return;
+                    const fx1 = x1 === null ? -50 : x1, fx2 = x2 === null ? this.canvas.width + 50 : x2;
+                    this.ctx.fillStyle = this.colors.fill;
+                    this.ctx.strokeStyle = this.colors.stroke;
+                    this.ctx.lineWidth = 1;
+                    this.ctx.fillRect(fx1, y1, fx2 - fx1, y2 - y1);
+                    this.ctx.strokeRect(fx1, y1, fx2 - fx1, y2 - y1);
+                });
+            }
+        }
+
+
+
+        async function init() {
+            try {
+                const resp = await fetch(dataUrl);
+                if (!resp.ok) throw new Error("Failed to load data");
+                const raw = await resp.json();
+                const data = raw.map(d => ({
+                    time: Math.floor(d.openTime / 1000),
+                    open: +d.open,
+                    high: +d.high,
+                    low: +d.low,
+                    close: +d.close,
+                    volume: +d.volume
+                })).sort((a, b) => a.time - b.time);
+
+                document.getElementById('loading').style.display = 'none';
+
+                const cont = document.getElementById('chart-container');
+                const chart = LightweightCharts.createChart(cont, {
+                    width: cont.clientWidth,
+                    height: cont.clientHeight,
+                    layout: { background: { color: '#0d1117' }, textColor: '#8b949e' },
+                    grid: { vertLines: { color: '#161b22' }, horzLines: { color: '#161b22' } },
+                    rightPriceScale: { borderColor: '#30363d' },
+                    timeScale: { borderColor: '#30363d', timeVisible: true },
+                    crosshair: { mode: LightweightCharts.CrosshairMode.Normal }
+                });
+
+                new ResizeObserver(() => chart.applyOptions({ width: cont.clientWidth, height: cont.clientHeight })).observe(cont);
+
+                const candles = chart.addCandlestickSeries({
+                    upColor: '#238636', downColor: '#da3633',
+                    borderUpColor: '#238636', borderDownColor: '#da3633',
+                    wickUpColor: '#238636', wickDownColor: '#da3633',
+                    priceFormat: { type: 'price', precision: 4, minMove: 0.0001 }
+                });
+                candles.setData(data);
+
+                // Calculate Indicators
+                const ema1 = calcEMA(data, CONFIG.botatr.emaLength);
+                const atr1 = calcATR(data, CONFIG.botatr.atrLength);
+                const botatr1 = calcATRBot(data, ema1, atr1, CONFIG.botatr.multiplier);
+
+                const ema2 = calcEMA(data, CONFIG.botatr2.emaLength);
+                const atr2 = calcATR(data, CONFIG.botatr2.atrLength);
+                const botatr2 = calcATRBot(data, ema2, atr2, CONFIG.botatr2.multiplier);
+
+                const ema3 = calcEMA(data, CONFIG.botatr3.emaLength);
+                const atr3 = calcATR(data, CONFIG.botatr3.atrLength);
+                const botatr3 = calcATRBot(data, ema3, atr3, CONFIG.botatr3.multiplier);
+
+                const vwap = calcVWAP(data);
+                const vsrRes = calcVSR(data, CONFIG.vsr.length, CONFIG.vsr.threshold);
+
+                // Add Indicator Lines
+                // Bot 1
+                const emaLine1 = chart.addLineSeries({ color: '#2f81f7', lineWidth: 1, lineStyle: 2, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false, title: `EMA ${CONFIG.botatr.emaLength}` });
+                emaLine1.setData(data.map((d, i) => ({ time: d.time, value: ema1[i] })));
+
+                const botatrLine1 = chart.addLineSeries({ color: '#d29922', lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false, title: 'ATRBot 1' });
+                botatrLine1.setData(data.map((d, i) => ({ time: d.time, value: botatr1[i] })));
+
+                // Bot 2
+                const emaLine2 = chart.addLineSeries({ color: '#ff7b72', lineWidth: 1, lineStyle: 2, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false, title: `EMA ${CONFIG.botatr2.emaLength}` });
+                emaLine2.setData(data.map((d, i) => ({ time: d.time, value: ema2[i] })));
+
+                const botatrLine2 = chart.addLineSeries({ color: '#fca121', lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false, title: 'ATRBot 2' });
+                botatrLine2.setData(data.map((d, i) => ({ time: d.time, value: botatr2[i] })));
+
+                const botatr2SLLine = chart.addLineSeries({ color: '#fca121', lineWidth: 1, lineStyle: 3, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false, title: 'ATRBot 2 SL (x2)' });
+                botatr2SLLine.setData(data.map((d, i) => ({
+                    time: d.time,
+                    value: botatr2[i] === null ? null : ema2[i] + (botatr2[i] - ema2[i]) * 2
+                })));
+
+                // Bot 3
+                const emaLine3 = chart.addLineSeries({ color: '#aff5b4', lineWidth: 1, lineStyle: 2, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false, title: `EMA ${CONFIG.botatr3.emaLength} (B3)` });
+                emaLine3.setData(data.map((d, i) => ({ time: d.time, value: ema3[i] })));
+
+                const botatrLine3 = chart.addLineSeries({ color: '#39d353', lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false, title: 'ATRBot 3' });
+                botatrLine3.setData(data.map((d, i) => ({ time: d.time, value: botatr3[i] })));
+
+                const vwapLine = chart.addLineSeries({ color: '#8957e5', lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false, title: 'VWAP' });
+                vwapLine.setData(data.map((d, i) => ({ time: d.time, value: vwap[i] })));
+
+                // PnL & Cross Markers State
+                let pnlMode = false;
+                let points = [];
+                let pnlMarkers = [];
+                const crossMarkers = [];
+
+                // Calculate filtered Reversal Markers for ATRBot 2 (Trend Flip) - Circles only
+                let isBullish2 = null;
+                for (let i = 1; i < data.length; i++) {
+                    if (botatr2[i - 1] === null || ema2[i] === null) continue;
+
+                    const nowBullish2 = ema2[i] > botatr2[i - 1];
+                    if (isBullish2 === null) {
+                        isBullish2 = nowBullish2;
+                        continue;
+                    }
+
+                    if (nowBullish2 !== isBullish2) {
+                        // Reversal detected - Apply specific VSR Filter
+                        const zoneHigh = vsrRes.up[i];
+                        const zoneLow = vsrRes.lo[i];
+                        const emaVal = ema2[i];
+
+                        if (zoneHigh !== null && zoneLow !== null) {
+                            if (nowBullish2) {
+                                // LONG signal: Only if EMA > VSR High
+                                if (emaVal > zoneHigh) {
+                                    crossMarkers.push({ time: data[i].time, position: 'belowBar', color: '#39d353', shape: 'circle', text: '', size: 2 });
+                                }
+                            } else {
+                                // SHORT signal: Only if EMA < VSR Low
+                                if (emaVal < zoneLow) {
+                                    crossMarkers.push({ time: data[i].time, position: 'aboveBar', color: '#f85149', shape: 'circle', text: '', size: 2 });
+                                }
+                            }
+                        }
+                        isBullish2 = nowBullish2;
+                    }
+                }
+
+                function updateChartMarkers() {
+                    const allMarkers = [...crossMarkers, ...pnlMarkers];
+                    allMarkers.sort((a, b) => a.time - b.time);
+                    candles.setMarkers(allMarkers);
+                }
+
+                updateChartMarkers();
+
+                // VSR Overlay
+                const overlay = new VSROverlay(chart, candles, {
+                    fill: 'rgba(57, 211, 83, 0.15)',
+                    stroke: 'rgba(57, 211, 83, 0.4)'
+                });
+                overlay.setData(data, vsrRes);
+
+                // PnL Tool Logic
+                const btnPnl = document.getElementById('btn-pnl');
+                const hintBox = document.getElementById('hint-box');
+                const pnlDisplay = document.getElementById('pnl-display');
+                const pnlTooltip = document.getElementById('pnl-tooltip');
+
+                btnPnl.onclick = () => {
+                    pnlMode = !pnlMode;
+                    btnPnl.classList.toggle('active', pnlMode);
+                    points = [];
+                    pnlMarkers = [];
+                    updateChartMarkers();
+                    hintBox.style.display = pnlMode ? 'block' : 'none';
+                    hintBox.innerText = 'Click on chart to select ENTRY point';
+                    pnlDisplay.style.display = 'none';
+                    pnlTooltip.style.display = 'none';
+                };
+
+                chart.subscribeClick(param => {
+                    if (!pnlMode || !param.point || !param.time) return;
+
+                    const price = candles.coordinateToPrice(param.point.y);
+                    if (!price) return;
+
+                    points.push({ price, time: param.time });
+
+                    if (points.length === 1) {
+                        hintBox.innerText = 'Click to select EXIT point';
+                        pnlMarkers = [{
+                            time: param.time,
+                            position: 'inBar',
+                            color: '#58a6ff',
+                            shape: 'circle',
+                            text: 'ENTRY'
+                        }];
+                        updateChartMarkers();
+                    } else if (points.length === 2) {
+                        pnlMarkers.push({
+                            time: param.time,
+                            position: 'inBar',
+                            color: '#d29922',
+                            shape: 'circle',
+                            text: 'EXIT'
+                        });
+                        updateChartMarkers();
+                        calculatePnL(points[0].price, points[1].price);
+                    }
+                });
+
+                chart.subscribeCrosshairMove(param => {
+                    if (!pnlMode || !param.point || !param.time) {
+                        pnlTooltip.style.display = 'none';
+                        return;
+                    }
+
+                    const price = candles.coordinateToPrice(param.point.y);
+                    if (!price) {
+                        pnlTooltip.style.display = 'none';
+                        return;
+                    }
+
+                    pnlTooltip.style.display = 'block';
+                    pnlTooltip.style.left = (param.point.x + 15) + 'px';
+                    pnlTooltip.style.top = (param.point.y + 15) + 'px';
+
+                    if (points.length === 0) {
+                        pnlTooltip.innerHTML = `Price: ${price.toFixed(4)}`;
+                    } else {
+                        const entry = points[0].price;
+                        const exit = price;
+                        const side = exit > entry ? 'LONG' : 'SHORT';
+                        const pnlPct = side === 'LONG' ? (exit - entry) / entry : (entry - exit) / entry;
+                        const roe = pnlPct * 20 * 100;
+                        pnlTooltip.innerHTML = `
+                            <div style="font-weight:bold; color:var(--gold)">LIVE PNL</div>
+                            <div>Side: ${side}</div>
+                            <div>Price: ${exit.toFixed(4)}</div>
+                            <div class="${roe >= 0 ? 'plus' : 'minus'}">ROE: ${roe.toFixed(2)}%</div>
+                        `;
+                    }
+                });
+
+                function calculatePnL(entry, exit) {
+                    const amount = 100;
+                    const leverage = 20;
+                    const side = exit > entry ? 'LONG' : 'SHORT';
+
+                    const pnlPct = side === 'LONG'
+                        ? (exit - entry) / entry
+                        : (entry - exit) / entry;
+
+                    const roe = pnlPct * leverage * 100;
+                    const pnlUsdt = amount * pnlPct * leverage;
+
+                    pnlDisplay.style.display = 'block';
+                    pnlDisplay.innerHTML = `
+                        <div class="pnl-close" id="pnl-close-btn">&times;</div>
+                        <div style="text-align:center; font-weight:bold; margin-bottom:8px; color:var(--gold)">PNL ANALYSIS (100 USDT x20)</div>
+                        <div class="pnl-row"><span>Side:</span> <span class="${side === 'LONG' ? 'plus' : 'minus'}">${side}</span></div>
+                        <div class="pnl-row"><span>Entry:</span> <span>${entry.toFixed(4)}</span></div>
+                        <div class="pnl-row"><span>Exit:</span> <span>${exit.toFixed(4)}</span></div>
+                        <div class="pnl-row"><span>ROE%:</span> <span class="pnl-val ${roe >= 0 ? 'plus' : 'minus'}">${roe.toFixed(2)}%</span></div>
+                        <div class="pnl-row"><span>PnL:</span> <span class="pnl-val ${roe >= 0 ? 'plus' : 'minus'}">${pnlUsdt.toFixed(2)} USDT</span></div>
+                    `;
+
+                    document.getElementById('pnl-close-btn').onclick = closePnL;
+                }
+
+                function closePnL() {
+                    pnlMode = false;
+                    btnPnl.classList.remove('active');
+                    points = [];
+                    pnlMarkers = [];
+                    updateChartMarkers();
+                    hintBox.style.display = 'none';
+                    pnlDisplay.style.display = 'none';
+                    pnlTooltip.style.display = 'none';
+                }
+
+                window.addEventListener('keydown', e => {
+                    if (e.key === 'Escape') closePnL();
+                });
+
+                // Event Listeners
+                document.getElementById('toggle-atrbot').addEventListener('change', e => {
+                    VIEW.atrbot = e.target.checked;
+                    emaLine1.applyOptions({ visible: VIEW.atrbot });
+                    botatrLine1.applyOptions({ visible: VIEW.atrbot });
+                });
+
+                document.getElementById('toggle-atrbot2').addEventListener('change', e => {
+                    VIEW.atrbot2 = e.target.checked;
+                    emaLine2.applyOptions({ visible: VIEW.atrbot2 });
+                    botatrLine2.applyOptions({ visible: VIEW.atrbot2 });
+                    botatr2SLLine.applyOptions({ visible: VIEW.atrbot2 });
+                });
+
+                document.getElementById('toggle-atrbot3').addEventListener('change', e => {
+                    VIEW.atrbot3 = e.target.checked;
+                    emaLine3.applyOptions({ visible: VIEW.atrbot3 });
+                    botatrLine3.applyOptions({ visible: VIEW.atrbot3 });
+                });
+
+                document.getElementById('toggle-vwap').addEventListener('change', e => {
+                    vwapLine.applyOptions({ visible: e.target.checked });
+                });
+
+                document.getElementById('toggle-markers').addEventListener('change', e => {
+                    VIEW.markers = e.target.checked;
+                    overlay.canvas.style.display = VIEW.markers ? 'block' : 'none';
+                });
+
+                chart.timeScale().scrollToPosition(1, false);
+
+            } catch (err) {
+                console.error(err);
+                document.getElementById('loading').innerHTML = `<div style="color:var(--red)">Error: ${err.message}</div>`;
+            }
+        }
+
+        init();
+    </script>
+</body>
+
+</html>

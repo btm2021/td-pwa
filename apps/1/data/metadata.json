@@ -1,0 +1,20 @@
+{
+  "datasets": [
+    {
+      "symbol": "BTCUSDT",
+      "timeframe": "1h",
+      "count": 10000,
+      "lastCheck": 1767935970464,
+      "lastCandle": 1767934800000,
+      "filename": "data/BTCUSDT_1h.json"
+    },
+    {
+      "symbol": "IMXUSDT",
+      "timeframe": "15m",
+      "count": 137096,
+      "lastCheck": 1767935888182,
+      "lastCandle": 1767935700000,
+      "filename": "data/IMXUSDT_15m.json"
+    }
+  ]
+}

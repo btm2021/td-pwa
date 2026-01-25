@@ -4,8 +4,8 @@ import { activeTab, setActiveTab } from '../state/store';
 const navItems = [
     { id: 'watchlist', icon: 'watchlist', label: 'Watchlist' },
     { id: 'chart', icon: 'chart', label: 'Chart' },
+    { id: 'scanner', icon: 'search', label: 'Scanner' },
     { id: 'account', icon: 'wallet', label: 'Account' },
-    { id: 'explore', icon: 'explore', label: 'Explore' },
     { id: 'menu', icon: 'menu', label: 'Menu' },
 ];
 

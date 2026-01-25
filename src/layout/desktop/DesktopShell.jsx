@@ -9,6 +9,8 @@ import { Explore } from '../../screens/Explore';
 import { Community } from '../../screens/Community';
 import { Menu } from '../../screens/Menu';
 import { Account } from '../../screens/Account';
+import { Scanner } from '../../screens/Scanner';
+
 
 // Desktop-specific components
 import { DesktopChart } from '../../screens/desktop/DesktopChart';
@@ -21,6 +23,7 @@ const screens = {
     community: Community,
     menu: Menu,
     account: Account,
+    scanner: Scanner,
 };
 
 export function DesktopShell() {

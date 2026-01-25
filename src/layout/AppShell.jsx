@@ -9,6 +9,8 @@ import { Explore } from '../screens/Explore';
 import { Community } from '../screens/Community';
 import { Menu } from '../screens/Menu';
 import { Account } from '../screens/Account';
+import { Scanner } from '../screens/Scanner';
+
 
 // Screens that have their own header (no TopBar needed)
 const screensWithOwnHeader = ['watchlist', 'chart', 'account'];
@@ -27,6 +29,7 @@ const screens = {
     community: Community,
     menu: Menu,
     account: Account,
+    scanner: Scanner,
 };
 
 export function AppShell() {

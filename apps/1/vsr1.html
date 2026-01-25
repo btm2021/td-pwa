@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VSR1 - ATRBot Chart</title>
+    <script src="https://unpkg.com/lightweight-charts@4.2.1/dist/lightweight-charts.standalone.production.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <header class="top-bar">
+        <div class="logo">VSR1 <span style="color:var(--muted); font-weight:400; margin-left: 8px;">ATRBot Only</span>
+        </div>
+        <div class="controls">
+            <label><input type="checkbox" id="toggle-atrbot" checked> ATRBot</label>
+            <label><input type="checkbox" id="toggle-zigzag" checked> ZigZag</label>
+        </div>
+    </header>
+    <div id="chart-container">
+        <div id="loading">
+            <div class="spinner"></div>
+            <div>Loading Market Data...</div>
+        </div>
+    </div>
+
+    <script type="module">
+        /**
+         * CONFIGURATION
+         */
+        const CONFIG = {
+            dataUrl: "data/IMXUSDT_15m_50000.json",
+            botatr: {
+                multiplier: 0.3,
+                atrLength: 5,
+                emaLength: 7
+            }
+        };
+
+        import { calcEMA, calcATR, calcATRBot, calcZigZag } from './indicators.js';
+
+        async function init() {
+            try {
+                const resp = await fetch(CONFIG.dataUrl);
+                if (!resp.ok) throw new Error("Failed to load data");
+                const raw = await resp.json();
+                const data = raw.map(d => ({
+                    time: Math.floor(d.openTime / 1000),
+                    open: +d.open,
+                    high: +d.high,
+                    low: +d.low,
+                    close: +d.close,
+                    volume: +d.volume
+                })).sort((a, b) => a.time - b.time);
+
+                document.getElementById('loading').style.display = 'none';
+
+                const cont = document.getElementById('chart-container');
+                const chart = LightweightCharts.createChart(cont, {
+                    width: cont.clientWidth,
+                    height: cont.clientHeight,
+                    layout: { background: { color: '#0d1117' }, textColor: '#8b949e' },
+                    grid: { vertLines: { color: '#161b22' }, horzLines: { color: '#161b22' } },
+                    rightPriceScale: { borderColor: '#30363d' },
+                    timeScale: { borderColor: '#30363d', timeVisible: true }
+                });
+
+                new ResizeObserver(() => chart.applyOptions({ width: cont.clientWidth, height: cont.clientHeight })).observe(cont);
+
+                const candles = chart.addCandlestickSeries({
+                    upColor: '#238636', downColor: '#da3633',
+                    borderUpColor: '#238636', borderDownColor: '#da3633',
+                    wickUpColor: '#238636', wickDownColor: '#da3633',
+                    priceFormat: { type: 'price', precision: 4, minMove: 0.0001 }
+                });
+                candles.setData(data);
+
+                // Calculate Indicators using imported functions
+                const ema = calcEMA(data, CONFIG.botatr.emaLength);
+                const atr = calcATR(data, CONFIG.botatr.atrLength);
+                const botatr = calcATRBot(data, ema, atr, CONFIG.botatr.multiplier);
+
+                // Add Indicator Lines
+                const emaLine = chart.addLineSeries({
+                    color: '#2f81f7',
+                    lineWidth: 1,
+                    lineStyle: 2, // LargeDashed
+                    priceLineVisible: false,
+                    lastValueVisible: false,
+                    title: `EMA ${CONFIG.botatr.emaLength}`
+                });
+                emaLine.setData(data.map((d, i) => ({ time: d.time, value: ema[i] })));
+
+                const botatrLine = chart.addLineSeries({
+                    color: '#d29922',
+                    lineWidth: 2,
+                    priceLineVisible: false,
+                    lastValueVisible: false,
+                    title: 'ATRBot'
+                });
+                botatrLine.setData(data.map((d, i) => ({ time: d.time, value: botatr[i] })));
+
+                // ZigZag - nối đỉnh/đáy tại các điểm giao cắt ATRBot
+                const pivots = calcZigZag(data, botatr);
+                const zigzagLine = chart.addLineSeries({
+                    color: '#ff4976',
+                    lineWidth: 2,
+                    priceLineVisible: false,
+                    lastValueVisible: false,
+                    title: 'ZigZag'
+                });
+                zigzagLine.setData(pivots.map(p => ({ time: p.time, value: p.value })));
+
+                // Event Listeners
+                document.getElementById('toggle-atrbot').addEventListener('change', e => {
+                    const visible = e.target.checked;
+                    emaLine.applyOptions({ visible });
+                    botatrLine.applyOptions({ visible });
+                });
+
+                document.getElementById('toggle-zigzag').addEventListener('change', e => {
+                    zigzagLine.applyOptions({ visible: e.target.checked });
+                });
+
+                chart.timeScale().scrollToPosition(1, false);
+
+            } catch (err) {
+                console.error(err);
+                document.getElementById('loading').innerHTML = `<div style="color:var(--red)">Error: ${err.message}</div>`;
+            }
+        }
+
+        init();
+    </script>
+</body>
+
+</html>
