@@ -14,11 +14,11 @@
         <div class="logo">VSR7 <span style="color:var(--muted); font-weight:400; margin-left: 8px;">Simplified
                 VSR</span></div>
         <div class="controls">
-            <label><input type="checkbox" id="toggle-atrbot" checked> ATRBot 1</label>
+            <label><input type="checkbox" id="toggle-atrbot"> ATRBot 1</label>
             <label><input type="checkbox" id="toggle-atrbot2" checked> ATRBot 2</label>
-            <label><input type="checkbox" id="toggle-atrbot3" checked> ATRBot 3</label>
-            <label><input type="checkbox" id="toggle-vwap" checked> VWAP</label>
-            <label><input type="checkbox" id="toggle-markers" checked> VSR Zones</label>
+            <label><input type="checkbox" id="toggle-vwap"> VWAP</label>
+            <label><input type="checkbox" id="toggle-markers"> VSR Zones</label>
+            <button id="btn-backtest" class="btn-calc btn-backtest">Backtest</button>
             <button id="btn-pnl" class="btn-calc">PNL Tool</button>
         </div>
     </header>
@@ -30,6 +30,13 @@
         <div id="hint-box" class="hint-text">Click on chart to select ENTRY point</div>
         <div id="pnl-display"></div>
         <div id="pnl-tooltip" class="pnl-tooltip"></div>
+
+        <div id="modal-container" class="report-modal-overlay">
+            <div class="report-modal-content">
+                <div id="close-modal" class="report-modal-close">&times;</div>
+                <iframe id="report-iframe" class="report-modal-iframe"></iframe>
+            </div>
+        </div>
     </div>
 
     <script type="module">
@@ -63,12 +70,18 @@
             vsr: { length: 10, threshold: 5 },
             botatr: { multiplier: 1.681, atrLength: 10, emaLength: 34 },
             botatr2: { multiplier: 1, atrLength: 14, emaLength: 10 },
-            botatr3: { multiplier: 2, atrLength: 14, emaLength: 10 }
+            rr: 0.5
         };
 
         import { calcEMA, calcATR, calcATRBot, calcVSR, calcVWAP } from './indicators.js';
+        import { BacktestEngine } from './backtestengine.js';
 
-        const VIEW = { atrbot: true, atrbot2: true, atrbot3: true, markers: true };
+        const VIEW = {
+            atrbot: document.getElementById('toggle-atrbot').checked,
+            atrbot2: document.getElementById('toggle-atrbot2').checked,
+            vwap: document.getElementById('toggle-vwap').checked,
+            markers: document.getElementById('toggle-markers').checked
+        };
 
 
 
@@ -98,7 +111,7 @@
                 if (cur) this.zones.push(cur);
             }
             draw() {
-                if (!this.ctx) return;
+                if (!this.ctx || !VIEW.markers) return;
                 this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
                 this.zones.forEach(z => {
                     const ts = this.chart.timeScale();
@@ -111,6 +124,55 @@
                     this.ctx.lineWidth = 1;
                     this.ctx.fillRect(fx1, y1, fx2 - fx1, y2 - y1);
                     this.ctx.strokeRect(fx1, y1, fx2 - fx1, y2 - y1);
+                });
+            }
+        }
+
+        class TradeOverlay {
+            constructor(chart, series) {
+                this.chart = chart;
+                this.series = series;
+                this.trades = [];
+                const cont = document.getElementById('chart-container');
+                this.canvas = document.createElement('canvas');
+                Object.assign(this.canvas.style, { position: 'absolute', top: '0', left: '0', width: '100%', height: '100%', pointerEvents: 'none', zIndex: '3' });
+                cont.appendChild(this.canvas);
+                this.ctx = this.canvas.getContext('2d');
+                const redraw = () => { this.draw(); requestAnimationFrame(redraw); }; requestAnimationFrame(redraw);
+                new ResizeObserver(() => { this.canvas.width = cont.clientWidth; this.canvas.height = cont.clientHeight; }).observe(cont);
+            }
+            setTrades(trades) { this.trades = trades; }
+            draw() {
+                if (!this.ctx || !VIEW.atrbot2) return;
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                const ts = this.chart.timeScale();
+                this.trades.forEach(t => {
+                    const x1 = ts.timeToCoordinate(t.startTime);
+                    const x2 = ts.timeToCoordinate(t.endTime || t.startTime + 3600); // Default width if no end
+                    const yEntry = this.series.priceToCoordinate(t.entry);
+                    const ySl = this.series.priceToCoordinate(t.sl);
+                    const yTp = this.series.priceToCoordinate(t.tp);
+
+                    if (x1 === null || yEntry === null || ySl === null || yTp === null) return;
+                    const fx2 = x2 === null ? this.canvas.width : x2;
+                    const w = fx2 - x1;
+
+                    // Draw SL Box (Red)
+                    this.ctx.fillStyle = 'rgba(248, 81, 73, 0.15)';
+                    this.ctx.fillRect(x1, Math.min(yEntry, ySl), w, Math.abs(yEntry - ySl));
+
+                    // Draw TP Box (Green)
+                    this.ctx.fillStyle = 'rgba(57, 211, 83, 0.15)';
+                    this.ctx.fillRect(x1, Math.min(yEntry, yTp), w, Math.abs(yEntry - yTp));
+
+                    // Draw Center Line (Entry)
+                    this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+                    this.ctx.setLineDash([5, 5]);
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(x1, yEntry);
+                    this.ctx.lineTo(fx2, yEntry);
+                    this.ctx.stroke();
+                    this.ctx.setLineDash([]);
                 });
             }
         }
@@ -163,42 +225,31 @@
                 const atr2 = calcATR(data, CONFIG.botatr2.atrLength);
                 const botatr2 = calcATRBot(data, ema2, atr2, CONFIG.botatr2.multiplier);
 
-                const ema3 = calcEMA(data, CONFIG.botatr3.emaLength);
-                const atr3 = calcATR(data, CONFIG.botatr3.atrLength);
-                const botatr3 = calcATRBot(data, ema3, atr3, CONFIG.botatr3.multiplier);
-
                 const vwap = calcVWAP(data);
                 const vsrRes = calcVSR(data, CONFIG.vsr.length, CONFIG.vsr.threshold);
 
                 // Add Indicator Lines
                 // Bot 1
-                const emaLine1 = chart.addLineSeries({ color: '#2f81f7', lineWidth: 1, lineStyle: 2, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false, title: `EMA ${CONFIG.botatr.emaLength}` });
+                const emaLine1 = chart.addLineSeries({ color: '#2f81f7', lineWidth: 1, lineStyle: 2, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false, title: `EMA ${CONFIG.botatr.emaLength}`, visible: VIEW.atrbot });
                 emaLine1.setData(data.map((d, i) => ({ time: d.time, value: ema1[i] })));
 
-                const botatrLine1 = chart.addLineSeries({ color: '#d29922', lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false, title: 'ATRBot 1' });
+                const botatrLine1 = chart.addLineSeries({ color: '#d29922', lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false, title: 'ATRBot 1', visible: VIEW.atrbot });
                 botatrLine1.setData(data.map((d, i) => ({ time: d.time, value: botatr1[i] })));
 
                 // Bot 2
-                const emaLine2 = chart.addLineSeries({ color: '#ff7b72', lineWidth: 1, lineStyle: 2, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false, title: `EMA ${CONFIG.botatr2.emaLength}` });
+                const emaLine2 = chart.addLineSeries({ color: '#ff7b72', lineWidth: 1, lineStyle: 2, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false, title: `EMA ${CONFIG.botatr2.emaLength}`, visible: VIEW.atrbot2 });
                 emaLine2.setData(data.map((d, i) => ({ time: d.time, value: ema2[i] })));
 
-                const botatrLine2 = chart.addLineSeries({ color: '#fca121', lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false, title: 'ATRBot 2' });
+                const botatrLine2 = chart.addLineSeries({ color: '#fca121', lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false, title: 'ATRBot 2', visible: VIEW.atrbot2 });
                 botatrLine2.setData(data.map((d, i) => ({ time: d.time, value: botatr2[i] })));
 
-                const botatr2SLLine = chart.addLineSeries({ color: '#fca121', lineWidth: 1, lineStyle: 3, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false, title: 'ATRBot 2 SL (x2)' });
+                const botatr2SLLine = chart.addLineSeries({ color: '#fca121', lineWidth: 1, lineStyle: 3, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false, title: 'ATRBot 2 SL (x2)', visible: VIEW.atrbot2 });
                 botatr2SLLine.setData(data.map((d, i) => ({
                     time: d.time,
                     value: botatr2[i] === null ? null : ema2[i] + (botatr2[i] - ema2[i]) * 2
                 })));
 
-                // Bot 3
-                const emaLine3 = chart.addLineSeries({ color: '#aff5b4', lineWidth: 1, lineStyle: 2, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false, title: `EMA ${CONFIG.botatr3.emaLength} (B3)` });
-                emaLine3.setData(data.map((d, i) => ({ time: d.time, value: ema3[i] })));
-
-                const botatrLine3 = chart.addLineSeries({ color: '#39d353', lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false, title: 'ATRBot 3' });
-                botatrLine3.setData(data.map((d, i) => ({ time: d.time, value: botatr3[i] })));
-
-                const vwapLine = chart.addLineSeries({ color: '#8957e5', lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false, title: 'VWAP' });
+                const vwapLine = chart.addLineSeries({ color: '#8957e5', lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false, title: 'VWAP', visible: VIEW.vwap });
                 vwapLine.setData(data.map((d, i) => ({ time: d.time, value: vwap[i] })));
 
                 // PnL & Cross Markers State
@@ -209,6 +260,7 @@
 
                 // Calculate filtered Reversal Markers for ATRBot 2 (Trend Flip) - Circles only
                 let isBullish2 = null;
+                const visualTrades = [];
                 for (let i = 1; i < data.length; i++) {
                     if (botatr2[i - 1] === null || ema2[i] === null) continue;
 
@@ -225,23 +277,48 @@
                         const emaVal = ema2[i];
 
                         if (zoneHigh !== null && zoneLow !== null) {
-                            if (nowBullish2) {
-                                // LONG signal: Only if EMA > VSR High
-                                if (emaVal > zoneHigh) {
-                                    crossMarkers.push({ time: data[i].time, position: 'belowBar', color: '#39d353', shape: 'circle', text: '', size: 2 });
-                                }
-                            } else {
-                                // SHORT signal: Only if EMA < VSR Low
-                                if (emaVal < zoneLow) {
-                                    crossMarkers.push({ time: data[i].time, position: 'aboveBar', color: '#f85149', shape: 'circle', text: '', size: 2 });
-                                }
+                            const entry = data[i].close;
+                            const sl = ema2[i] + (botatr2[i] - ema2[i]) * 2; // trail3 level
+                            const risk = Math.abs(entry - sl);
+                            const reward = risk * CONFIG.rr; // Dynamic RR from config
+
+                            if (nowBullish2 && emaVal > zoneHigh) {
+                                crossMarkers.push({ time: data[i].time, position: 'belowBar', color: '#39d353', shape: 'circle', text: '', size: 2 });
+                                visualTrades.push({ startIdx: i, startTime: data[i].time, entry, sl, tp: entry + reward, side: 'LONG' });
+                            } else if (!nowBullish2 && emaVal < zoneLow) {
+                                crossMarkers.push({ time: data[i].time, position: 'aboveBar', color: '#f85149', shape: 'circle', text: '', size: 2 });
+                                visualTrades.push({ startIdx: i, startTime: data[i].time, entry, sl, tp: entry - reward, side: 'SHORT' });
                             }
                         }
                         isBullish2 = nowBullish2;
                     }
                 }
 
+                // Finalize trade end times for visualization by checking SL/TP hit (using High/Low)
+                visualTrades.forEach(t => {
+                    let exitTime = data[data.length - 1].time;
+                    for (let k = t.startIdx; k < data.length; k++) {
+                        const bar = data[k];
+                        if (t.side === 'LONG') {
+                            if (bar.low <= t.sl || bar.high >= t.tp) {
+                                exitTime = bar.time;
+                                break;
+                            }
+                        } else {
+                            if (bar.high >= t.sl || bar.low <= t.tp) {
+                                exitTime = bar.time;
+                                break;
+                            }
+                        }
+                    }
+                    t.endTime = exitTime;
+                });
+
                 function updateChartMarkers() {
+                    if (!VIEW.atrbot2) {
+                        candles.setMarkers(pnlMarkers);
+                        return;
+                    }
                     const allMarkers = [...crossMarkers, ...pnlMarkers];
                     allMarkers.sort((a, b) => a.time - b.time);
                     candles.setMarkers(allMarkers);
@@ -255,6 +332,11 @@
                     stroke: 'rgba(57, 211, 83, 0.4)'
                 });
                 overlay.setData(data, vsrRes);
+                overlay.canvas.style.display = VIEW.markers ? 'block' : 'none';
+
+                // Trade Overlay
+                const tradeOverlay = new TradeOverlay(chart, candles);
+                tradeOverlay.setTrades(visualTrades);
 
                 // PnL Tool Logic
                 const btnPnl = document.getElementById('btn-pnl');
@@ -262,8 +344,8 @@
                 const pnlDisplay = document.getElementById('pnl-display');
                 const pnlTooltip = document.getElementById('pnl-tooltip');
 
-                btnPnl.onclick = () => {
-                    pnlMode = !pnlMode;
+                function togglePnL(force) {
+                    pnlMode = (force !== undefined) ? force : !pnlMode;
                     btnPnl.classList.toggle('active', pnlMode);
                     points = [];
                     pnlMarkers = [];
@@ -272,7 +354,9 @@
                     hintBox.innerText = 'Click on chart to select ENTRY point';
                     pnlDisplay.style.display = 'none';
                     pnlTooltip.style.display = 'none';
-                };
+                }
+
+                btnPnl.onclick = () => togglePnL();
 
                 chart.subscribeClick(param => {
                     if (!pnlMode || !param.point || !param.time) return;
@@ -375,8 +459,70 @@
                     pnlTooltip.style.display = 'none';
                 }
 
+                // Backtest Logic
+                const btnBacktest = document.getElementById('btn-backtest');
+                const modal = document.getElementById('modal-container');
+                const iframe = document.getElementById('report-iframe');
+                const closeModal = document.getElementById('close-modal');
+
+                btnBacktest.onclick = () => {
+                    const engine = new BacktestEngine(data, 20);
+                    const signals = [];
+
+                    // Generate signals based on ATRBot 2 Trend Flip (the same circles on chart)
+                    let isBullishBT = null;
+                    for (let i = 1; i < data.length; i++) {
+                        if (botatr2[i - 1] === null || ema2[i] === null) continue;
+                        const nowBullish = ema2[i] > botatr2[i - 1];
+                        if (isBullishBT === null) { isBullishBT = nowBullish; continue; }
+
+                        if (nowBullish !== isBullishBT) {
+                            const zoneHigh = vsrRes.up[i], zoneLow = vsrRes.lo[i], emaVal = ema2[i];
+                            if (zoneHigh !== null && zoneLow !== null) {
+                                const entry = data[i].close;
+                                const sl = ema2[i] + (botatr2[i] - ema2[i]) * 2; // trail3 level
+                                const risk = Math.abs(entry - sl);
+                                const reward = risk * CONFIG.rr; // Dynamic RR from config
+                                if (nowBullish && emaVal > zoneHigh) {
+                                    signals.push({ time: data[i].time, side: 'LONG', sl, tp: entry + reward });
+                                } else if (!nowBullish && emaVal < zoneLow) {
+                                    signals.push({ time: data[i].time, side: 'SHORT', sl, tp: entry - reward });
+                                }
+                            }
+                            isBullishBT = nowBullish;
+                        }
+                    }
+
+                    const report = engine.run(signals);
+
+                    modal.style.display = 'block';
+                    iframe.src = 'readreport.html';
+                    iframe.onload = () => {
+                        iframe.contentWindow.postMessage({ type: 'BACKTEST_REPORT', data: report }, '*');
+                    };
+                };
+
+                closeModal.onclick = () => { modal.style.display = 'none'; iframe.src = ''; };
+                window.addEventListener('click', e => { if (e.target === modal) closeModal.onclick(); });
+
                 window.addEventListener('keydown', e => {
                     if (e.key === 'Escape') closePnL();
+                    // Quick PNL Tool: Shift key
+                    if (e.key === 'Shift' && !pnlMode && !e.repeat) {
+                        togglePnL(true);
+                    }
+                });
+
+                window.addEventListener('keyup', e => {
+                    if (e.key === 'Shift' && pnlMode) {
+                        closePnL();
+                    }
+                });
+
+                // Quick PNL Tool: Right click
+                cont.addEventListener('contextmenu', e => {
+                    e.preventDefault();
+                    togglePnL(true);
                 });
 
                 // Event Listeners
@@ -391,12 +537,6 @@
                     emaLine2.applyOptions({ visible: VIEW.atrbot2 });
                     botatrLine2.applyOptions({ visible: VIEW.atrbot2 });
                     botatr2SLLine.applyOptions({ visible: VIEW.atrbot2 });
-                });
-
-                document.getElementById('toggle-atrbot3').addEventListener('change', e => {
-                    VIEW.atrbot3 = e.target.checked;
-                    emaLine3.applyOptions({ visible: VIEW.atrbot3 });
-                    botatrLine3.applyOptions({ visible: VIEW.atrbot3 });
                 });
 
                 document.getElementById('toggle-vwap').addEventListener('change', e => {
