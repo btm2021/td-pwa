@@ -48,29 +48,6 @@ window.initializeDatafeed = function () {
         console.log('[Datafeed] OKX Spot datasource registered');
     }
 
-    // Register KuCoin Futures if available
-    if (typeof KuCoinFuturesDatasource !== 'undefined') {
-        manager.registerDatasource(new KuCoinFuturesDatasource(), false);
-        console.log('[Datafeed] KuCoin Futures datasource registered');
-    }
-
-    // Register KuCoin Spot if available
-    if (typeof KuCoinSpotDatasource !== 'undefined') {
-        manager.registerDatasource(new KuCoinSpotDatasource(), false);
-        console.log('[Datafeed] KuCoin Spot datasource registered');
-    }
-
-    // Register MEXC Futures if available
-    if (typeof MEXCFuturesDatasource !== 'undefined') {
-        manager.registerDatasource(new MEXCFuturesDatasource(), false);
-        console.log('[Datafeed] MEXC Futures datasource registered');
-    }
-
-    // Register MEXC Spot if available
-    if (typeof MEXCSpotDatasource !== 'undefined') {
-        manager.registerDatasource(new MEXCSpotDatasource(), false);
-        console.log('[Datafeed] MEXC Spot datasource registered');
-    }
 
     // Initialize all datasources (fetch exchange info)
     manager.initialize().then(() => {

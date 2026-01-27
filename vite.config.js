@@ -3,6 +3,7 @@ import preact from '@preact/preset-vite'
 import { resolve } from 'path'
 import { createReadStream, existsSync, statSync } from 'fs'
 import { VitePWA } from 'vite-plugin-pwa'
+import mkcert from 'vite-plugin-mkcert'
 
 // Custom plugin to serve chart library
 function serveChartPlugin() {
@@ -50,6 +51,7 @@ function serveChartPlugin() {
 export default defineConfig({
   plugins: [
     preact(),
+    mkcert(),
     serveChartPlugin(),
     VitePWA({
       registerType: 'autoUpdate',
@@ -111,6 +113,7 @@ export default defineConfig({
   server: {
     port: 3000,
     host: true,
+    https: true,
   },
   build: {
     outDir: 'dist',

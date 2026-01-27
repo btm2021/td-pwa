@@ -14,9 +14,9 @@ import { AppShell } from './layout/AppShell';
 import { DesktopShell } from './layout/desktop/DesktopShell';
 import { Icon } from './components/Icon';
 
-// State
 import { subscribeToTickers } from './state/watchlist';
 import { deviceMode, initDeviceMode, loadUserPreference, setDeviceMode } from './hooks/useDeviceMode';
+import { useWakeLock } from './hooks/useWakeLock';
 
 // Google Font
 const fontLink = document.createElement('link');
@@ -56,6 +56,9 @@ export function App() {
   const [showSplash, setShowSplash] = useState(true);
   const [isReady, setIsReady] = useState(false);
   const mode = deviceMode.value;
+
+  // Prevent screen from turning off (System API)
+  useWakeLock();
 
   useEffect(() => {
     // Initialize device mode detection

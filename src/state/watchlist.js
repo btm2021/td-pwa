@@ -12,75 +12,19 @@ export const timeframes = [
     { id: '1w', label: '1W' },
 ];
 
-// Default categories - includes all supported exchanges with popular USDT pairs
-// Symbols use exchange prefix format (EXCHANGE:SYMBOL) to separate prices by exchange
+// Initial static categories
 const defaultCategories = [
     {
         id: 'favorites',
         label: 'Favorites',
         color: '#FFD600',
         symbols: ['BINANCE:BTCUSDT', 'BINANCE:ETHUSDT', 'BINANCE:SOLUSDT'],
-    },
-    {
-        id: 'BINANCE_FUTURES',
-        label: 'Binance',
-        color: '#F3BA2F',
-        symbols: [
-            'BINANCE:BTCUSDT', 'BINANCE:ETHUSDT', 'BINANCE:BNBUSDT', 'BINANCE:SOLUSDT', 'BINANCE:XRPUSDT',
-            'BINANCE:DOGEUSDT', 'BINANCE:ADAUSDT', 'BINANCE:AVAXUSDT', 'BINANCE:DOTUSDT', 'BINANCE:LINKUSDT',
-            'BINANCE:MATICUSDT', 'BINANCE:LTCUSDT', 'BINANCE:UNIUSDT', 'BINANCE:ATOMUSDT', 'BINANCE:APTUSDT',
-            'BINANCE:ARBUSDT', 'BINANCE:OPUSDT', 'BINANCE:SUIUSDT', 'BINANCE:NEARUSDT', 'BINANCE:INJUSDT'
-        ],
-    },
-    {
-        id: 'BYBIT_FUTURES',
-        label: 'Bybit',
-        color: '#F7A600',
-        symbols: [
-            'BYBIT:BTCUSDT', 'BYBIT:ETHUSDT', 'BYBIT:SOLUSDT', 'BYBIT:XRPUSDT', 'BYBIT:DOGEUSDT',
-            'BYBIT:AVAXUSDT', 'BYBIT:LINKUSDT', 'BYBIT:MATICUSDT', 'BYBIT:LTCUSDT', 'BYBIT:APTUSDT',
-            'BYBIT:ARBUSDT', 'BYBIT:OPUSDT', 'BYBIT:SUIUSDT', 'BYBIT:NEARUSDT', 'BYBIT:INJUSDT'
-        ],
-    },
-    {
-        id: 'OKX_FUTURES',
-        label: 'OKX',
-        color: '#00C8FF',
-        symbols: [
-            'OKX:BTCUSDT', 'OKX:ETHUSDT', 'OKX:SOLUSDT', 'OKX:XRPUSDT', 'OKX:DOGEUSDT',
-            'OKX:AVAXUSDT', 'OKX:LINKUSDT', 'OKX:LTCUSDT', 'OKX:APTUSDT', 'OKX:ARBUSDT',
-            'OKX:OPUSDT', 'OKX:SUIUSDT', 'OKX:NEARUSDT', 'OKX:INJUSDT', 'OKX:WLDUSDT'
-        ],
-    },
-    {
-        id: 'KUCOIN_FUTURES',
-        label: 'KuCoin',
-        color: '#23AF91',
-        symbols: [
-            'KUCOIN:BTCUSDT', 'KUCOIN:ETHUSDT', 'KUCOIN:SOLUSDT', 'KUCOIN:XRPUSDT', 'KUCOIN:DOGEUSDT',
-            'KUCOIN:AVAXUSDT', 'KUCOIN:LINKUSDT', 'KUCOIN:LTCUSDT', 'KUCOIN:APTUSDT', 'KUCOIN:ARBUSDT'
-        ],
-    },
-    {
-        id: 'MEXC_FUTURES',
-        label: 'MEXC',
-        color: '#1972F5',
-        symbols: [
-            'MEXC:BTCUSDT', 'MEXC:ETHUSDT', 'MEXC:SOLUSDT', 'MEXC:XRPUSDT', 'MEXC:DOGEUSDT',
-            'MEXC:AVAXUSDT', 'MEXC:LINKUSDT', 'MEXC:APTUSDT', 'MEXC:ARBUSDT', 'MEXC:SUIUSDT'
-        ],
-    },
-    {
-        id: 'OANDA_FOREX',
-        label: 'Forex',
-        color: '#00A0DC',
-        symbols: [
-            'OANDA:XAUUSD', 'OANDA:EURUSD', 'OANDA:GBPUSD', 'OANDA:USDJPY', 'OANDA:AUDUSD',
-            'OANDA:USDCAD', 'OANDA:NZDUSD', 'OANDA:EURGBP', 'OANDA:EURJPY', 'OANDA:GBPJPY'
-        ],
-    },
-
+        type: 'user'
+    }
 ];
+
+// Symbols provided by datafeeds (cached)
+const exchangeSymbolMap = signal({});
 
 
 // Watchlist categories
@@ -205,25 +149,16 @@ async function loadCategoriesFromFirebase() {
         if (doc.exists) {
             const data = doc.data();
 
-            if (data.categories && Array.isArray(data.categories) && data.categories.length > 0) {
-                // Merge saved categories with default exchange categories
-                const savedCategories = data.categories;
-                const mergedCategories = [...defaultCategories];
+            if (data.categories && Array.isArray(data.categories)) {
+                // We only load user categories from Firebase
+                const userCategories = data.categories.filter(c => c.type === 'user' || c.id === 'favorites');
 
-                // Add user custom categories or update existing ones
-                savedCategories.forEach(savedCat => {
-                    const existingIndex = mergedCategories.findIndex(c => c.id === savedCat.id);
-                    if (existingIndex > -1) {
-                        // Update existing category with saved data (preserve user's symbols)
-                        mergedCategories[existingIndex] = { ...mergedCategories[existingIndex], ...savedCat };
-                    } else {
-                        // Add new user category
-                        mergedCategories.push(savedCat);
-                    }
-                });
+                // Merge with current categories (which include exchange ones)
+                const currentCats = categories.value;
+                const otherCats = currentCats.filter(c => c.type === 'system');
 
-                categories.value = mergedCategories;
-                console.log('[Watchlist] Loaded from Firebase:', mergedCategories.length, 'categories');
+                categories.value = [...userCategories, ...otherCats];
+                console.log('[Watchlist] Loaded user categories from Firebase:', userCategories.length);
             }
 
             if (data.activeCategory && categories.value.some(c => c.id === data.activeCategory)) {
@@ -249,40 +184,38 @@ async function loadCategoriesFromFirebase() {
 
 }
 
-// LocalStorage fallback
-function saveCategoriesToLocalStorage() {
-    try {
-        localStorage.setItem('watchlist_categories', JSON.stringify(categories.value));
-        localStorage.setItem('watchlist_active_category', activeCategory.value);
-    } catch (e) {
-        console.warn('[Watchlist] Could not save to localStorage:', e);
-    }
-}
 
 function loadCategoriesFromLocalStorage() {
     try {
-        const saved = localStorage.getItem('watchlist_categories');
+        // Try new key first
+        let saved = localStorage.getItem('watchlist_user_categories');
+
+        // Fallback to old key for migration
+        if (!saved) {
+            saved = localStorage.getItem('watchlist_categories');
+        }
+
         const savedActive = localStorage.getItem('watchlist_active_category');
 
         if (saved) {
             const parsed = JSON.parse(saved);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-                // Merge saved categories with default exchange categories
-                const mergedCategories = [...defaultCategories];
+            if (Array.isArray(parsed)) {
+                // Ensure they are marked as user/favorites
+                const userCats = parsed.map(c => ({
+                    ...c,
+                    type: (c.id === 'favorites' || c.type === 'user') ? 'user' : 'system'
+                }));
 
-                parsed.forEach(savedCat => {
-                    const existingIndex = mergedCategories.findIndex(c => c.id === savedCat.id);
-                    if (existingIndex > -1) {
-                        mergedCategories[existingIndex] = { ...mergedCategories[existingIndex], ...savedCat };
-                    } else {
-                        mergedCategories.push(savedCat);
-                    }
-                });
+                // Merge with current (which has exchange cats from sync)
+                const currentCats = categories.value;
+                const systemCats = currentCats.filter(c => c.type === 'system');
 
-                categories.value = mergedCategories;
+                // Filter out any system cats from the saved list to avoid duplicates
+                const finalUserCats = userCats.filter(c => c.type === 'user');
+
+                categories.value = [...finalUserCats, ...systemCats];
             }
         }
-
 
         if (savedActive && categories.value.some(c => c.id === savedActive)) {
             activeCategory.value = savedActive;
@@ -297,11 +230,38 @@ function loadCategoriesFromLocalStorage() {
 // Public save function (debounced)
 let saveTimeout = null;
 function saveCategoriesToStorage() {
-    // Debounce saves
+    // Only save USER categories to persistence
+    const userCategories = categories.value.filter(c => c.type === 'user' || c.id === 'favorites');
+
+    // Update local immediately for responsiveness
+    saveCategoriesToLocalStorage(userCategories);
+
+    // Debounce Firebase saves
     if (saveTimeout) clearTimeout(saveTimeout);
-    saveTimeout = setTimeout(() => {
-        saveCategoriesToFirebase();
-    }, 500);
+    saveTimeout = setTimeout(async () => {
+        try {
+            const watchlistRef = getWatchlistCollection();
+            if (watchlistRef) {
+                await watchlistRef.doc('categories').set({
+                    categories: userCategories,
+                    activeCategory: activeCategory.value,
+                    updatedAt: Date.now()
+                });
+            }
+        } catch (e) {
+            console.error('[Watchlist] Firebase save failed:', e);
+        }
+    }, 1000);
+}
+
+// LocalStorage fallback for USER categories
+function saveCategoriesToLocalStorage(userCategories) {
+    try {
+        localStorage.setItem('watchlist_user_categories', JSON.stringify(userCategories));
+        localStorage.setItem('watchlist_active_category', activeCategory.value);
+    } catch (e) {
+        console.warn('[Watchlist] Could not save to localStorage:', e);
+    }
 }
 
 // Public load function
@@ -344,6 +304,7 @@ let bybitReconnectTimeout = null;
 // OKX WebSocket
 let okxWs = null;
 let okxReconnectTimeout = null;
+
 
 // Subscribe to all exchange ticker streams
 export function subscribeToTickers() {
@@ -429,15 +390,29 @@ function subscribeToBybit() {
 
         bybitWs.onopen = () => {
             console.log('[Bybit WebSocket] Connected');
-            // Subscribe to popular USDT perpetual tickers
-            bybitWs.send(JSON.stringify({
-                op: 'subscribe',
-                args: [
-                    'tickers.BTCUSDT', 'tickers.ETHUSDT', 'tickers.SOLUSDT', 'tickers.XRPUSDT', 'tickers.DOGEUSDT',
-                    'tickers.AVAXUSDT', 'tickers.LINKUSDT', 'tickers.MATICUSDT', 'tickers.LTCUSDT', 'tickers.APTUSDT',
-                    'tickers.ARBUSDT', 'tickers.OPUSDT', 'tickers.SUIUSDT', 'tickers.NEARUSDT', 'tickers.INJUSDT'
-                ]
-            }));
+            // Subscribe to all symbols from exchangeInfo if available
+            const symbols = window.symbolConfig?.['BYBIT_FUTURES'] || [];
+            if (symbols.length > 0) {
+                // Bybit allows max 10 symbols per subscribe message, or we can send multiple messages
+                // Actually, let's subscribe to all current USDT linear perpetuals
+                const usdtSymbols = symbols.filter(s => s.symbol.endsWith('USDT')).map(s => `tickers.${s.symbol}`);
+
+                // Send in batches of 10 to be safe
+                for (let i = 0; i < usdtSymbols.length; i += 10) {
+                    const batch = usdtSymbols.slice(i, i + 10);
+                    bybitWs.send(JSON.stringify({
+                        op: 'subscribe',
+                        args: batch
+                    }));
+                }
+                console.log(`[Bybit WebSocket] Subscribed to ${usdtSymbols.length} symbols`);
+            } else {
+                // Fallback to popular ones if config not ready
+                bybitWs.send(JSON.stringify({
+                    op: 'subscribe',
+                    args: ['tickers.BTCUSDT', 'tickers.ETHUSDT', 'tickers.SOLUSDT']
+                }));
+            }
         };
 
         bybitWs.onmessage = (event) => {
@@ -494,27 +469,14 @@ function subscribeToOKX() {
 
         okxWs.onopen = () => {
             console.log('[OKX WebSocket] Connected');
-            // Subscribe to popular USDT perpetual tickers
+            // Subscribe to all USDT SWAP tickers using instType
             okxWs.send(JSON.stringify({
                 op: 'subscribe',
                 args: [
-                    { channel: 'tickers', instId: 'BTC-USDT-SWAP' },
-                    { channel: 'tickers', instId: 'ETH-USDT-SWAP' },
-                    { channel: 'tickers', instId: 'SOL-USDT-SWAP' },
-                    { channel: 'tickers', instId: 'XRP-USDT-SWAP' },
-                    { channel: 'tickers', instId: 'DOGE-USDT-SWAP' },
-                    { channel: 'tickers', instId: 'AVAX-USDT-SWAP' },
-                    { channel: 'tickers', instId: 'LINK-USDT-SWAP' },
-                    { channel: 'tickers', instId: 'LTC-USDT-SWAP' },
-                    { channel: 'tickers', instId: 'APT-USDT-SWAP' },
-                    { channel: 'tickers', instId: 'ARB-USDT-SWAP' },
-                    { channel: 'tickers', instId: 'OP-USDT-SWAP' },
-                    { channel: 'tickers', instId: 'SUI-USDT-SWAP' },
-                    { channel: 'tickers', instId: 'NEAR-USDT-SWAP' },
-                    { channel: 'tickers', instId: 'INJ-USDT-SWAP' },
-                    { channel: 'tickers', instId: 'WLD-USDT-SWAP' }
+                    { channel: 'tickers', instType: 'SWAP' }
                 ]
             }));
+            console.log('[OKX WebSocket] Subscribed to all SWAP tickers');
         };
 
         okxWs.onmessage = (event) => {
@@ -523,7 +485,10 @@ function subscribeToOKX() {
                 if (data.data && data.data.length > 0) {
                     data.data.forEach(ticker => {
                         // Convert OKX instId to symbol format (BTC-USDT-SWAP -> BTCUSDT)
-                        const symbol = ticker.instId.replace('-USDT-SWAP', 'USDT').replace('-', '');
+                        const symbol = ticker.instId.replace(/-SWAP$/, '').replace(/-/g, '');
+
+                        // Only process USDT pairs for simplicity
+                        if (!symbol.endsWith('USDT')) return;
 
                         const newTickerData = { ...tickerData.value };
                         // Store with exchange prefix for separation
@@ -561,6 +526,7 @@ function subscribeToOKX() {
 
     connect();
 }
+
 
 async function subscribeToOANDA() {
     if (oandaAbortController) return;
@@ -719,6 +685,7 @@ export function unsubscribeFromTickers() {
         okxWs = null;
     }
 
+
     // OANDA
     if (oandaAbortController) {
         oandaAbortController.abort();
@@ -744,7 +711,7 @@ export function getTicker(symbol) {
         if (tickerData.value[binanceKey]) return tickerData.value[binanceKey];
 
         // Try other exchanges
-        const exchanges = ['BYBIT', 'OKX', 'KUCOIN', 'MEXC', 'OANDA'];
+        const exchanges = ['BYBIT', 'OKX', 'OANDA'];
         for (const exchange of exchanges) {
             const key = `${exchange}:${upperSymbol}`;
             if (tickerData.value[key]) return tickerData.value[key];
@@ -916,125 +883,75 @@ export function syncDatafeedWatchlists(allSymbols) {
     const exchangeConfigs = [
         {
             id: 'BINANCE_FUTURES',
-            label: 'Binance Futures',
+            label: 'Binance',
             color: '#F3BA2F',
-            filter: (s) => {
-                const exchange = (s.exchange || '').toUpperCase();
-                const fullName = (s.full_name || '').toUpperCase();
-                const symbol = (s.symbol || '').toUpperCase();
-                return (exchange.includes('BINANCE') && exchange.includes('FUTURES')) ||
-                    fullName.startsWith('BINANCE:');
-            }
+            filter: (s) => (s.datasource === 'BINANCE_FUTURES' || (s.exchange || '').toUpperCase().includes('BINANCE'))
         },
         {
             id: 'BYBIT_FUTURES',
-            label: 'Bybit Futures',
+            label: 'Bybit',
             color: '#F7A600',
-            filter: (s) => {
-                const exchange = (s.exchange || '').toUpperCase();
-                const fullName = (s.full_name || '').toUpperCase();
-                return exchange.includes('BYBIT') && exchange.includes('FUTURES') ||
-                    fullName.startsWith('BYBIT_FUTURES:') || fullName.startsWith('BYBITF:');
-            }
+            filter: (s) => s.datasource === 'BYBIT_FUTURES' || (s.exchange || '').toUpperCase() === 'BYBIT FUTURES'
         },
         {
             id: 'OKX_FUTURES',
-            label: 'OKX Futures',
+            label: 'OKX',
             color: '#00C8FF',
-            filter: (s) => {
-                const exchange = (s.exchange || '').toUpperCase();
-                const fullName = (s.full_name || '').toUpperCase();
-                return exchange.includes('OKX') && exchange.includes('FUTURES') ||
-                    fullName.startsWith('OKX_FUTURES:') || fullName.startsWith('OKXF:');
-            }
-        },
-        {
-            id: 'KUCOIN_FUTURES',
-            label: 'KuCoin Futures',
-            color: '#23AF91',
-            filter: (s) => {
-                const exchange = (s.exchange || '').toUpperCase();
-                const fullName = (s.full_name || '').toUpperCase();
-                return exchange.includes('KUCOIN') && exchange.includes('FUTURES') ||
-                    fullName.startsWith('KUCOIN_FUTURES:') || fullName.startsWith('KCF:');
-            }
-        },
-        {
-            id: 'MEXC_FUTURES',
-            label: 'MEXC Futures',
-            color: '#1972F5',
-            filter: (s) => {
-                const exchange = (s.exchange || '').toUpperCase();
-                const fullName = (s.full_name || '').toUpperCase();
-                return exchange.includes('MEXC') && exchange.includes('FUTURES') ||
-                    fullName.startsWith('MEXC_FUTURES:') || fullName.startsWith('MXF:');
-            }
+            filter: (s) => s.datasource === 'OKX_FUTURES' || (s.exchange || '').toUpperCase() === 'OKX FUTURES'
         },
         {
             id: 'OANDA_FOREX',
-            label: 'OANDA Forex',
+            label: 'Forex',
             color: '#00A0DC',
-            filter: (s) => {
-                const exchange = (s.exchange || '').toUpperCase();
-                const fullName = (s.full_name || '').toUpperCase();
-                return exchange === 'OANDA' || fullName.startsWith('OANDA:');
-            },
-            skipUsdtFilter: true // Forex doesn't have USDT pairs
+            filter: (s) => (s.datasource === 'OANDA' || s.exchange === 'OANDA' || s.full_name?.startsWith('OANDA:')),
+            skipUsdtFilter: true
         }
     ];
 
-    let updated = false;
     const currentCats = [...categories.value];
+    let changed = false;
 
-    // Helper to add or update systemic category
-    const updateSystemCat = (id, label, color, symbols) => {
-        if (symbols.length === 0) return; // Don't create empty categories
+    exchangeConfigs.forEach(config => {
+        let exchangeSymbols = allSymbols.filter(config.filter);
 
-        const index = currentCats.findIndex(c => c.id === id);
+        if (!config.skipUsdtFilter) {
+            exchangeSymbols = exchangeSymbols.filter(s => (s.symbol || '').toUpperCase().endsWith('USDT'));
+        }
+
+        const symbolNames = exchangeSymbols.map(s => s.full_name || s.symbol);
+
+        // Find if this system category already exists
+        const index = currentCats.findIndex(c => c.id === config.id);
+
         if (index > -1) {
-            // Update existing - only update if symbols changed
-            const existingSymbols = currentCats[index].symbols || [];
-            if (JSON.stringify(existingSymbols.sort()) !== JSON.stringify(symbols.sort())) {
-                currentCats[index] = { ...currentCats[index], symbols: symbols };
-                updated = true;
+            // Update symbols if they changed
+            const oldSymbols = currentCats[index].symbols || [];
+            if (oldSymbols.length !== symbolNames.length || !oldSymbols.every((val, i) => val === symbolNames[i])) {
+                currentCats[index] = { ...currentCats[index], symbols: symbolNames };
+                changed = true;
             }
         } else {
-            // Add new
+            // Add new system category
             currentCats.push({
-                id: id,
-                label: label,
-                color: color,
-                symbols: symbols
+                id: config.id,
+                label: config.label,
+                color: config.color,
+                symbols: symbolNames,
+                type: 'system'
             });
-            updated = true;
+            changed = true;
         }
-    };
-
-    // Process each exchange
-    exchangeConfigs.forEach(config => {
-        let symbols = allSymbols.filter(config.filter);
-
-        // Filter to USDT pairs only (except for Forex)
-        if (!config.skipUsdtFilter) {
-            symbols = symbols.filter(s => {
-                const symbol = (s.symbol || '').toUpperCase();
-                return symbol.endsWith('USDT');
-            });
-        }
-
-        // Get full_name for watchlist
-        const symbolNames = symbols.map(s => s.full_name || s.symbol);
-
-        // Limit to top 100 symbols to avoid performance issues
-        const limitedSymbols = symbolNames.slice(0, 100);
-
-        updateSystemCat(config.id, config.label, config.color, limitedSymbols);
     });
 
-    if (updated) {
+    if (changed) {
+        // Keep favorites first if possible
+        currentCats.sort((a, b) => {
+            if (a.id === 'favorites') return -1;
+            if (b.id === 'favorites') return 1;
+            return 0;
+        });
         categories.value = currentCats;
-        saveCategoriesToStorage();
-        console.log('[Watchlist] Synced categories from datasources');
+        console.log('[Watchlist] Exchange categories synced with full symbol lists');
     }
 }
 

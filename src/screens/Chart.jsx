@@ -308,7 +308,6 @@ export function Chart() {
                     </div>
                 )}
             </div>
-
             {/* Chart Toolbar */}
             <div className="chart-toolbar">
                 {/* Symbol Button */}

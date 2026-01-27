@@ -73,17 +73,18 @@ class DatafeedManager {
                 const info = ds ? ds.getInfo() : {};
 
                 const mapped = result.symbols.map(s => {
-                    // Determine full name and description based on source type
-                    let fullName = s.full_name || s.symbol;
+                    // Determine exchange prefix from datasource ID
+                    let prefix = info.id.split('_')[0].toUpperCase();
+                    if (prefix === 'OANDA') prefix = 'OANDA';
+
+                    let fullName = `${prefix}:${s.symbol}`;
                     let description = s.description || s.symbol;
                     let base = s.baseAsset || s.baseCurrency || '';
                     let quote = s.quoteAsset || s.quoteCurrency || '';
 
                     if (info.id === 'OANDA') {
-                        fullName = `OANDA:${s.symbol}`;
                         description = `${base} / ${quote}`;
-                    } else if (info.id === 'BINANCE_FUTURES') {
-                        fullName = `BINANCE:${s.symbol}`;
+                    } else {
                         description = `${base}/${quote}`;
                     }
 
@@ -92,6 +93,7 @@ class DatafeedManager {
                         full_name: fullName,
                         description: description,
                         exchange: info.exchange || result.datasource,
+                        datasource: result.datasource, // Added for easier filtering
                         type: info.type || 'crypto',
                         base: base,
                         quote: quote,

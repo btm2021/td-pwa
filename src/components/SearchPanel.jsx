@@ -4,9 +4,11 @@ import { tickerData, getCoinLogoUrl, getBaseAsset, formatPrice, formatPercent } 
 
 // Exchange tabs
 const EXCHANGES = [
-    { id: 'all', name: 'All', icon: null },
-    { id: 'BINANCE', name: 'Binance', icon: 'crypto' },
-    { id: 'OANDA', name: 'OANDA', icon: 'forex' },
+    { id: 'all', name: 'All' },
+    { id: 'BINANCE_FUTURES', name: 'Binance' },
+    { id: 'BYBIT_FUTURES', name: 'Bybit' },
+    { id: 'OKX_FUTURES', name: 'OKX' },
+    { id: 'OANDA_FOREX', name: 'Forex' },
 ];
 
 export function SearchPanel({ onClose, onSelectSymbol, currentSymbols = [] }) {
@@ -50,11 +52,11 @@ export function SearchPanel({ onClose, onSelectSymbol, currentSymbols = [] }) {
             let filtered = allSymbols.filter(s => {
                 // Exchange Filter
                 if (activeExchange !== 'all') {
-                    const isOanda = s.exchange === 'OANDA';
-                    const isBinance = s.exchange.includes('Binance') || s.exchange.includes('BINANCE');
-
-                    if (activeExchange === 'OANDA' && !isOanda) return false;
-                    if (activeExchange === 'BINANCE' && !isBinance) return false;
+                    if (s.original?.exchange_id !== activeExchange && !s.full_name.startsWith(activeExchange.split('_')[0])) {
+                        // Check exact exchange id or prefix match
+                        const prefix = activeExchange.split('_')[0];
+                        if (!s.full_name.startsWith(prefix + ':')) return false;
+                    }
                 }
 
                 // Search Term Filter
@@ -91,16 +93,19 @@ export function SearchPanel({ onClose, onSelectSymbol, currentSymbols = [] }) {
             });
 
             // Map results
-            const mapped = filtered.slice(0, 50).map(s => ({
-                symbol: s.symbol,
-                fullName: s.full_name || s.symbol,
-                baseAsset: s.base || s.symbol,
-                quoteAsset: s.quote || '',
-                exchange: s.exchange.includes('Binance') ? 'BINANCE' : 'OANDA',
-                type: s.type,
-                description: s.description,
-                logoUrls: s.original?.logo_urls
-            }));
+            const mapped = filtered.slice(0, 50).map(s => {
+                const exchangeName = s.full_name.split(':')[0];
+                return {
+                    symbol: s.symbol,
+                    fullName: s.full_name || s.symbol,
+                    baseAsset: s.base || s.symbol,
+                    quoteAsset: s.quote || '',
+                    exchange: exchangeName,
+                    type: s.type,
+                    description: s.description,
+                    logoUrls: s.original?.logo_urls
+                };
+            });
 
             setResults(mapped);
             setLoading(false);
@@ -243,11 +248,12 @@ function SearchResultItem({ symbol, ticker, isAdded, onClick }) {
 
     // Get exchange badge color
     const getExchangeColor = () => {
-        switch (symbol.exchange) {
-            case 'OANDA': return '#00A0DC';
-            case 'BINANCE': return '#F3BA2F';
-            default: return '#888';
-        }
+        const ex = symbol.exchange?.toUpperCase();
+        if (ex.includes('BINANCE')) return '#F3BA2F';
+        if (ex.includes('BYBIT')) return '#F7A600';
+        if (ex.includes('OKX')) return '#00C8FF';
+        if (ex.includes('OANDA')) return '#00A0DC';
+        return '#888';
     };
 
     return (
