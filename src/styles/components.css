@@ -92,7 +92,7 @@
 .watchlist-mobile-header {
     background: var(--bg-secondary);
     border-bottom: 1px solid var(--border-primary);
-    padding-top: var(--spacing-md);
+    padding-top: calc(var(--spacing-md) + var(--safe-area-top));
     flex-shrink: 0;
 }
 
@@ -799,14 +799,17 @@
     background: var(--bg-primary);
     overflow: hidden;
     position: relative;
-    padding-top: 0;
+    padding-top: var(--safe-area-top);
 }
 
 .chart-container {
     flex: 1;
     width: 100%;
+    height: calc(100% + 26px);
+    margin-bottom: -26px;
     min-height: 0;
     position: relative;
+    z-index: 1;
 }
 
 .chart-loading {
