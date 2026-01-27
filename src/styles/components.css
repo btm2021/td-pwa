@@ -766,14 +766,18 @@
 .chart-screen {
     display: flex;
     flex-direction: column;
-    height: 100%;
+    flex: 1;
+    width: 100%;
     background: var(--bg-primary);
+    overflow: hidden;
+    position: relative;
+    padding-top: env(safe-area-inset-top, 0px);
 }
 
 .chart-container {
     flex: 1;
+    width: 100%;
     min-height: 0;
-    background: var(--bg-primary);
     position: relative;
 }
 
@@ -795,6 +799,8 @@
 
 /* ===== Chart Toolbar ===== */
 .chart-toolbar {
+    flex-shrink: 0;
+    width: 100%;
     display: flex;
     align-items: center;
     gap: var(--spacing-sm);
@@ -802,16 +808,17 @@
     background-color: var(--bg-secondary);
     border-top: 1px solid var(--border-primary);
     min-height: 52px;
+    z-index: 10;
+    margin-top: auto;
+    /* Push to bottom of chart-screen */
 }
 
-/* Fullscreen mode safe area handling for chart */
+/* Fullscreen mode adjustments - Handle safe areas only when sidebars/nav are hidden */
 .app-shell--fullscreen .chart-screen {
-    /* Add top padding for notch/Dynamic Island */
     padding-top: env(safe-area-inset-top, 0px);
 }
 
 .app-shell--fullscreen .chart-toolbar {
-    /* Add bottom padding for home indicator */
     padding-bottom: calc(var(--spacing-sm) + env(safe-area-inset-bottom, 0px));
 }
 
@@ -1349,7 +1356,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: var(--spacing-md) var(--spacing-lg);
+    padding: calc(var(--spacing-md) + env(safe-area-inset-top, 0px)) var(--spacing-lg) var(--spacing-md);
     background: var(--bg-primary);
     border-bottom: 1px solid var(--border-primary);
 }

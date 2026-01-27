@@ -153,7 +153,8 @@ function generateMockPnL(seed) {
     const pnl = [];
     let cumulative = 0;
 
-    for (let i = 7; i >= 0; i--) {
+    // Generate 30 days of history
+    for (let i = 30; i >= 0; i--) {
         const date = new Date(Date.now() - i * 86400000);
         const daily = (Math.random() - 0.4) * 300 * ((seed % 3) + 1);
         cumulative += daily;

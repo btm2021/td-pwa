@@ -6,6 +6,7 @@ const navItems = [
     { id: 'watchlist', icon: 'watchlist', label: 'Watchlist', shortcut: 'W' },
     { id: 'chart', icon: 'chart', label: 'Chart', shortcut: 'C' },
     { id: 'scanner', icon: 'search', label: 'Scanner', shortcut: 'S' },
+    { id: 'calendar', icon: 'calendar', label: 'Calendar', shortcut: 'L' },
     { id: 'account', icon: 'wallet', label: 'Account', shortcut: 'A' },
 ];
 

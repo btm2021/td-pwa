@@ -2,6 +2,7 @@ import { defineConfig } from 'vite'
 import preact from '@preact/preset-vite'
 import { resolve } from 'path'
 import { createReadStream, existsSync, statSync } from 'fs'
+import { VitePWA } from 'vite-plugin-pwa'
 
 // Custom plugin to serve chart library
 function serveChartPlugin() {
@@ -50,6 +51,62 @@ export default defineConfig({
   plugins: [
     preact(),
     serveChartPlugin(),
+    VitePWA({
+      registerType: 'autoUpdate',
+      includeAssets: ['favicon.ico', 'icon.png'],
+      manifest: {
+        name: 'TD Trading',
+        short_name: 'TDT',
+        description: 'Advanced Trading Platform',
+        theme_color: '#000000',
+        background_color: '#000000',
+        display: 'standalone',
+        icons: [
+          {
+            src: 'icon.png',
+            sizes: '512x512',
+            type: 'image/png'
+          },
+          {
+            src: 'icon.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'any maskable'
+          }
+        ]
+      },
+      workbox: {
+        globPatterns: [], // Disable precaching of source code
+        runtimeCaching: [
+          {
+            urlPattern: ({ request }) =>
+              request.destination === 'script' ||
+              request.destination === 'style' ||
+              request.destination === 'document',
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'source-code-cache',
+              expiration: {
+                maxEntries: 50,
+                maxAgeSeconds: 60 * 60 * 24 // 1 day cleanup
+              },
+              networkTimeoutSeconds: 5
+            }
+          },
+          {
+            urlPattern: ({ request }) => request.destination === 'image',
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'image-cache',
+              expiration: {
+                maxEntries: 100,
+                maxAgeSeconds: 60 * 60 * 24 * 30 // 30 days
+              }
+            }
+          }
+        ]
+      }
+    })
   ],
   server: {
     port: 3000,

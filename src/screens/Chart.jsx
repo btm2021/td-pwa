@@ -160,21 +160,21 @@ export function Chart() {
                     fullscreen: false,
                     autosize: true,
 
-                    theme: 'light',
+                    theme: 'dark',
                     timezone: 'Etc/UTC',
 
                     // Dark theme styling
-                    toolbar_bg: '#0B0B0E',
+                    toolbar_bg: '#000000',
                     loading_screen: {
-                        backgroundColor: '#0B0B0E',
+                        backgroundColor: '#000000',
                         foregroundColor: '#2979FF'
                     },
 
                     overrides: {
-                        'paneProperties.background': '#0B0B0E',
+                        'paneProperties.background': '#000000',
                         'paneProperties.backgroundType': 'solid',
-                        'paneProperties.vertGridProperties.color': '#1A1A1F',
-                        'paneProperties.horzGridProperties.color': '#1A1A1F',
+                        'paneProperties.vertGridProperties.color': '#0A0A0A',
+                        'paneProperties.horzGridProperties.color': '#0A0A0A',
                         'paneProperties.legendProperties.showStudyArguments': true,
                         'paneProperties.legendProperties.showStudyTitles': true,
                         'paneProperties.legendProperties.showStudyValues': true,
@@ -183,8 +183,8 @@ export function Chart() {
                         'paneProperties.legendProperties.showLegend': true,
                         'paneProperties.legendProperties.showBarChange': true,
                         'scalesProperties.textColor': '#A0A0A8',
-                        'scalesProperties.lineColor': '#2A2A30',
-                        'scalesProperties.backgroundColor': '#0B0B0E',
+                        'scalesProperties.lineColor': '#1A1A1F',
+                        'scalesProperties.backgroundColor': '#000000',
                         'mainSeriesProperties.candleStyle.upColor': '#00C853',
                         'mainSeriesProperties.candleStyle.downColor': '#FF3B30',
                         'mainSeriesProperties.candleStyle.drawWick': true,

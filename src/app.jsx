@@ -6,6 +6,7 @@ import './styles/layout.css';
 import './styles/components.css';
 import './styles/desktop.css';
 import './styles/account.css';
+import './styles/calendar.css';
 
 // Components
 import { SplashScreen } from './components/SplashScreen';
@@ -28,23 +29,6 @@ const existingViewport = document.querySelector('meta[name="viewport"]');
 if (existingViewport) {
   existingViewport.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover';
 }
-
-// Theme color meta
-const themeColorMeta = document.createElement('meta');
-themeColorMeta.name = 'theme-color';
-themeColorMeta.content = '#0B0B0E';
-document.head.appendChild(themeColorMeta);
-
-// Apple mobile web app capable
-const appleMeta = document.createElement('meta');
-appleMeta.name = 'apple-mobile-web-app-capable';
-appleMeta.content = 'yes';
-document.head.appendChild(appleMeta);
-
-const appleStatusBar = document.createElement('meta');
-appleStatusBar.name = 'apple-mobile-web-app-status-bar-style';
-appleStatusBar.content = 'black-translucent';
-document.head.appendChild(appleStatusBar);
 
 // Mode Toggle Button Component (shown on mobile to switch to desktop)
 function ModeToggle() {

@@ -4,11 +4,11 @@
 
 :root {
     /* Background Colors */
-    --bg-primary: #0B0B0E;
-    --bg-secondary: #111114;
-    --bg-tertiary: #1A1A1F;
-    --bg-elevated: #222228;
-    --bg-card: #16161A;
+    --bg-primary: #000000;
+    --bg-secondary: #000000;
+    --bg-tertiary: #0A0A0A;
+    --bg-elevated: #111111;
+    --bg-card: #000000;
 
     /* Text Colors */
     --text-primary: #FFFFFF;
