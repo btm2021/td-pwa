@@ -1,17 +1,17 @@
 /**
- * OKX Futures Datasource Config
+ * OKX Perpetual Datasource Config
  */
 const OKX_FUTURES_CONFIG = {
     id: 'OKX_FUTURES',
-    name: 'OKX Futures',
-    description: 'OKX Perpetual Swap',
-    exchange: 'OKX Futures',
+    name: 'OKX Perpetual',
+    description: 'OKX USDT Perpetual Swap',
+    exchange: 'OKX Perpetual',
     logo: 'image/iconexchange/okx.svg',
     supported_resolutions: ['1', '5', '15', '30', '60', '240', '1D', '1W', '1M'],
     type: 'crypto',
     baseUrl: 'https://www.okx.com/api/v5',
     wsUrl: 'wss://ws.okx.com:8443/ws/v5/public',
-    logPrefix: '[OKX Futures]',
+    logPrefix: '[OKX Perpetual]',
     blacklistPatterns: [],
     maxSearchResults: 200,
     searchSuffixes: ['.OF', '.OKXF']
@@ -34,7 +34,9 @@ class OKXFuturesDatasource extends BaseDatasource {
 
     canHandle(symbolName) {
         const upper = symbolName.toUpperCase();
-        return upper.startsWith('OKX_FUTURES:') || upper.startsWith('OKXF:');
+        return upper.startsWith('OKX:') ||
+            upper.startsWith('OKX_FUTURES:') ||
+            upper.startsWith('OKXF:');
     }
 
     async fetchExchangeInfo() {

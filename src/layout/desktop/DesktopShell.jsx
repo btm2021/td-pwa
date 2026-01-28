@@ -56,7 +56,7 @@ export function DesktopShell() {
                 <main className={`desktop-content ${currentTab === 'chart' ? 'desktop-content--chart' : ''}`}>
                     {currentTab === 'watchlist' ? (
                         <div className="desktop-split-view">
-                            <div className="desktop-split-view__side" style={{ width: '40%', minWidth: '400px', maxWidth: 'none' }}>
+                            <div className="desktop-split-view__side" style={{ width: '350px', minWidth: '350px', maxWidth: '400px' }}>
                                 <Watchlist />
                             </div>
                             <div className="desktop-split-view__main">

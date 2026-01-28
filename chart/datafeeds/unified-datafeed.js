@@ -18,35 +18,25 @@ window.initializeDatafeed = function () {
     // Register Binance Futures (default)
     manager.registerDatasource(new BinanceFuturesDatasource(), true);
 
-    // Register OANDA if available
+    // Register OANDA if available (Forex)
     if (typeof OANDADatasource !== 'undefined') {
         manager.registerDatasource(new OANDADatasource(), false);
         console.log('[Datafeed] OANDA datasource registered');
     }
 
-    // Register Bybit Futures if available
+    // Register Bybit Perpetual if available
     if (typeof BybitFuturesDatasource !== 'undefined') {
         manager.registerDatasource(new BybitFuturesDatasource(), false);
-        console.log('[Datafeed] Bybit Futures datasource registered');
+        console.log('[Datafeed] Bybit Perpetual datasource registered');
     }
 
-    // Register Bybit Spot if available
-    if (typeof BybitSpotDatasource !== 'undefined') {
-        manager.registerDatasource(new BybitSpotDatasource(), false);
-        console.log('[Datafeed] Bybit Spot datasource registered');
-    }
-
-    // Register OKX Futures if available
+    // Register OKX Perpetual if available
     if (typeof OKXFuturesDatasource !== 'undefined') {
         manager.registerDatasource(new OKXFuturesDatasource(), false);
-        console.log('[Datafeed] OKX Futures datasource registered');
+        console.log('[Datafeed] OKX Perpetual datasource registered');
     }
 
-    // Register OKX Spot if available
-    if (typeof OKXSpotDatasource !== 'undefined') {
-        manager.registerDatasource(new OKXSpotDatasource(), false);
-        console.log('[Datafeed] OKX Spot datasource registered');
-    }
+    // NOTE: Spot datasources removed - only perpetual/futures supported
 
 
     // Initialize all datasources (fetch exchange info)

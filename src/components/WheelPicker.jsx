@@ -70,32 +70,55 @@ export function SymbolPicker({ value, onChange, onClose }) {
     const [symbols, setSymbols] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    // Fetch symbols on mount
+    // Load symbols from window.allSearchableSymbols (populated by DatafeedManager)
     useState(() => {
-        const fetchSymbols = async () => {
-            try {
-                const response = await fetch('https://fapi.binance.com/fapi/v1/exchangeInfo');
-                const data = await response.json();
-                const syms = data.symbols
-                    .filter(s => s.status === 'TRADING' && s.quoteAsset === 'USDT')
-                    .map(s => s.symbol)
-                    .sort();
+        const loadSymbols = () => {
+            // Sử dụng allSearchableSymbols từ DatafeedManager
+            if (window.allSearchableSymbols && window.allSearchableSymbols.length > 0) {
+                const syms = window.allSearchableSymbols.map(s => ({
+                    symbol: s.full_name || s.symbol,
+                    display: s.symbol,
+                    exchange: s.exchange,
+                    description: s.description
+                }));
                 setSymbols(syms);
-            } catch (error) {
-                console.error('Error fetching symbols:', error);
-            } finally {
                 setLoading(false);
+            } else {
+                // Fallback: Wait for symbols to load
+                const checkInterval = setInterval(() => {
+                    if (window.allSearchableSymbols && window.allSearchableSymbols.length > 0) {
+                        clearInterval(checkInterval);
+                        const syms = window.allSearchableSymbols.map(s => ({
+                            symbol: s.full_name || s.symbol,
+                            display: s.symbol,
+                            exchange: s.exchange,
+                            description: s.description
+                        }));
+                        setSymbols(syms);
+                        setLoading(false);
+                    }
+                }, 200);
+
+                // Timeout after 5 seconds
+                setTimeout(() => {
+                    clearInterval(checkInterval);
+                    setLoading(false);
+                }, 5000);
             }
         };
-        fetchSymbols();
+        loadSymbols();
     });
 
     const filteredSymbols = search
-        ? symbols.filter(s => s.toLowerCase().includes(search.toLowerCase()))
+        ? symbols.filter(s =>
+            s.display.toLowerCase().includes(search.toLowerCase()) ||
+            s.description?.toLowerCase().includes(search.toLowerCase())
+        )
         : symbols;
 
-    const handleSelect = (symbol) => {
-        onChange(symbol);
+    const handleSelect = (symbolObj) => {
+        // Trả về full symbol với prefix (VD: BINANCE:BTCUSDT)
+        onChange(symbolObj.symbol);
         onClose();
     };
 
@@ -127,14 +150,17 @@ export function SymbolPicker({ value, onChange, onClose }) {
                             <div className="spinner" />
                         </div>
                     ) : (
-                        filteredSymbols.slice(0, 100).map((symbol) => (
+                        filteredSymbols.slice(0, 100).map((symbolObj) => (
                             <button
-                                key={symbol}
-                                className={`symbol-picker__item ${symbol === value ? 'symbol-picker__item--active' : ''}`}
-                                onClick={() => handleSelect(symbol)}
+                                key={symbolObj.symbol}
+                                className={`symbol-picker__item ${symbolObj.symbol === value ? 'symbol-picker__item--active' : ''}`}
+                                onClick={() => handleSelect(symbolObj)}
                             >
-                                <span className="symbol-picker__symbol">{symbol}</span>
-                                {symbol === value && <Icon name="check" size={18} />}
+                                <div className="symbol-picker__item-info">
+                                    <span className="symbol-picker__symbol">{symbolObj.display}</span>
+                                    <span className="symbol-picker__exchange">{symbolObj.exchange}</span>
+                                </div>
+                                {symbolObj.symbol === value && <Icon name="check" size={18} />}
                             </button>
                         ))
                     )}

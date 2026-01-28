@@ -51,13 +51,14 @@ export function Watchlist() {
     }, []);
 
     const handleSymbolClick = (symbol) => {
-        const isForex = !symbol.includes('USDT') && !symbol.includes('BUSD') && !symbol.includes('USDC') && !symbol.includes('PERP');
-        const chartSymbol = isForex && !symbol.startsWith('OANDA:') ? `OANDA:${symbol}` : symbol;
+        // Symbol đã có prefix (VD: BINANCE:BTCUSDT, BYBIT:ETHUSDT, OKX:SOLUSDT)
+        // Truyền trực tiếp - store.js sẽ xử lý normalize
+        console.log('[Watchlist] Symbol clicked:', symbol);
 
-        selectedSymbolName.value = chartSymbol;
+        selectedSymbolName.value = symbol;
 
         if (window.innerWidth < 1024) {
-            setSelectedSymbolState(chartSymbol);
+            setSelectedSymbolState(symbol);
         }
     };
 
@@ -117,9 +118,150 @@ export function Watchlist() {
     const sortedSymbols = getSortedSymbols();
     const selectedTicker = selectedSymbol ? getTicker(selectedSymbol) : null;
 
+    if (isDesktop) {
+        return (
+            <div className="screen screen--no-padding screen--full-height watchlist-screen">
+                {/* Desktop Header */}
+                <div className="watchlist-header watchlist-header--inline">
+                    <div className="watchlist-header__title-info watchlist-header__title-info--clickable" onClick={() => setShowCatalogManager(true)}>
+                        <h1>Market</h1>
+                        <span className="watchlist-count">{symbols.length}</span>
+                        <Icon name="list" size={12} />
+                    </div>
+
+                    <div className="watchlist-search__input-wrapper">
+                        <Icon name="search" size={14} />
+                        <input
+                            type="text"
+                            placeholder="Filter..."
+                            value={searchQuery}
+                            onInput={(e) => setSearchQuery(e.target.value)}
+                        />
+                        {searchQuery && (
+                            <button className="watchlist-search__clear" onClick={() => setSearchQuery('')}>
+                                <Icon name="close" size={12} />
+                            </button>
+                        )}
+                    </div>
+
+                    <div className="watchlist-header__actions">
+                        <button className="icon-btn" onClick={() => setShowSearch(true)} title="Add Symbol">
+                            <Icon name="plus" size={16} />
+                        </button>
+                    </div>
+                </div>
+
+                {/* Table Content */}
+                <div className="watchlist-table-container">
+                    <table className="watchlist-table">
+                        <thead>
+                            <tr>
+                                <th className="sortable" onClick={() => setSortConfig({ key: 'symbol', direction: sortConfig.direction * -1 })}>
+                                    <div className="th-content">
+                                        Symbol
+                                        {sortConfig.key === 'symbol' && <Icon name={sortConfig.direction === 1 ? 'arrow-up' : 'arrow-down'} size={10} />}
+                                    </div>
+                                </th>
+                                <th className="text-right sortable" style={{ width: '100px' }} onClick={() => setSortConfig({ key: 'price', direction: sortConfig.direction * -1 })}>
+                                    <div className="th-content justify-end">
+                                        Last
+                                        {sortConfig.key === 'price' && <Icon name={sortConfig.direction === 1 ? 'arrow-up' : 'arrow-down'} size={10} />}
+                                    </div>
+                                </th>
+                                <th className="text-right sortable" style={{ width: '90px' }} onClick={() => setSortConfig({ key: 'change', direction: sortConfig.direction * -1 })}>
+                                    <div className="th-content justify-end">
+                                        Chg%
+                                        {sortConfig.key === 'change' && <Icon name={sortConfig.direction === 1 ? 'arrow-up' : 'arrow-down'} size={10} />}
+                                    </div>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {sortedSymbols.map((symbol) => {
+                                const ticker = getTicker(symbol);
+                                const isPositive = ticker?.priceChangePercent >= 0;
+                                const isActive = selectedSymbolName.value === symbol;
+                                const displaySymbol = symbol.includes(':') ? symbol.split(':')[1] : symbol;
+                                const exchange = ticker?.exchange || (symbol.includes(':') ? symbol.split(':')[0] : '');
+
+                                return (
+                                    <tr
+                                        key={symbol}
+                                        className={`watchlist-table-row ${isActive ? 'active' : ''}`}
+                                        onClick={() => handleSymbolClick(symbol)}
+                                    >
+                                        <td>
+                                            <span className="symbol-cell__symbol">{displaySymbol}</span>
+                                            <span className="symbol-cell__exchange">{exchange}</span>
+                                        </td>
+                                        <td className="text-right price-cell">
+                                            {formatPrice(ticker?.price || 0)}
+                                        </td>
+                                        <td className={`text-right change-cell ${isPositive ? 'positive' : 'negative'}`}>
+                                            {formatPercent(ticker?.priceChangePercent || 0)}
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                    {sortedSymbols.length === 0 && (
+                        <div className="watchlist-empty">
+                            <p>No symbols found</p>
+                        </div>
+                    )}
+                </div>
+
+                {/* Desktop Footer (Categories) */}
+                <div className="watchlist-footer">
+                    <div className="watchlist-categories">
+                        {cats.map((cat) => (
+                            <button
+                                key={cat.id}
+                                className={`watchlist-category ${activeCat === cat.id ? 'active' : ''}`}
+                                onClick={() => setActiveCategory(cat.id)}
+                            >
+                                <div className="cat-dot" style={{ background: cat.color || '#2979FF' }} />
+                                {cat.label}
+                            </button>
+                        ))}
+                    </div>
+                    <button className="watchlist-category--add-btn" onClick={() => handleOpenCategoryModal(null)}>
+                        <Icon name="plus" size={14} />
+                    </button>
+                </div>
+
+                {/* Modals */}
+                {showSearch && (
+                    <SearchPanel
+                        onClose={() => setShowSearch(false)}
+                        onSelectSymbol={handleSearchSelect}
+                        currentSymbols={symbols}
+                    />
+                )}
+                {showCategoryModal && (
+                    <CategoryModal
+                        onClose={() => {
+                            setShowCategoryModal(false);
+                            setEditingCategory(null);
+                        }}
+                        onSave={handleSaveCategory}
+                        editCategory={editingCategory}
+                    />
+                )}
+                {showCatalogManager && (
+                    <CatalogManager
+                        onClose={() => setShowCatalogManager(false)}
+                        onAddCategory={handleOpenCategoryModal}
+                    />
+                )}
+            </div>
+        );
+    }
+
     return (
         <div className="screen screen--no-padding screen--full-height watchlist-screen">
-            {/* Header Area */}
+            {/* Mobile Header Area */}
             <div className="watchlist-mobile-header">
                 <div className="watchlist-mobile-header__top">
                     <div className="watchlist-mobile-header__title">

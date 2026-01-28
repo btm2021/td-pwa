@@ -1,17 +1,17 @@
 /**
- * Bybit Futures Datasource Config
+ * Bybit Perpetual Datasource Config
  */
 const BYBIT_FUTURES_CONFIG = {
     id: 'BYBIT_FUTURES',
-    name: 'Bybit Futures',
-    description: 'Bybit Perpetual',
-    exchange: 'Bybit Futures',
+    name: 'Bybit Perpetual',
+    description: 'Bybit USDT Perpetual',
+    exchange: 'Bybit Perpetual',
     logo: 'image/iconexchange/bybit.svg',
     supported_resolutions: ['1', '5', '15', '30', '60', '240', '1D', '1W', '1M'],
     type: 'crypto',
     baseUrl: 'https://api.bybit.com/v5',
     wsUrl: 'wss://stream.bybit.com/v5/public/linear',
-    logPrefix: '[Bybit Futures]',
+    logPrefix: '[Bybit Perpetual]',
     blacklistPatterns: [],
     maxSearchResults: 200,
     searchSuffixes: ['.BF', '.BYBITF']
@@ -34,7 +34,9 @@ class BybitFuturesDatasource extends BaseDatasource {
 
     canHandle(symbolName) {
         const upper = symbolName.toUpperCase();
-        return upper.startsWith('BYBIT_FUTURES:') || upper.startsWith('BYBITF:');
+        return upper.startsWith('BYBIT:') ||
+            upper.startsWith('BYBIT_FUTURES:') ||
+            upper.startsWith('BYBITF:');
     }
 
     async fetchExchangeInfo() {

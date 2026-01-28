@@ -25,9 +25,10 @@ export function SymbolPanel({ symbol, ticker, onClose }) {
     const subtitle = isForex ? `${baseAsset} / ${quoteAsset}` : `${baseAsset} / USDT Perpetual`;
 
     const handleGoToChart = () => {
-        // Ensure OANDA prefix for forex
-        const chartSymbol = isForex && !symbol.startsWith('OANDA:') ? `OANDA:${symbol}` : symbol;
-        navigateToChart(chartSymbol);
+        // Symbol đã có prefix (VD: BINANCE:BTCUSDT, BYBIT:ETHUSDT, OANDA:EURUSD)
+        // Truyền trực tiếp vào navigateToChart
+        console.log('[SymbolPanel] Navigate to chart:', symbol);
+        navigateToChart(symbol);
         onClose();
     };
 

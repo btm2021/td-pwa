@@ -26,7 +26,7 @@ class BinanceFuturesDatasource extends BaseDatasource {
         super(config);
         this.baseUrl = BINANCE_FUTURES_CONFIG.baseUrl;
         this.wsUrl = BINANCE_FUTURES_CONFIG.wsUrl;
-        
+
         // Smart caching system
         this.barCache = new Map(); // Key: `${symbol}_${resolution}`, Value: { bars: [], oldestTime, newestTime }
         this.prefetchInProgress = new Map(); // Track prefetch operations
@@ -38,9 +38,12 @@ class BinanceFuturesDatasource extends BaseDatasource {
 
     canHandle(symbolName) {
         const upper = symbolName.toUpperCase();
-        return upper.startsWith('BINANCE:') ||
-            upper.endsWith('USDT') ||
-            upper.endsWith('BUSD');
+        // Chỉ handle khi có explicit prefix hoặc là crypto symbol không có prefix
+        if (upper.startsWith('BINANCE:') || upper.startsWith('BINANCE_FUTURES:')) {
+            return true;
+        }
+        // Không tự động claim crypto symbols - để DatafeedManager quyết định
+        return false;
     }
 
     async fetchExchangeInfo() {
@@ -211,7 +214,7 @@ class BinanceFuturesDatasource extends BaseDatasource {
 
         // Check cache first
         const cached = this.barCache.get(cacheKey);
-        
+
         if (cached && cached.fullyLoaded) {
             // Return ALL bars from cache - TradingView will handle filtering
             console.log(`${BINANCE_FUTURES_CONFIG.logPrefix} Served ${cached.bars.length} bars from cache`);
@@ -235,10 +238,10 @@ class BinanceFuturesDatasource extends BaseDatasource {
 
     async _load30kCandles(symbol, resolution, interval, barDuration, from, to, cacheKey) {
         const prefetchKey = `${cacheKey}_loading`;
-        
+
         // Show loading overlay
         this.showLoadingOverlay(symbol, resolution);
-        
+
         // Prevent duplicate loading
         if (this.prefetchInProgress.get(prefetchKey)) {
             console.log(`${BINANCE_FUTURES_CONFIG.logPrefix} Already loading ${symbol}, waiting...`);
@@ -251,7 +254,7 @@ class BinanceFuturesDatasource extends BaseDatasource {
                     }
                 }, 100);
             });
-            
+
             const cached = this.barCache.get(cacheKey);
             if (cached) {
                 const bars = cached.bars.filter(bar => bar.time >= from * 1000 && bar.time <= to * 1000);
@@ -259,17 +262,17 @@ class BinanceFuturesDatasource extends BaseDatasource {
                 return { bars, meta: { noData: bars.length === 0 } };
             }
         }
-        
+
         this.prefetchInProgress.set(prefetchKey, true);
 
         try {
             const TOTAL_CANDLES = 30000;
             const BATCH_SIZE = 1500; // Binance limit
             const NUM_BATCHES = 20; // 30000 / 1500 = 20
-            
+
             const endTime = Date.now();
             const startTime = endTime - (barDuration * 1000 * TOTAL_CANDLES);
-            
+
             console.log(`${BINANCE_FUTURES_CONFIG.logPrefix} 🚀 Loading 30,000 candles for ${symbol} (${resolution})`);
             console.log(`${BINANCE_FUTURES_CONFIG.logPrefix} Time range: ${new Date(startTime).toISOString()} to ${new Date(endTime).toISOString()}`);
 
@@ -283,7 +286,7 @@ class BinanceFuturesDatasource extends BaseDatasource {
             for (let i = 0; i < NUM_BATCHES; i++) {
                 const batchEndTime = endTime - (barDuration * 1000 * BATCH_SIZE * i);
                 const batchStartTime = endTime - (barDuration * 1000 * BATCH_SIZE * (i + 1));
-                
+
                 const url = `${this.baseUrl}/klines?symbol=${symbol}&interval=${interval}&startTime=${batchStartTime}&endTime=${batchEndTime}&limit=${BATCH_SIZE}`;
                 requests.push(
                     fetch(url)
@@ -313,14 +316,14 @@ class BinanceFuturesDatasource extends BaseDatasource {
             const startFetch = Date.now();
             const results = await Promise.all(requests);
             const fetchDuration = Date.now() - startFetch;
-            
+
             console.log(`${BINANCE_FUTURES_CONFIG.logPrefix} ✅ Fetched 20 batches in ${fetchDuration}ms`);
             this.updateLoadingProgress(NUM_BATCHES, NUM_BATCHES, totalCandles, 'Đang xử lý dữ liệu...');
 
             // Combine all bars
             let allBars = [];
             let totalFetched = 0;
-            
+
             for (const result of results) {
                 if (Array.isArray(result.data) && result.data.length > 0) {
                     const bars = result.data.map(bar => ({
@@ -364,9 +367,9 @@ class BinanceFuturesDatasource extends BaseDatasource {
 
             // Return ALL bars - TradingView will handle time filtering
             // This ensures indicators have full historical data for accurate calculation
-            return { 
-                bars: uniqueBars, 
-                meta: { noData: uniqueBars.length === 0 } 
+            return {
+                bars: uniqueBars,
+                meta: { noData: uniqueBars.length === 0 }
             };
 
         } catch (error) {
@@ -384,7 +387,7 @@ class BinanceFuturesDatasource extends BaseDatasource {
     showLoadingOverlay(symbol, resolution) {
         const overlay = document.getElementById('data-loading-overlay');
         const symbolEl = document.getElementById('loading-symbol');
-        
+
         if (overlay) {
             overlay.classList.remove('hidden');
             if (symbolEl) {
@@ -405,21 +408,21 @@ class BinanceFuturesDatasource extends BaseDatasource {
         const progressText = document.getElementById('loading-progress');
         const candlesText = document.getElementById('loading-candles');
         const messageText = document.getElementById('loading-message');
-        
+
         const percentage = (completed / total) * 100;
-        
+
         if (progressBar) {
             progressBar.style.width = `${percentage}%`;
         }
-        
+
         if (progressText) {
             progressText.textContent = `${completed} / ${total}`;
         }
-        
+
         if (candlesText) {
             candlesText.textContent = `${candles.toLocaleString()} nến`;
         }
-        
+
         if (messageText) {
             messageText.textContent = message;
         }
@@ -432,10 +435,10 @@ class BinanceFuturesDatasource extends BaseDatasource {
 
         const BATCH_SIZE = 1500;
         const NUM_BATCHES = 10; // Load 15,000 more candles
-        
+
         const oldestTime = cached.oldestTime;
         const prefetchKey = `${cacheKey}_history`;
-        
+
         if (this.prefetchInProgress.get(prefetchKey)) return;
         this.prefetchInProgress.set(prefetchKey, true);
 
@@ -446,7 +449,7 @@ class BinanceFuturesDatasource extends BaseDatasource {
             for (let i = 0; i < NUM_BATCHES; i++) {
                 const batchEndTime = oldestTime - (barDuration * 1000 * BATCH_SIZE * i);
                 const batchStartTime = oldestTime - (barDuration * 1000 * BATCH_SIZE * (i + 1));
-                
+
                 const url = `${this.baseUrl}/klines?symbol=${symbol}&interval=${interval}&startTime=${batchStartTime}&endTime=${batchEndTime}&limit=${BATCH_SIZE}`;
                 requests.push(
                     fetch(url)
@@ -459,7 +462,7 @@ class BinanceFuturesDatasource extends BaseDatasource {
             }
 
             const results = await Promise.all(requests);
-            
+
             let allBars = [];
             for (const data of results) {
                 if (Array.isArray(data) && data.length > 0) {
@@ -503,12 +506,12 @@ class BinanceFuturesDatasource extends BaseDatasource {
         // Update cache with realtime bar
         const cacheKey = `${symbolInfo.name}_${resolution}`;
         const cached = this.barCache.get(cacheKey);
-        
+
         if (!cached || !cached.fullyLoaded) return;
 
         // Find and update or append the bar
         const existingIndex = cached.bars.findIndex(b => b.time === bar.time);
-        
+
         if (existingIndex >= 0) {
             // Update existing bar
             cached.bars[existingIndex] = bar;
@@ -518,14 +521,14 @@ class BinanceFuturesDatasource extends BaseDatasource {
             cached.bars.sort((a, b) => a.time - b.time);
             cached.newestTime = bar.time;
         }
-        
+
         this.barCache.set(cacheKey, cached);
     }
 
     clearCache(symbol, resolution) {
         // Clear cache for specific symbol/resolution
         const cacheKey = symbol && resolution ? `${symbol}_${resolution}` : null;
-        
+
         if (cacheKey) {
             this.barCache.delete(cacheKey);
             console.log(`${BINANCE_FUTURES_CONFIG.logPrefix} 🗑️ Cleared cache for ${cacheKey}`);
@@ -574,10 +577,10 @@ class BinanceFuturesDatasource extends BaseDatasource {
                     close: parseFloat(data.k.c),
                     volume: parseFloat(data.k.v)
                 };
-                
+
                 // Update cache with realtime data
                 this.updateRealtimeBar(symbolInfo, resolution, bar);
-                
+
                 // Send to chart
                 onRealtimeCallback(bar);
             }

@@ -107,8 +107,13 @@ export function Chart() {
                 // Get custom studies
                 const customStudies = getCustomStudies();
 
+                // Sử dụng datafeedSymbol để đảm bảo đúng datasource được sử dụng
+                // VD: BINANCE_FUTURES:BTCUSDT, BYBIT_FUTURES:ETHUSDT, OKX_FUTURES:SOLUSDT
+                const chartSymbol = symbol.datafeedSymbol || symbol.fullSymbol || symbol.symbol;
+                console.log('[Chart] Initializing with symbol:', chartSymbol, 'from:', symbol);
+
                 const widgetOptions = {
-                    symbol: symbol.symbol.replace('.P', ''),
+                    symbol: chartSymbol,
                     datafeed: datafeed,
                     interval: intervalMap[currentTimeframe] || '15',
                     container: chartContainerRef.current,

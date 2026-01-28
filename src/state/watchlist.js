@@ -300,10 +300,30 @@ const OANDA_STREAM_URL = 'https://stream-fxpractice.oanda.com/v3';
 // Bybit WebSocket
 let bybitWs = null;
 let bybitReconnectTimeout = null;
+let bybitPingInterval = null;
 
 // OKX WebSocket
 let okxWs = null;
 let okxReconnectTimeout = null;
+let okxPingInterval = null;
+
+// Ticker update batching
+let tickerUpdateBuffer = {};
+let tickerUpdateTimer = null;
+
+function queueTickerUpdate(key, data) {
+    tickerUpdateBuffer[key] = data;
+    if (!tickerUpdateTimer) {
+        tickerUpdateTimer = setTimeout(() => {
+            tickerData.value = {
+                ...tickerData.value,
+                ...tickerUpdateBuffer
+            };
+            tickerUpdateBuffer = {};
+            tickerUpdateTimer = null;
+        }, 100);
+    }
+}
 
 
 // Subscribe to all exchange ticker streams
@@ -332,15 +352,10 @@ function subscribeToBinance() {
             try {
                 const data = JSON.parse(event.data);
                 if (Array.isArray(data)) {
-                    // Update only Binance symbols
-                    const newTickerData = { ...tickerData.value };
-                    let hasUpdates = false;
-
                     data.forEach(ticker => {
                         const symbol = ticker.s;
-                        // Store with exchange prefix for separation
                         const key = `BINANCE:${symbol}`;
-                        newTickerData[key] = {
+                        queueTickerUpdate(key, {
                             symbol: symbol,
                             exchange: 'BINANCE',
                             price: parseFloat(ticker.c),
@@ -351,14 +366,8 @@ function subscribeToBinance() {
                             volume: parseFloat(ticker.v),
                             quoteVolume: parseFloat(ticker.q),
                             lastUpdate: Date.now(),
-                        };
-                        hasUpdates = true;
+                        });
                     });
-
-
-                    if (hasUpdates) {
-                        tickerData.value = newTickerData;
-                    }
                 }
             } catch (error) {
                 console.error('[WebSocket] Parse error:', error);
@@ -379,39 +388,58 @@ function subscribeToBinance() {
 }
 
 // Subscribe to Bybit Futures ticker stream
-function subscribeToBybit() {
+async function subscribeToBybit() {
     if (bybitWs && bybitWs.readyState === WebSocket.OPEN) {
         return;
     }
 
-    const connect = () => {
+    // Clear existing
+    if (bybitPingInterval) clearInterval(bybitPingInterval);
+
+    const connect = async () => {
         console.log('[Bybit WebSocket] Connecting to ticker stream...');
         bybitWs = new WebSocket('wss://stream.bybit.com/v5/public/linear');
 
-        bybitWs.onopen = () => {
+        bybitWs.onopen = async () => {
             console.log('[Bybit WebSocket] Connected');
-            // Subscribe to all symbols from exchangeInfo if available
-            const symbols = window.symbolConfig?.['BYBIT_FUTURES'] || [];
-            if (symbols.length > 0) {
-                // Bybit allows max 10 symbols per subscribe message, or we can send multiple messages
-                // Actually, let's subscribe to all current USDT linear perpetuals
-                const usdtSymbols = symbols.filter(s => s.symbol.endsWith('USDT')).map(s => `tickers.${s.symbol}`);
 
-                // Send in batches of 10 to be safe
-                for (let i = 0; i < usdtSymbols.length; i += 10) {
-                    const batch = usdtSymbols.slice(i, i + 10);
+            // Heartbeat
+            bybitPingInterval = setInterval(() => {
+                if (bybitWs.readyState === WebSocket.OPEN) {
+                    bybitWs.send(JSON.stringify({ op: "ping" }));
+                }
+            }, 20000);
+
+            // Fetch symbols if not in window.symbolConfig
+            let symbols = [];
+            if (window.symbolConfig?.['BYBIT_FUTURES']) {
+                symbols = window.symbolConfig['BYBIT_FUTURES'].map(s => s.symbol);
+            } else {
+                try {
+                    const response = await fetch('https://api.bybit.com/v5/market/instruments-info?category=linear');
+                    const data = await response.json();
+                    if (data.retCode === 0 && data.result?.list) {
+                        symbols = data.result.list
+                            .filter(s => s.status === 'Trading' && s.symbol.endsWith('USDT'))
+                            .map(s => s.symbol);
+                    }
+                } catch (e) {
+                    console.warn('[Bybit WebSocket] Failed to fetch symbols, using defaults');
+                    symbols = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'XRPUSDT', 'ADAUSDT'];
+                }
+            }
+
+            // Subscribe in batches (max 10 per message is recommended by Bybit for reliability, though more is possible)
+            if (symbols.length > 0) {
+                const topics = symbols.map(s => `tickers.${s}`);
+                for (let i = 0; i < topics.length; i += 10) {
+                    const batch = topics.slice(i, i + 10);
                     bybitWs.send(JSON.stringify({
                         op: 'subscribe',
                         args: batch
                     }));
                 }
-                console.log(`[Bybit WebSocket] Subscribed to ${usdtSymbols.length} symbols`);
-            } else {
-                // Fallback to popular ones if config not ready
-                bybitWs.send(JSON.stringify({
-                    op: 'subscribe',
-                    args: ['tickers.BTCUSDT', 'tickers.ETHUSDT', 'tickers.SOLUSDT']
-                }));
+                console.log(`[Bybit WebSocket] Subscribed to ${symbols.length} tickers`);
             }
         };
 
@@ -421,11 +449,9 @@ function subscribeToBybit() {
                 if (data.topic && data.topic.startsWith('tickers.') && data.data) {
                     const ticker = data.data;
                     const symbol = ticker.symbol;
-
-                    const newTickerData = { ...tickerData.value };
-                    // Store with exchange prefix for separation
                     const key = `BYBIT:${symbol}`;
-                    newTickerData[key] = {
+
+                    queueTickerUpdate(key, {
                         symbol: symbol,
                         exchange: 'BYBIT',
                         price: parseFloat(ticker.lastPrice),
@@ -436,11 +462,10 @@ function subscribeToBybit() {
                         volume: parseFloat(ticker.volume24h),
                         quoteVolume: parseFloat(ticker.turnover24h),
                         lastUpdate: Date.now(),
-                    };
-                    tickerData.value = newTickerData;
+                    });
                 }
             } catch (error) {
-                // Ignore heartbeat messages
+                // Ignore
             }
         };
 
@@ -450,6 +475,7 @@ function subscribeToBybit() {
 
         bybitWs.onclose = () => {
             console.log('[Bybit WebSocket] Disconnected, reconnecting in 5s...');
+            if (bybitPingInterval) clearInterval(bybitPingInterval);
             bybitReconnectTimeout = setTimeout(connect, 5000);
         };
     };
@@ -463,13 +489,23 @@ function subscribeToOKX() {
         return;
     }
 
+    if (okxPingInterval) clearInterval(okxPingInterval);
+
     const connect = () => {
         console.log('[OKX WebSocket] Connecting to ticker stream...');
         okxWs = new WebSocket('wss://ws.okx.com:8443/ws/v5/public');
 
         okxWs.onopen = () => {
             console.log('[OKX WebSocket] Connected');
-            // Subscribe to all USDT SWAP tickers using instType
+
+            // Heartbeat
+            okxPingInterval = setInterval(() => {
+                if (okxWs.readyState === WebSocket.OPEN) {
+                    okxWs.send("ping");
+                }
+            }, 25000);
+
+            // Subscribe to all USDT SWAP tickers
             okxWs.send(JSON.stringify({
                 op: 'subscribe',
                 args: [
@@ -480,37 +516,35 @@ function subscribeToOKX() {
         };
 
         okxWs.onmessage = (event) => {
+            if (event.data === "pong") return;
+
             try {
                 const data = JSON.parse(event.data);
                 if (data.data && data.data.length > 0) {
                     data.data.forEach(ticker => {
-                        // Convert OKX instId to symbol format (BTC-USDT-SWAP -> BTCUSDT)
                         const symbol = ticker.instId.replace(/-SWAP$/, '').replace(/-/g, '');
-
-                        // Only process USDT pairs for simplicity
                         if (!symbol.endsWith('USDT')) return;
 
-                        const newTickerData = { ...tickerData.value };
-                        // Store with exchange prefix for separation
                         const key = `OKX:${symbol}`;
-                        newTickerData[key] = {
+                        const openPrice = parseFloat(ticker.open24h);
+                        const lastPrice = parseFloat(ticker.last);
+
+                        queueTickerUpdate(key, {
                             symbol: symbol,
                             exchange: 'OKX',
-                            price: parseFloat(ticker.last),
-                            priceChange: parseFloat(ticker.last) - parseFloat(ticker.open24h),
-                            priceChangePercent: ((parseFloat(ticker.last) - parseFloat(ticker.open24h)) / parseFloat(ticker.open24h)) * 100,
+                            price: lastPrice,
+                            priceChange: lastPrice - openPrice,
+                            priceChangePercent: openPrice !== 0 ? ((lastPrice - openPrice) / openPrice) * 100 : 0,
                             high: parseFloat(ticker.high24h),
                             low: parseFloat(ticker.low24h),
                             volume: parseFloat(ticker.vol24h),
                             quoteVolume: parseFloat(ticker.volCcy24h),
                             lastUpdate: Date.now(),
-                        };
-                        tickerData.value = newTickerData;
+                        });
                     });
                 }
-
             } catch (error) {
-                // Ignore heartbeat/error messages
+                // Ignore
             }
         };
 
@@ -520,6 +554,7 @@ function subscribeToOKX() {
 
         okxWs.onclose = () => {
             console.log('[OKX WebSocket] Disconnected, reconnecting in 5s...');
+            if (okxPingInterval) clearInterval(okxPingInterval);
             okxReconnectTimeout = setTimeout(connect, 5000);
         };
     };
@@ -614,21 +649,18 @@ async function subscribeToOANDA() {
 
                                 // Store with exchange prefix for separation
                                 const key = `OANDA:${symbol}`;
-                                tickerData.value = {
-                                    ...tickerData.value,
-                                    [key]: {
-                                        symbol: symbol,
-                                        exchange: 'OANDA',
-                                        price: currentPrice,
-                                        priceChange: 0,
-                                        priceChangePercent: 0,
-                                        high: currentPrice,
-                                        low: currentPrice,
-                                        volume: 0,
-                                        quoteVolume: 0,
-                                        lastUpdate: Date.now(),
-                                    }
-                                };
+                                queueTickerUpdate(key, {
+                                    symbol: symbol,
+                                    exchange: 'OANDA',
+                                    price: currentPrice,
+                                    priceChange: 0,
+                                    priceChangePercent: 0,
+                                    high: currentPrice,
+                                    low: currentPrice,
+                                    volume: 0,
+                                    quoteVolume: 0,
+                                    lastUpdate: Date.now(),
+                                });
                             }
 
                         } catch (e) {
@@ -665,24 +697,32 @@ export function unsubscribeFromTickers() {
         ws = null;
     }
 
-    // Bybit
-    if (bybitReconnectTimeout) {
-        clearTimeout(bybitReconnectTimeout);
-        bybitReconnectTimeout = null;
-    }
-    if (bybitWs) {
-        bybitWs.close();
-        bybitWs = null;
-    }
-
     // OKX
     if (okxReconnectTimeout) {
         clearTimeout(okxReconnectTimeout);
         okxReconnectTimeout = null;
     }
+    if (okxPingInterval) {
+        clearInterval(okxPingInterval);
+        okxPingInterval = null;
+    }
     if (okxWs) {
         okxWs.close();
         okxWs = null;
+    }
+
+    // Bybit
+    if (bybitReconnectTimeout) {
+        clearTimeout(bybitReconnectTimeout);
+        bybitReconnectTimeout = null;
+    }
+    if (bybitPingInterval) {
+        clearInterval(bybitPingInterval);
+        bybitPingInterval = null;
+    }
+    if (bybitWs) {
+        bybitWs.close();
+        bybitWs = null;
     }
 
 
@@ -694,27 +734,69 @@ export function unsubscribeFromTickers() {
 }
 
 
-// Get ticker for a symbol (expects format like BINANCE:BTCUSDT)
+/**
+ * Mapping từ symbol prefix sang ticker prefix
+ * Vì ticker keys có thể khác với symbol prefix trong một số trường hợp
+ */
+const TICKER_PREFIX_MAP = {
+    'BINANCE': 'BINANCE',
+    'BINANCE_FUTURES': 'BINANCE',
+    'BYBIT': 'BYBIT',
+    'BYBIT_FUTURES': 'BYBIT',
+    'OKX': 'OKX',
+    'OKX_FUTURES': 'OKX',
+    'OANDA': 'OANDA'
+};
+
+/**
+ * Get ticker for a symbol
+ * Supports multiple formats:
+ * - BINANCE:BTCUSDT
+ * - BINANCE_FUTURES:BTCUSDT
+ * - BYBIT:BTCUSDT
+ * - OKX:BTCUSDT
+ * - OANDA:EURUSD
+ * - BTCUSDT (no prefix - defaults to BINANCE)
+ * 
+ * @param {string} symbol - Symbol to lookup
+ * @returns {Object|null} - Ticker data or null
+ */
 export function getTicker(symbol) {
     if (!symbol) return null;
 
-    // Normalize to uppercase
     const upperSymbol = symbol.toUpperCase();
+    const tickers = tickerData.value;
 
-    // Direct lookup with exact key (EXCHANGE:SYMBOL format)
-    if (tickerData.value[upperSymbol]) return tickerData.value[upperSymbol];
+    // Direct lookup - symbol already in correct format
+    if (tickers[upperSymbol]) {
+        return tickers[upperSymbol];
+    }
 
-    // If symbol has no prefix, try common exchanges
-    if (!upperSymbol.includes(':')) {
-        // Try Binance first (most common)
-        const binanceKey = `BINANCE:${upperSymbol}`;
-        if (tickerData.value[binanceKey]) return tickerData.value[binanceKey];
+    // Symbol có prefix - chuyển đổi sang ticker key format
+    if (upperSymbol.includes(':')) {
+        const [prefix, rawSymbol] = upperSymbol.split(':');
+        const tickerPrefix = TICKER_PREFIX_MAP[prefix] || prefix;
+        const tickerKey = `${tickerPrefix}:${rawSymbol}`;
 
-        // Try other exchanges
-        const exchanges = ['BYBIT', 'OKX', 'OANDA'];
-        for (const exchange of exchanges) {
-            const key = `${exchange}:${upperSymbol}`;
-            if (tickerData.value[key]) return tickerData.value[key];
+        if (tickers[tickerKey]) {
+            return tickers[tickerKey];
+        }
+
+        // Fallback: thử tìm với raw symbol
+        for (const exchange of Object.values(TICKER_PREFIX_MAP)) {
+            const key = `${exchange}:${rawSymbol}`;
+            if (tickers[key]) {
+                return tickers[key];
+            }
+        }
+    }
+
+    // Không có prefix - thử tìm theo thứ tự ưu tiên
+    const priorityExchanges = ['BINANCE', 'BYBIT', 'OKX', 'OANDA'];
+    for (const exchange of priorityExchanges) {
+        const key = `${exchange}:${upperSymbol}`;
+        if (tickers[key]) {
+            return tickers[key];
         }
     }
 
@@ -879,28 +961,40 @@ export function updateCategory(categoryId, updates) {
 export function syncDatafeedWatchlists(allSymbols) {
     if (!allSymbols || allSymbols.length === 0) return;
 
+    // Mapping từ long prefix sang short prefix cho ticker lookup
+    const PREFIX_SHORT_MAP = {
+        'BINANCE_FUTURES': 'BINANCE',
+        'BYBIT_FUTURES': 'BYBIT',
+        'OKX_FUTURES': 'OKX',
+        'OANDA': 'OANDA'
+    };
+
     // Define exchange configurations
     const exchangeConfigs = [
         {
             id: 'BINANCE_FUTURES',
+            shortPrefix: 'BINANCE',
             label: 'Binance',
             color: '#F3BA2F',
             filter: (s) => (s.datasource === 'BINANCE_FUTURES' || (s.exchange || '').toUpperCase().includes('BINANCE'))
         },
         {
             id: 'BYBIT_FUTURES',
+            shortPrefix: 'BYBIT',
             label: 'Bybit',
             color: '#F7A600',
             filter: (s) => s.datasource === 'BYBIT_FUTURES' || (s.exchange || '').toUpperCase() === 'BYBIT FUTURES'
         },
         {
             id: 'OKX_FUTURES',
+            shortPrefix: 'OKX',
             label: 'OKX',
             color: '#00C8FF',
             filter: (s) => s.datasource === 'OKX_FUTURES' || (s.exchange || '').toUpperCase() === 'OKX FUTURES'
         },
         {
             id: 'OANDA_FOREX',
+            shortPrefix: 'OANDA',
             label: 'Forex',
             color: '#00A0DC',
             filter: (s) => (s.datasource === 'OANDA' || s.exchange === 'OANDA' || s.full_name?.startsWith('OANDA:')),
@@ -918,7 +1012,21 @@ export function syncDatafeedWatchlists(allSymbols) {
             exchangeSymbols = exchangeSymbols.filter(s => (s.symbol || '').toUpperCase().endsWith('USDT'));
         }
 
-        const symbolNames = exchangeSymbols.map(s => s.full_name || s.symbol);
+        // Normalize symbol names với short prefix
+        // VD: BINANCE_FUTURES:BTCUSDT -> BINANCE:BTCUSDT
+        const symbolNames = exchangeSymbols.map(s => {
+            let fullName = s.full_name || `${config.shortPrefix}:${s.symbol}`;
+
+            // Chuyển đổi long prefix sang short prefix
+            for (const [longPrefix, shortPrefix] of Object.entries(PREFIX_SHORT_MAP)) {
+                if (fullName.startsWith(`${longPrefix}:`)) {
+                    fullName = fullName.replace(`${longPrefix}:`, `${shortPrefix}:`);
+                    break;
+                }
+            }
+
+            return fullName;
+        });
 
         // Find if this system category already exists
         const index = currentCats.findIndex(c => c.id === config.id);
@@ -951,7 +1059,7 @@ export function syncDatafeedWatchlists(allSymbols) {
             return 0;
         });
         categories.value = currentCats;
-        console.log('[Watchlist] Exchange categories synced with full symbol lists');
+        console.log('[Watchlist] Exchange categories synced with normalized symbol names');
     }
 }
 

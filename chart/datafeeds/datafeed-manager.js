@@ -126,35 +126,62 @@ class DatafeedManager {
     }
 
     /**
+     * Mapping từ prefix sang datasource ID
+     * Đây là nguồn chính để xác định datasource
+     */
+    static PREFIX_DATASOURCE_MAP = {
+        'BINANCE': 'BINANCE_FUTURES',
+        'BINANCE_FUTURES': 'BINANCE_FUTURES',
+        'BYBIT': 'BYBIT_FUTURES',
+        'BYBIT_FUTURES': 'BYBIT_FUTURES',
+        'BYBITF': 'BYBIT_FUTURES',
+        'OKX': 'OKX_FUTURES',
+        'OKX_FUTURES': 'OKX_FUTURES',
+        'OKXF': 'OKX_FUTURES',
+        'OANDA': 'OANDA'
+    };
+
+    /**
      * Tìm datasource phù hợp cho symbol
-     * @param {string} symbolName - Tên symbol
+     * @param {string} symbolName - Tên symbol (VD: BINANCE_FUTURES:BTCUSDT)
      * @returns {BaseDatasource|null}
      */
     findDatasource(symbolName) {
         const upper = symbolName.toUpperCase();
 
-        // Priority 1: Explicit prefix match (OANDA:, BINANCE:, etc.)
+        // Priority 1: Strict prefix match using mapping
         if (upper.includes(':')) {
-            for (const datasource of this.datasources) {
-                if (datasource.canHandle(symbolName)) {
+            const prefix = upper.split(':')[0];
+            const targetDatasourceId = DatafeedManager.PREFIX_DATASOURCE_MAP[prefix];
+
+            if (targetDatasourceId) {
+                const datasource = this.datasources.find(ds => ds.getInfo().id === targetDatasourceId);
+                if (datasource) {
+                    console.log(`[DatafeedManager] Matched ${symbolName} -> ${targetDatasourceId}`);
                     return datasource;
                 }
             }
         }
 
-        // Priority 2: Check non-default datasources first (forex, etc.)
+        // Priority 2: Check canHandle trên từng datasource (dựa theo prefix)
         for (const datasource of this.datasources) {
-            if (datasource !== this.defaultDatasource && datasource.canHandle(symbolName)) {
+            if (datasource.canHandle(symbolName)) {
+                console.log(`[DatafeedManager] canHandle matched: ${symbolName} -> ${datasource.getInfo().id}`);
                 return datasource;
             }
         }
 
-        // Priority 3: Check default datasource
-        if (this.defaultDatasource && this.defaultDatasource.canHandle(symbolName)) {
-            return this.defaultDatasource;
+        // Priority 3: Default datasource nếu symbol không có prefix
+        // Chỉ dùng cho symbols crypto không xác định (BTCUSDT)
+        if (!upper.includes(':')) {
+            if (upper.endsWith('USDT') || upper.endsWith('BUSD') || upper.endsWith('USDC')) {
+                console.log(`[DatafeedManager] Using default for crypto: ${symbolName}`);
+                return this.defaultDatasource;
+            }
         }
 
         // Fallback về default
+        console.log(`[DatafeedManager] Fallback to default for: ${symbolName}`);
         return this.defaultDatasource;
     }
 
