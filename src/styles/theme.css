@@ -1,29 +1,29 @@
 /* ========================================
-   THEME - Trading App Dark Theme
+   THEME - Trading App Dark Theme (Black & Red)
    ======================================== */
 
 :root {
-    /* Background Colors */
+    /* Background Colors - Đen thuần */
     --bg-primary: #000000;
     --bg-secondary: #000000;
-    --bg-tertiary: #0A0A0A;
-    --bg-elevated: #111111;
+    --bg-tertiary: #0a0000;
+    --bg-elevated: #0f0000;
     --bg-card: #000000;
 
     /* Text Colors */
     --text-primary: #FFFFFF;
-    --text-secondary: #A0A0A8;
-    --text-tertiary: #6B6B73;
-    --text-muted: #4A4A52;
+    --text-secondary: #999999;
+    --text-tertiary: #666666;
+    --text-muted: #444444;
 
-    /* Accent Colors */
-    --accent-green: #00C853;
-    --accent-green-light: #69F0AE;
-    --accent-green-bg: rgba(0, 200, 83, 0.15);
+    /* Accent Colors - Xanh lá sáng và đỏ sáng */
+    --accent-green: #00ff88;
+    --accent-green-light: #69ffaa;
+    --accent-green-bg: rgba(0, 255, 136, 0.15);
 
-    --accent-red: #FF3B30;
-    --accent-red-light: #FF6B6B;
-    --accent-red-bg: rgba(255, 59, 48, 0.15);
+    --accent-red: #ff4444;
+    --accent-red-light: #ff6666;
+    --accent-red-bg: rgba(255, 68, 68, 0.15);
 
     --accent-blue: #2979FF;
     --accent-blue-light: #82B1FF;
@@ -31,19 +31,19 @@
     --accent-yellow: #FFD600;
     --accent-orange: #FF9100;
 
-    /* Border Colors */
-    --border-primary: #2A2A30;
-    --border-secondary: #3A3A42;
-    --border-light: rgba(255, 255, 255, 0.08);
+    /* Border Colors - Đen đỏ */
+    --border-primary: #1a0000;
+    --border-secondary: #2a0000;
+    --border-light: rgba(255, 0, 0, 0.08);
 
     /* Status Colors */
-    --status-online: #00E676;
-    --status-offline: #757575;
+    --status-online: #00ff88;
+    --status-offline: #666666;
 
-    /* Shadows */
-    --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.3);
-    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
-    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
+    /* Shadows - Đen đậm hơn */
+    --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.5);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.6);
+    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.7);
 
     /* Spacing */
     --spacing-xs: 4px;
@@ -99,21 +99,21 @@
     --z-nav: 400;
 }
 
-/* Dark mode scrollbar */
+/* Dark mode scrollbar - Đen đỏ */
 ::-webkit-scrollbar {
     width: 6px;
     height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-    background: var(--bg-primary);
+    background: #000000;
 }
 
 ::-webkit-scrollbar-thumb {
-    background: var(--border-secondary);
+    background: #2a0000;
     border-radius: var(--radius-full);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: var(--text-tertiary);
+    background: #440000;
 }

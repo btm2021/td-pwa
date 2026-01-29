@@ -3,7 +3,6 @@ import preact from '@preact/preset-vite'
 import { resolve } from 'path'
 import { createReadStream, existsSync, statSync } from 'fs'
 import { VitePWA } from 'vite-plugin-pwa'
-import mkcert from 'vite-plugin-mkcert'
 
 // Custom plugin to serve chart library
 function serveChartPlugin() {
@@ -51,7 +50,6 @@ function serveChartPlugin() {
 export default defineConfig({
   plugins: [
     preact(),
-    mkcert(),
     serveChartPlugin(),
     VitePWA({
       registerType: 'autoUpdate',
@@ -78,24 +76,18 @@ export default defineConfig({
         ]
       },
       workbox: {
-        globPatterns: [], // Disable precaching of source code
+        globPatterns: [], // Disable precaching
         runtimeCaching: [
           {
+            // Không cache source code - luôn lấy từ network
             urlPattern: ({ request }) =>
               request.destination === 'script' ||
               request.destination === 'style' ||
               request.destination === 'document',
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'source-code-cache',
-              expiration: {
-                maxEntries: 50,
-                maxAgeSeconds: 60 * 60 * 24 // 1 day cleanup
-              },
-              networkTimeoutSeconds: 5
-            }
+            handler: 'NetworkOnly', // Luôn lấy mới từ network
           },
           {
+            // Chỉ cache images
             urlPattern: ({ request }) => request.destination === 'image',
             handler: 'CacheFirst',
             options: {
@@ -113,10 +105,15 @@ export default defineConfig({
   server: {
     port: 3000,
     host: true,
-    https: true,
+    // Tắt cache trong development
+    headers: {
+      'Cache-Control': 'no-store',
+    }
   },
   build: {
     outDir: 'dist',
   },
   publicDir: 'public',
+  // Tắt cache của Vite
+  cacheDir: false,
 })

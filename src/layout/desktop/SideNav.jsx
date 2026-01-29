@@ -43,7 +43,7 @@ export function SideNav() {
                         title={`${item.label} (${item.shortcut})`}
                     >
                         <span className="side-nav__icon">
-                            <Icon name={item.icon} size={22} />
+                            <Icon name={item.icon} size={20} />
                         </span>
                         <span className="side-nav__label">{item.label}</span>
                         {currentTab === item.id && <span className="side-nav__indicator" />}
@@ -73,7 +73,7 @@ export function SideNav() {
                         title={item.label}
                     >
                         <span className="side-nav__icon">
-                            <Icon name={item.icon} size={22} />
+                            <Icon name={item.icon} size={20} />
                         </span>
                         <span className="side-nav__label">{item.label}</span>
                     </button>

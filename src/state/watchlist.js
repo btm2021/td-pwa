@@ -451,16 +451,33 @@ async function subscribeToBybit() {
                     const symbol = ticker.symbol;
                     const key = `BYBIT:${symbol}`;
 
+                    // Get current state to merge with delta
+                    const currentTicker = tickerData.value[key] || {};
+
+                    // Helper to get value or keep current
+                    const getVal = (field, oldField) => {
+                        const val = parseFloat(ticker[field]);
+                        if (!isNaN(val)) return val;
+                        return currentTicker[oldField] || 0;
+                    };
+
+                    const lastPrice = getVal('lastPrice', 'price');
+
+                    if (lastPrice === 0 && !currentTicker.price) {
+                        // Skip if we don't have a valid price yet
+                        return;
+                    }
+
                     queueTickerUpdate(key, {
                         symbol: symbol,
                         exchange: 'BYBIT',
-                        price: parseFloat(ticker.lastPrice),
-                        priceChange: parseFloat(ticker.price24hPcnt) * parseFloat(ticker.lastPrice) / 100,
-                        priceChangePercent: parseFloat(ticker.price24hPcnt) * 100,
-                        high: parseFloat(ticker.highPrice24h),
-                        low: parseFloat(ticker.lowPrice24h),
-                        volume: parseFloat(ticker.volume24h),
-                        quoteVolume: parseFloat(ticker.turnover24h),
+                        price: lastPrice,
+                        priceChange: parseFloat(ticker.price24hPcnt) ? (parseFloat(ticker.price24hPcnt) * lastPrice) : (currentTicker.priceChange || 0),
+                        priceChangePercent: parseFloat(ticker.price24hPcnt) ? (parseFloat(ticker.price24hPcnt) * 100) : (currentTicker.priceChangePercent || 0),
+                        high: getVal('highPrice24h', 'high'),
+                        low: getVal('lowPrice24h', 'low'),
+                        volume: getVal('volume24h', 'volume'),
+                        quoteVolume: getVal('turnover24h', 'quoteVolume'),
                         lastUpdate: Date.now(),
                     });
                 }

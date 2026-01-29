@@ -171,38 +171,21 @@ export function Watchlist() {
                                 <th className="text-right sortable" style={{ width: '90px' }} onClick={() => setSortConfig({ key: 'change', direction: sortConfig.direction * -1 })}>
                                     <div className="th-content justify-end">
                                         Chg%
-                                        {sortConfig.key === 'change' && <Icon name={sortConfig.direction === 1 ? 'arrow-up' : 'arrow-down'} size={10} />}
+                                        {sortConfig.key === 'change' && <Icon name={sortConfig.direction === 'asc' ? 'arrow-up' : 'arrow-down'} size={10} />}
                                     </div>
                                 </th>
                             </tr>
                         </thead>
                         <tbody>
-                            {sortedSymbols.map((symbol) => {
-                                const ticker = getTicker(symbol);
-                                const isPositive = ticker?.priceChangePercent >= 0;
-                                const isActive = selectedSymbolName.value === symbol;
-                                const displaySymbol = symbol.includes(':') ? symbol.split(':')[1] : symbol;
-                                const exchange = ticker?.exchange || (symbol.includes(':') ? symbol.split(':')[0] : '');
-
-                                return (
-                                    <tr
-                                        key={symbol}
-                                        className={`watchlist-table-row ${isActive ? 'active' : ''}`}
-                                        onClick={() => handleSymbolClick(symbol)}
-                                    >
-                                        <td>
-                                            <span className="symbol-cell__symbol">{displaySymbol}</span>
-                                            <span className="symbol-cell__exchange">{exchange}</span>
-                                        </td>
-                                        <td className="text-right price-cell">
-                                            {formatPrice(ticker?.price || 0)}
-                                        </td>
-                                        <td className={`text-right change-cell ${isPositive ? 'positive' : 'negative'}`}>
-                                            {formatPercent(ticker?.priceChangePercent || 0)}
-                                        </td>
-                                    </tr>
-                                );
-                            })}
+                            {sortedSymbols.map((symbol) => (
+                                <DesktopWatchlistRow
+                                    key={symbol}
+                                    symbol={symbol}
+                                    isActive={selectedSymbolName.value === symbol}
+                                    ticker={getTicker(symbol)}
+                                    onClick={() => handleSymbolClick(symbol)}
+                                />
+                            ))}
                         </tbody>
                     </table>
                     {sortedSymbols.length === 0 && (
@@ -220,9 +203,10 @@ export function Watchlist() {
                                 key={cat.id}
                                 className={`watchlist-category ${activeCat === cat.id ? 'active' : ''}`}
                                 onClick={() => setActiveCategory(cat.id)}
+                                style={{ background: activeCat === cat.id ? cat.color : 'transparent' }}
+                                title={cat.label}
                             >
-                                <div className="cat-dot" style={{ background: cat.color || '#2979FF' }} />
-                                {cat.label}
+                                {cat.label.charAt(0).toUpperCase()}
                             </button>
                         ))}
                     </div>
@@ -378,6 +362,106 @@ export function Watchlist() {
                 />
             )}
         </div>
+    );
+}
+
+function DesktopWatchlistRow({ symbol, isActive, ticker, onClick }) {
+    const [imgError, setImgError] = useState(false);
+    const [priceColor, setPriceColor] = useState('');
+    const prevPriceRef = useRef(0);
+
+    // Extract base symbol
+    let displaySymbol = symbol.includes(':') ? symbol.split(':')[1] : symbol;
+    displaySymbol = displaySymbol.replace(/USDT$|USDC$|USD$|BUSD$/i, '');
+
+    const logoUrl = getCoinLogoUrl(symbol);
+    const price = ticker?.price || 0;
+    const changePercent = ticker?.priceChangePercent || 0;
+    const isPositive = changePercent >= 0;
+
+    // Lấy chữ cái đầu tiên để làm logo fallback
+    const firstLetter = displaySymbol.charAt(0).toUpperCase();
+
+    // Flash effect khi giá thay đổi
+    useEffect(() => {
+        if (price !== 0) {
+            if (prevPriceRef.current !== 0 && price !== prevPriceRef.current) {
+                setPriceColor(price > prevPriceRef.current ? 'up' : 'down');
+                const timer = setTimeout(() => setPriceColor(''), 500);
+                return () => clearTimeout(timer);
+            }
+            prevPriceRef.current = price;
+        }
+    }, [price]);
+
+    // Màu flash cho giá
+    let priceTextColor = 'var(--text-primary)';
+    if (priceColor === 'up') priceTextColor = '#00ff88';
+    if (priceColor === 'down') priceTextColor = '#ff4444';
+
+    return (
+        <tr
+            className={`watchlist-table-row ${isActive ? 'active' : ''}`}
+            onClick={onClick}
+        >
+            <td>
+                <div style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '8px',
+                    flexDirection: 'row'
+                }}>
+                    {logoUrl && !imgError ? (
+                        <img
+                            src={logoUrl}
+                            alt={displaySymbol}
+                            onError={() => setImgError(true)}
+                            style={{ 
+                                width: '18px', 
+                                height: '18px', 
+                                borderRadius: '50%', 
+                                flexShrink: 0,
+                                objectFit: 'cover',
+                                border: '1px solid rgba(255, 255, 255, 0.1)'
+                            }}
+                        />
+                    ) : (
+                        <div style={{ 
+                            width: '18px', 
+                            height: '18px', 
+                            borderRadius: '50%', 
+                            flexShrink: 0,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            background: 'rgba(41, 121, 255, 0.2)',
+                            color: '#fff',
+                            fontSize: '10px',
+                            fontWeight: 700,
+                            textTransform: 'uppercase'
+                        }}>
+                            {firstLetter}
+                        </div>
+                    )}
+                    <span style={{ 
+                        fontWeight: 500,
+                        fontSize: '12px',
+                        whiteSpace: 'nowrap'
+                    }}>
+                        {displaySymbol}
+                    </span>
+                </div>
+            </td>
+            <td className="text-right price-cell" style={{ 
+                color: priceTextColor,
+                transition: 'color 0.3s ease'
+            }}>
+                {formatPrice(price)}
+            </td>
+            <td className={`text-right change-cell ${isPositive ? 'positive' : 'negative'}`}>
+                {formatPercent(changePercent)}
+            </td>
+        </tr>
     );
 }
 

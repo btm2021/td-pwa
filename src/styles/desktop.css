@@ -232,37 +232,38 @@ html.desktop-mode #app {
 
 /* ===== Side Navigation ===== */
 .side-nav {
-    width: 72px;
-    min-width: 72px;
+    width: 56px;
+    min-width: 56px;
     height: 100%;
     display: flex;
     flex-direction: column;
     background: var(--bg-secondary);
     border-right: 1px solid var(--border-primary);
-    padding: var(--spacing-md) var(--spacing-sm);
+    padding: var(--spacing-sm) 0;
     transition: width var(--transition-normal);
 }
 
 .side-nav:hover {
-    width: 180px;
+    width: 160px;
 }
 
 .side-nav__logo {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: var(--spacing-md);
-    margin-bottom: var(--spacing-xl);
+    padding: var(--spacing-sm);
+    margin-bottom: var(--spacing-lg);
     overflow: hidden;
     position: relative;
+    height: 40px;
 }
 
 .side-nav__brand-initial {
-    font-size: 28px;
+    font-size: 22px;
     font-weight: var(--font-weight-bold);
     color: var(--text-primary);
     margin: 0;
-    background: linear-gradient(135deg, #2979FF, #00C853);
+    background: linear-gradient(135deg, #ff4444, #00ff88);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -276,11 +277,11 @@ html.desktop-mode #app {
 }
 
 .side-nav__brand-name {
-    font-size: var(--font-size-xl);
+    font-size: var(--font-size-lg);
     font-weight: var(--font-weight-bold);
     color: var(--text-primary);
     margin: 0;
-    background: linear-gradient(135deg, #2979FF, #00C853);
+    background: linear-gradient(135deg, #ff4444, #00ff88);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -296,8 +297,8 @@ html.desktop-mode #app {
 }
 
 .side-nav__logo-icon {
-    width: 40px;
-    height: 40px;
+    width: 32px;
+    height: 32px;
     flex-shrink: 0;
 }
 
@@ -310,16 +311,16 @@ html.desktop-mode #app {
     flex: 1;
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-xs);
+    gap: 2px;
 }
 
 .side-nav__bottom {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-xs);
-    padding-top: var(--spacing-md);
+    gap: 2px;
+    padding-top: var(--spacing-sm);
     border-top: 1px solid var(--border-primary);
-    margin-top: var(--spacing-md);
+    margin-top: var(--spacing-sm);
 }
 
 .side-nav__item {
@@ -329,13 +330,14 @@ html.desktop-mode #app {
     padding: var(--spacing-sm) var(--spacing-md);
     background: none;
     border: none;
-    border-radius: var(--radius-md);
+    border-radius: 0;
     color: var(--text-tertiary);
     cursor: pointer;
     transition: all var(--transition-fast);
     position: relative;
     white-space: nowrap;
     overflow: hidden;
+    height: 44px;
 }
 
 .side-nav__item:hover {
@@ -344,12 +346,12 @@ html.desktop-mode #app {
 }
 
 .side-nav__item--active {
-    background: rgba(41, 121, 255, 0.15);
-    color: var(--accent-blue);
+    background: rgba(255, 68, 68, 0.1);
+    color: #ff4444;
 }
 
 .side-nav__item--active:hover {
-    background: rgba(41, 121, 255, 0.2);
+    background: rgba(255, 68, 68, 0.15);
 }
 
 .side-nav__item--subtle {
@@ -361,8 +363,8 @@ html.desktop-mode #app {
 }
 
 .side-nav__icon {
-    width: 24px;
-    height: 24px;
+    width: 20px;
+    height: 20px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -370,7 +372,7 @@ html.desktop-mode #app {
 }
 
 .side-nav__label {
-    font-size: var(--font-size-sm);
+    font-size: 11px;
     font-weight: var(--font-weight-medium);
     opacity: 0;
     transform: translateX(-8px);
@@ -387,9 +389,9 @@ html.desktop-mode #app {
     left: 0;
     top: 50%;
     transform: translateY(-50%);
-    width: 3px;
-    height: 20px;
-    background: var(--accent-blue);
+    width: 2px;
+    height: 24px;
+    background: #ff4444;
     border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
 
@@ -1513,13 +1515,13 @@ html.desktop-mode #app {
 .watchlist-categories {
     flex: 1;
     display: flex;
-    gap: 2px;
+    gap: 6px;
     overflow-x: auto;
     scrollbar-width: none;
     /* Firefox */
     -ms-overflow-style: none;
     /* IE/Edge */
-    padding: 4px 0;
+    padding: 8px 4px;
 }
 
 .watchlist-categories::-webkit-scrollbar {
@@ -1529,40 +1531,35 @@ html.desktop-mode #app {
 
 .watchlist-category {
     flex: 0 0 auto;
-    /* Căn đều các nút */
-    min-width: 80px;
+    width: 32px;
+    height: 32px;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
-    padding: 0 12px;
-    background: transparent;
+    padding: 0;
+    background: rgba(255, 255, 255, 0.05);
     border: 1px solid transparent;
-    border-radius: 6px;
-    color: var(--text-tertiary);
-    font-size: 11px;
+    border-radius: 50%;
+    color: var(--text-primary);
+    font-size: 12px;
     font-weight: 600;
-    white-space: nowrap;
     cursor: pointer;
     transition: all 0.2s ease;
 }
 
 .watchlist-category:hover {
-    color: var(--text-primary);
-    background: rgba(255, 255, 255, 0.03);
+    transform: scale(1.1);
+    border-color: rgba(255, 255, 255, 0.2);
 }
 
 .watchlist-category.active {
-    background: rgba(255, 255, 255, 0.06);
-    color: var(--text-primary);
-    border-color: rgba(255, 255, 255, 0.1);
+    color: #FFFFFF;
+    border-color: rgba(255, 255, 255, 0.3);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 .cat-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    flex-shrink: 0;
+    display: none;
 }
 
 .watchlist-category--add-btn {
@@ -1601,12 +1598,13 @@ html.desktop-mode #app {
     background: #0B0B0E;
     z-index: 10;
     text-align: left;
-    padding: 12px 16px;
-    font-size: 11px;
+    padding: 6px 12px;
+    font-size: 10px;
     color: var(--text-tertiary);
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.3px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    font-weight: 500;
 }
 
 .th-content {
@@ -1627,54 +1625,74 @@ html.desktop-mode #app {
 
 .watchlist-table-row {
     cursor: pointer;
-    transition: all 0.15s ease;
     border-bottom: 1px solid rgba(255, 255, 255, 0.02);
 }
 
 .watchlist-table-row:hover {
-    background: rgba(255, 255, 255, 0.02);
+    background: rgba(255, 255, 255, 0.03);
 }
 
 .watchlist-table-row.active {
-    background: rgba(41, 121, 255, 0.05);
-    border-left: 3px solid var(--accent-blue);
+    background: rgba(41, 121, 255, 0.08);
 }
 
 .watchlist-table-row td {
-    padding: 14px 16px;
-    font-size: 14px;
+    padding: 4px 8px;
+    font-size: 11px;
     vertical-align: middle;
 }
 
-.symbol-cell__symbol {
-    font-weight: 600;
-    font-family: var(--font-mono);
+.watchlist-table .symbol-cell {
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
-.symbol-cell__exchange {
-    font-size: 10px;
-    color: var(--text-tertiary);
-    margin-left: 6px;
-    background: rgba(255, 255, 255, 0.05);
-    padding: 1px 4px;
-    border-radius: 4px;
+.watchlist-table .symbol-icon,
+.watchlist-table .symbol-icon-placeholder {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.watchlist-table .symbol-icon {
+    object-fit: cover;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.watchlist-table .symbol-icon-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-secondary);
+    font-size: 9px;
+    font-weight: 700;
+}
+
+.watchlist-table .symbol-cell__symbol {
+    font-weight: 500;
+    font-family: inherit;
+    font-size: 12px;
 }
 
 .price-cell {
-    font-family: var(--font-mono);
-    font-weight: 600;
+    font-family: inherit;
+    font-weight: 500;
+    font-size: 12px;
 }
 
 .change-cell {
-    font-family: var(--font-mono);
-    font-size: 13px;
+    font-family: inherit;
+    font-size: 12px;
     font-weight: 500;
 }
 
 .volume-cell {
     color: var(--text-secondary);
-    font-family: var(--font-mono);
-    font-size: 13px;
+    font-family: inherit;
+    font-size: 12px;
 }
 
 /* Animations for price flashes */

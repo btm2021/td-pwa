@@ -82,8 +82,13 @@ export function DesktopChart() {
 
                 const currentRes = intervalMap[currentTimeframe] || '15';
 
+                // Sử dụng datafeedSymbol để đảm bảo đúng datasource
+                // VD: BINANCE_FUTURES:BTCUSDT, BYBIT_FUTURES:ETHUSDT, OKX_FUTURES:SOLUSDT
+                const chartSymbol = symbol.datafeedSymbol || symbol.fullSymbol || symbol.symbol;
+                console.log('[DesktopChart] Initializing with symbol:', chartSymbol, 'from:', symbol);
+
                 const widgetOptions = {
-                    symbol: symbol.symbol.replace('.P', ''),
+                    symbol: chartSymbol,
                     datafeed: datafeed,
                     interval: currentRes,
                     container: chartContainerRef.current,
@@ -126,21 +131,21 @@ export function DesktopChart() {
                     autosize: true,
                     theme: 'dark',
                     timezone: 'Etc/UTC',
-                    toolbar_bg: '#0B0B0E',
+                    toolbar_bg: '#000000',
 
                     loading_screen: {
-                        backgroundColor: '#0B0B0E',
-                        foregroundColor: '#2979FF'
+                        backgroundColor: '#000000',
+                        foregroundColor: '#ff4444'
                     },
                     favorites: {
                         intervals: ['1', '15', '60', '240'],
                         chartTypes: ['Candles', 'Line']
                     },
                     overrides: {
-                        'paneProperties.background': '#0B0B0E',
+                        'paneProperties.background': '#000000',
                         'paneProperties.backgroundType': 'solid',
-                        'paneProperties.vertGridProperties.color': '#1A1A1F',
-                        'paneProperties.horzGridProperties.color': '#1A1A1F',
+                        'paneProperties.vertGridProperties.color': '#1a0000',
+                        'paneProperties.horzGridProperties.color': '#1a0000',
                         'paneProperties.legendProperties.showStudyArguments': true,
                         'paneProperties.legendProperties.showStudyTitles': true,
                         'paneProperties.legendProperties.showStudyValues': true,
@@ -148,22 +153,22 @@ export function DesktopChart() {
                         'paneProperties.legendProperties.showSeriesOHLC': true,
                         'paneProperties.legendProperties.showLegend': true,
                         'paneProperties.legendProperties.showBarChange': true,
-                        'scalesProperties.textColor': '#A0A0A8',
-                        'scalesProperties.lineColor': '#2A2A30',
-                        'scalesProperties.backgroundColor': '#0B0B0E',
-                        'mainSeriesProperties.candleStyle.upColor': '#00C853',
-                        'mainSeriesProperties.candleStyle.downColor': '#FF3B30',
+                        'scalesProperties.textColor': '#888888',
+                        'scalesProperties.lineColor': '#1a0000',
+                        'scalesProperties.backgroundColor': '#000000',
+                        'mainSeriesProperties.candleStyle.upColor': '#00ff88',
+                        'mainSeriesProperties.candleStyle.downColor': '#ff4444',
                         'mainSeriesProperties.candleStyle.drawWick': true,
                         'mainSeriesProperties.candleStyle.drawBorder': true,
-                        'mainSeriesProperties.candleStyle.borderUpColor': '#00C853',
-                        'mainSeriesProperties.candleStyle.borderDownColor': '#FF3B30',
-                        'mainSeriesProperties.candleStyle.wickUpColor': '#00C853',
-                        'mainSeriesProperties.candleStyle.wickDownColor': '#FF3B30',
+                        'mainSeriesProperties.candleStyle.borderUpColor': '#00ff88',
+                        'mainSeriesProperties.candleStyle.borderDownColor': '#ff4444',
+                        'mainSeriesProperties.candleStyle.wickUpColor': '#00ff88',
+                        'mainSeriesProperties.candleStyle.wickDownColor': '#ff4444',
                     },
 
                     studies_overrides: {
-                        'volume.volume.color.0': '#FF3B30',
-                        'volume.volume.color.1': '#00C853',
+                        'volume.volume.color.0': '#ff4444',
+                        'volume.volume.color.1': '#00ff88',
                     },
                 };
 

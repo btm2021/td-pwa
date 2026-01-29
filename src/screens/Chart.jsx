@@ -168,18 +168,18 @@ export function Chart() {
                     theme: 'dark',
                     timezone: 'Etc/UTC',
 
-                    // Dark theme styling
+                    // Dark theme styling - đen đỏ hơn
                     toolbar_bg: '#000000',
                     loading_screen: {
                         backgroundColor: '#000000',
-                        foregroundColor: '#2979FF'
+                        foregroundColor: '#ff4444'
                     },
 
                     overrides: {
                         'paneProperties.background': '#000000',
                         'paneProperties.backgroundType': 'solid',
-                        'paneProperties.vertGridProperties.color': '#0A0A0A',
-                        'paneProperties.horzGridProperties.color': '#0A0A0A',
+                        'paneProperties.vertGridProperties.color': '#1a0000',
+                        'paneProperties.horzGridProperties.color': '#1a0000',
                         'paneProperties.legendProperties.showStudyArguments': true,
                         'paneProperties.legendProperties.showStudyTitles': true,
                         'paneProperties.legendProperties.showStudyValues': true,
@@ -187,21 +187,21 @@ export function Chart() {
                         'paneProperties.legendProperties.showSeriesOHLC': true,
                         'paneProperties.legendProperties.showLegend': true,
                         'paneProperties.legendProperties.showBarChange': true,
-                        'scalesProperties.textColor': '#A0A0A8',
-                        'scalesProperties.lineColor': '#1A1A1F',
+                        'scalesProperties.textColor': '#888888',
+                        'scalesProperties.lineColor': '#1a0000',
                         'scalesProperties.backgroundColor': '#000000',
-                        'mainSeriesProperties.candleStyle.upColor': '#00C853',
-                        'mainSeriesProperties.candleStyle.downColor': '#FF3B30',
+                        'mainSeriesProperties.candleStyle.upColor': '#00ff88',
+                        'mainSeriesProperties.candleStyle.downColor': '#ff4444',
                         'mainSeriesProperties.candleStyle.drawWick': true,
                         'mainSeriesProperties.candleStyle.drawBorder': true,
-                        'mainSeriesProperties.candleStyle.borderUpColor': '#00C853',
-                        'mainSeriesProperties.candleStyle.borderDownColor': '#FF3B30',
-                        'mainSeriesProperties.candleStyle.wickUpColor': '#00C853',
-                        'mainSeriesProperties.candleStyle.wickDownColor': '#FF3B30',
+                        'mainSeriesProperties.candleStyle.borderUpColor': '#00ff88',
+                        'mainSeriesProperties.candleStyle.borderDownColor': '#ff4444',
+                        'mainSeriesProperties.candleStyle.wickUpColor': '#00ff88',
+                        'mainSeriesProperties.candleStyle.wickDownColor': '#ff4444',
                     },
                     studies_overrides: {
-                        'volume.volume.color.0': '#FF3B30',
-                        'volume.volume.color.1': '#00C853',
+                        'volume.volume.color.0': '#ff4444',
+                        'volume.volume.color.1': '#00ff88',
                     },
                 };
 
