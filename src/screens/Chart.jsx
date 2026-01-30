@@ -8,34 +8,25 @@ import { timeframes } from '../state/watchlist';
 // Get custom studies creators
 function getCustomStudies() {
     const studies = [];
+    const names = [
+        'createATRBot', 'createVSR', 'createVSR_1', 'createVIDYA',
+        'createSessionVP', 'createSwingPoints', 'createKAMA',
+        'createSMC', 'createFVG'
+    ];
 
-    // Check for each custom study
-    if (typeof createATRBot !== 'undefined') {
-        studies.push(createATRBot);
-    }
-    if (typeof createVSR !== 'undefined') {
-        studies.push(createVSR);
-    }
-    if (typeof createVSR_1 !== 'undefined') {
-        studies.push(createVSR_1);
-    }
-    if (typeof createVIDYA !== 'undefined') {
-        studies.push(createVIDYA);
-    }
-    if (typeof createSessionVP !== 'undefined') {
-        studies.push(createSessionVP);
-    }
-    if (typeof createSwingPoints !== 'undefined') {
-        studies.push(createSwingPoints);
-    }
-    if (typeof createKAMA !== 'undefined') {
-        studies.push(createKAMA);
-    }
-    if (typeof createSMC !== 'undefined') {
-        studies.push(createSMC);
-    }
-    if (typeof createFVG !== 'undefined') {
-        studies.push(createFVG);
+    names.forEach(name => {
+        if (typeof window[name] === 'function') {
+            studies.push(window[name]);
+        } else if (typeof globalThis[name] === 'function') {
+            studies.push(globalThis[name]);
+        }
+    });
+
+    if (studies.length === 0) {
+        // Fallback for some environments where they might be added later
+        console.warn('[Chart] No custom studies found in global scope yet.');
+    } else {
+        console.log(`[Chart] Found ${studies.length} custom studies.`);
     }
 
     return studies;
@@ -51,7 +42,6 @@ export function Chart() {
     const [showSymbolPicker, setShowSymbolPicker] = useState(false);
     const [showTimeframePicker, setShowTimeframePicker] = useState(false);
     const [showChartTypePicker, setShowChartTypePicker] = useState(false);
-    const [showIndicatorsPicker, setShowIndicatorsPicker] = useState(false);
     const [currentChartType, setCurrentChartType] = useState(1); // Default: Candles
 
     useEffect(() => {
@@ -121,11 +111,11 @@ export function Chart() {
                     locale: 'en',
 
                     // Custom studies
-                    custom_indicators_getter: customStudies.length > 0
-                        ? function (PineJS) {
-                            return Promise.resolve(customStudies.map(fn => fn(PineJS)));
-                        }
-                        : undefined,
+                    custom_indicators_getter: function (PineJS) {
+                        const studies = getCustomStudies();
+                        console.log('[Chart] custom_indicators_getter called. Returning studies:', studies.length);
+                        return Promise.resolve(studies.map(fn => fn(PineJS)));
+                    },
 
                     // Save/Load adapter
                     save_load_adapter: saveLoadAdapter,
@@ -293,6 +283,16 @@ export function Chart() {
         }
     };
 
+    const handleOpenIndicators = () => {
+        if (tvWidgetRef.current && chartReady) {
+            try {
+                tvWidgetRef.current.chart().executeActionById('insertIndicator');
+            } catch (e) {
+                console.error('Error opening indicators dialog:', e);
+            }
+        }
+    };
+
     // Get timeframe label
     const currentTfLabel = timeframes.find(tf => tf.id === currentTimeframe)?.label || currentTimeframe.toUpperCase();
 
@@ -361,7 +361,7 @@ export function Chart() {
                 <button
                     className="chart-toolbar__btn chart-toolbar__btn--icon"
                     title="Indicators"
-                    onClick={() => setShowIndicatorsPicker(true)}
+                    onClick={handleOpenIndicators}
                 >
                     <Icon name="indicators" size={20} />
                 </button>
@@ -400,14 +400,6 @@ export function Chart() {
                     currentType={currentChartType}
                     onChange={handleChartTypeChange}
                     onClose={() => setShowChartTypePicker(false)}
-                />
-            )}
-
-            {/* Indicators Picker */}
-            {showIndicatorsPicker && (
-                <IndicatorsPicker
-                    tvWidget={tvWidgetRef.current}
-                    onClose={() => setShowIndicatorsPicker(false)}
                 />
             )}
         </div>

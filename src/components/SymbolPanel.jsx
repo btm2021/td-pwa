@@ -1,6 +1,6 @@
 import { useState } from 'preact/hooks';
 import { Icon } from '../components/Icon';
-import { formatPrice, formatPercent, formatVolume, getCoinLogoUrl, getBaseAsset } from '../state/watchlist';
+import { formatPrice, formatPercent, formatVolume, getCoinLogoUrl, getBaseAsset, categories, addSymbolToCategory, removeSymbolFromCategory } from '../state/watchlist';
 import { navigateToChart } from '../state/store';
 import { deviceMode } from '../hooks/useDeviceMode';
 
@@ -30,6 +30,16 @@ export function SymbolPanel({ symbol, ticker, onClose }) {
         console.log('[SymbolPanel] Navigate to chart:', symbol);
         navigateToChart(symbol);
         onClose();
+    };
+
+    const isFavorite = categories.value.find(c => c.id === 'favorites')?.symbols.includes(symbol);
+
+    const toggleFavorite = () => {
+        if (isFavorite) {
+            removeSymbolFromCategory('favorites', symbol);
+        } else {
+            addSymbolToCategory('favorites', symbol);
+        }
     };
 
     const handleBackdropClick = (e) => {
@@ -137,9 +147,12 @@ export function SymbolPanel({ symbol, ticker, onClose }) {
                                 <Icon name="chart" size={18} />
                                 Open Chart
                             </button>
-                            <button className="symbol-modal__btn symbol-modal__btn--secondary">
-                                <Icon name="star" size={18} />
-                                Add to Favorites
+                            <button
+                                className={`symbol-modal__btn symbol-modal__btn--secondary ${isFavorite ? 'is-favorite' : ''}`}
+                                onClick={toggleFavorite}
+                            >
+                                <Icon name={isFavorite ? 'star' : 'star'} size={18} color={isFavorite ? '#FFD600' : undefined} />
+                                {isFavorite ? 'Remove from Favorites' : 'Add to Favorites'}
                             </button>
                         </div>
                     </div>
@@ -256,9 +269,12 @@ export function SymbolPanel({ symbol, ticker, onClose }) {
                         <Icon name="chart" size={20} />
                         Open Chart
                     </button>
-                    <button className="symbol-panel__btn symbol-panel__btn--secondary">
-                        <Icon name="star" size={20} />
-                        Add to Favorites
+                    <button
+                        className={`symbol-panel__btn symbol-panel__btn--secondary ${isFavorite ? 'is-favorite' : ''}`}
+                        onClick={toggleFavorite}
+                    >
+                        <Icon name={isFavorite ? 'star' : 'star'} size={20} color={isFavorite ? '#FFD600' : undefined} />
+                        {isFavorite ? 'Remove' : 'Favorite'}
                     </button>
                 </div>
             </div>

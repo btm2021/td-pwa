@@ -143,18 +143,18 @@ export function IndicatorsPicker({ tvWidget, onClose }) {
         { id: 'FVG', name: 'FVG', description: 'Fair Value Gaps' },
     ];
 
-    // Popular built-in indicators
+    // Popular built-in indicators - Using standard names that work in all versions
     const builtInIndicators = [
-        { id: 'MASimple@tv-basicstudies', name: 'MA (Moving Average)', description: 'Simple Moving Average' },
-        { id: 'MAExp@tv-basicstudies', name: 'EMA', description: 'Exponential Moving Average' },
-        { id: 'BB@tv-basicstudies', name: 'Bollinger Bands', description: 'Volatility bands' },
-        { id: 'RSI@tv-basicstudies', name: 'RSI', description: 'Relative Strength Index' },
-        { id: 'MACD@tv-basicstudies', name: 'MACD', description: 'Moving Average Convergence/Divergence' },
-        { id: 'Stochastic@tv-basicstudies', name: 'Stochastic', description: 'Stochastic oscillator' },
-        { id: 'Volume@tv-basicstudies', name: 'Volume', description: 'Trading volume' },
-        { id: 'VWAP@tv-basicstudies', name: 'VWAP', description: 'Volume Weighted Avg Price' },
-        { id: 'ATR@tv-basicstudies', name: 'ATR', description: 'Average True Range' },
-        { id: 'IchimokuCloud@tv-basicstudies', name: 'Ichimoku Cloud', description: 'Ichimoku Kinko Hyo' },
+        { id: 'Moving Average', name: 'MA (Moving Average)', description: 'Simple Moving Average' },
+        { id: 'Moving Average Exponential', name: 'EMA', description: 'Exponential Moving Average' },
+        { id: 'Bollinger Bands', name: 'Bollinger Bands', description: 'Volatility bands' },
+        { id: 'Relative Strength Index', name: 'RSI', description: 'Relative Strength Index' },
+        { id: 'MACD', name: 'MACD', description: 'Moving Average Convergence/Divergence' },
+        { id: 'Stochastic', name: 'Stochastic', description: 'Stochastic oscillator' },
+        { id: 'Volume', name: 'Volume', description: 'Trading volume' },
+        { id: 'VWAP', name: 'VWAP', description: 'Volume Weighted Avg Price' },
+        { id: 'Average True Range', name: 'ATR', description: 'Average True Range' },
+        { id: 'Ichimoku Cloud', name: 'Ichimoku Cloud', description: 'Ichimoku Kinko Hyo' },
     ];
 
     const allIndicators = [...customStudies, ...builtInIndicators];
@@ -166,13 +166,31 @@ export function IndicatorsPicker({ tvWidget, onClose }) {
         )
         : allIndicators;
 
-    const handleAddIndicator = (indicator) => {
+    const handleAddIndicator = async (indicator) => {
         if (tvWidget) {
+            console.log(`[Chart] Attempting to add indicator: ${indicator.name} (ID: ${indicator.id})`);
             try {
-                tvWidget.chart().createStudy(indicator.id, false, false);
-                console.log('Added indicator:', indicator.name);
+                // TradingView createStudy can return a Promise in some versions
+                const result = await tvWidget.chart().createStudy(indicator.id, false, false);
+                console.log('[Chart] Successfully added indicator:', indicator.name, result);
             } catch (e) {
-                console.error('Error adding indicator:', e);
+                console.error('[Chart] Error adding indicator:', indicator.name, e);
+
+                // Fallback for some versions that might expect slightly different names
+                const fallbackNames = {
+                    'Moving Average': 'MA',
+                    'Moving Average Exponential': 'EMA',
+                    'Bollinger Bands': 'BB',
+                };
+
+                if (fallbackNames[indicator.id]) {
+                    console.log(`[Chart] Trying fallback ID: ${fallbackNames[indicator.id]}`);
+                    try {
+                        await tvWidget.chart().createStudy(fallbackNames[indicator.id], false, false);
+                    } catch (e2) {
+                        console.error('[Chart] Fallback also failed:', e2);
+                    }
+                }
             }
         }
         onClose();

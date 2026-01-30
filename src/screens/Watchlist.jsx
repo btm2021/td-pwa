@@ -122,32 +122,35 @@ export function Watchlist() {
         return (
             <div className="screen screen--no-padding screen--full-height watchlist-screen">
                 {/* Desktop Header */}
-                <div className="watchlist-header watchlist-header--inline">
-                    <div className="watchlist-header__title-info watchlist-header__title-info--clickable" onClick={() => setShowCatalogManager(true)}>
-                        <h1>Market</h1>
-                        <span className="watchlist-count">{symbols.length}</span>
-                        <Icon name="list" size={12} />
-                    </div>
-
-                    <div className="watchlist-search__input-wrapper">
-                        <Icon name="search" size={14} />
-                        <input
-                            type="text"
-                            placeholder="Filter..."
-                            value={searchQuery}
-                            onInput={(e) => setSearchQuery(e.target.value)}
-                        />
-                        {searchQuery && (
-                            <button className="watchlist-search__clear" onClick={() => setSearchQuery('')}>
-                                <Icon name="close" size={12} />
+                <div className="watchlist-header-new">
+                    <div className="watchlist-header-new__top">
+                        <div className="watchlist-header-new__title" onClick={() => setShowCatalogManager(true)}>
+                            <h2>Market</h2>
+                            <span className="count-tag">{symbols.length}</span>
+                            <Icon name="chevronDown" size={12} />
+                        </div>
+                        <div className="watchlist-header-new__actions">
+                            <button className="minimal-action-btn" onClick={() => setShowSearch(true)}>
+                                <Icon name="plus" size={16} />
                             </button>
-                        )}
+                        </div>
                     </div>
 
-                    <div className="watchlist-header__actions">
-                        <button className="icon-btn" onClick={() => setShowSearch(true)} title="Add Symbol">
-                            <Icon name="plus" size={16} />
-                        </button>
+                    <div className="watchlist-header-new__search">
+                        <div className="integrated-search">
+                            <Icon name="search" size={14} />
+                            <input
+                                type="text"
+                                placeholder="Filter symbols..."
+                                value={searchQuery}
+                                onInput={(e) => setSearchQuery(e.target.value)}
+                            />
+                            {searchQuery && (
+                                <button className="clear-btn" onClick={() => setSearchQuery('')}>
+                                    <Icon name="close" size={12} />
+                                </button>
+                            )}
+                        </div>
                     </div>
                 </div>
 
@@ -196,23 +199,20 @@ export function Watchlist() {
                 </div>
 
                 {/* Desktop Footer (Categories) */}
-                <div className="watchlist-footer">
-                    <div className="watchlist-categories">
+                <div className="watchlist-footer-new">
+                    <div className="category-nav">
                         {cats.map((cat) => (
                             <button
                                 key={cat.id}
-                                className={`watchlist-category ${activeCat === cat.id ? 'active' : ''}`}
+                                className={`category-tab ${activeCat === cat.id ? 'active' : ''}`}
                                 onClick={() => setActiveCategory(cat.id)}
-                                style={{ background: activeCat === cat.id ? cat.color : 'transparent' }}
                                 title={cat.label}
                             >
-                                {cat.label.charAt(0).toUpperCase()}
+                                <span className="cat-dot" style={{ background: cat.color }}></span>
+                                <span className="cat-label">{cat.label}</span>
                             </button>
                         ))}
                     </div>
-                    <button className="watchlist-category--add-btn" onClick={() => handleOpenCategoryModal(null)}>
-                        <Icon name="plus" size={14} />
-                    </button>
                 </div>
 
                 {/* Modals */}
@@ -405,9 +405,9 @@ function DesktopWatchlistRow({ symbol, isActive, ticker, onClick }) {
             onClick={onClick}
         >
             <td>
-                <div style={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
                     gap: '8px',
                     flexDirection: 'row'
                 }}>
@@ -416,20 +416,20 @@ function DesktopWatchlistRow({ symbol, isActive, ticker, onClick }) {
                             src={logoUrl}
                             alt={displaySymbol}
                             onError={() => setImgError(true)}
-                            style={{ 
-                                width: '18px', 
-                                height: '18px', 
-                                borderRadius: '50%', 
+                            style={{
+                                width: '18px',
+                                height: '18px',
+                                borderRadius: '50%',
                                 flexShrink: 0,
                                 objectFit: 'cover',
                                 border: '1px solid rgba(255, 255, 255, 0.1)'
                             }}
                         />
                     ) : (
-                        <div style={{ 
-                            width: '18px', 
-                            height: '18px', 
-                            borderRadius: '50%', 
+                        <div style={{
+                            width: '18px',
+                            height: '18px',
+                            borderRadius: '50%',
                             flexShrink: 0,
                             display: 'flex',
                             alignItems: 'center',
@@ -443,7 +443,7 @@ function DesktopWatchlistRow({ symbol, isActive, ticker, onClick }) {
                             {firstLetter}
                         </div>
                     )}
-                    <span style={{ 
+                    <span style={{
                         fontWeight: 500,
                         fontSize: '12px',
                         whiteSpace: 'nowrap'
@@ -452,7 +452,7 @@ function DesktopWatchlistRow({ symbol, isActive, ticker, onClick }) {
                     </span>
                 </div>
             </td>
-            <td className="text-right price-cell" style={{ 
+            <td className="text-right price-cell" style={{
                 color: priceTextColor,
                 transition: 'color 0.3s ease'
             }}>
