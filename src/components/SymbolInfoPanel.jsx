@@ -236,17 +236,17 @@ export function SymbolInfoPanel() {
                             <button
                                 className={`btn-pnl-toggle ${pnlMode ? 'active' : ''}`}
                                 onClick={() => setPnlMode(!pnlMode)}
+                                title="PNL Measure Tool"
                             >
-                                <Icon name="chart-bar" size={14} />
-                                PNL
+                                <Icon name="chart-bar" size={18} />
                             </button>
                             <button
                                 className="btn-pnl-toggle"
-                                style={{ background: 'rgba(240, 185, 11, 0.1)', color: '#f0b90b', borderColor: 'rgba(240, 185, 11, 0.3)' }}
-                                onClick={() => navigateToFutures(symbol)}
+                                style={{ background: 'rgba(57, 211, 83, 0.1)', color: '#39d353', borderColor: 'rgba(57, 211, 83, 0.3)' }}
+                                onClick={() => navigateToChart(symbol)}
+                                title="Open Full Chart"
                             >
-                                <Icon name="futures" size={14} />
-                                TRADE
+                                <Icon name="chart" size={18} />
                             </button>
                         </div>
                     </div>
@@ -356,7 +356,7 @@ function MiniChart({ data, indicators, history, vsrRes, symbol, pnlModeExternal,
             rightPriceScale: { borderColor: 'rgba(255,255,255,0.06)' },
             timeScale: { borderColor: 'rgba(255,255,255,0.06)', timeVisible: true },
             crosshair: {
-                mode: 1,
+                mode: 0,
                 vertLine: { labelBackgroundColor: '#2979FF', color: 'rgba(255,255,255,0.2)' },
                 horzLine: { labelBackgroundColor: '#2979FF', color: 'rgba(255,255,255,0.2)' }
             },
@@ -611,11 +611,15 @@ function MiniChart({ data, indicators, history, vsrRes, symbol, pnlModeExternal,
 
     let pnlDetails = null;
     if (pnlPoints.length === 2) {
-        const entry = pnlPoints[0].price, exit = pnlPoints[1].price;
+        const entry = pnlPoints[0].price;
+        const exit = pnlPoints[1].price;
+        const leverage = 20;
+        const margin = 100;
         const side = exit > entry ? 'LONG' : 'SHORT';
         const pnlPct = side === 'LONG' ? (exit - entry) / entry : (entry - exit) / entry;
-        const roe = pnlPct * 2000, pnlUsdt = 100 * pnlPct * 20;
-        pnlDetails = { side, entry, exit, roe, pnlUsdt };
+        const roe = pnlPct * leverage * 100;
+        const pnlUsdt = margin * pnlPct * leverage;
+        pnlDetails = { side, entry, exit, roe, pnlUsdt, leverage, margin };
     }
 
     return (
@@ -631,9 +635,9 @@ function MiniChart({ data, indicators, history, vsrRes, symbol, pnlModeExternal,
                         <span>Click to set <b>ENTRY</b></span>
                     ) : pnlPoints.length === 1 ? (
                         <div>
-                            <div style={{ color: '#d29922', fontWeight: 800 }}>ANALYZING...</div>
+                            <div style={{ color: '#d29922', fontWeight: 800, fontSize: 10, marginBottom: 4 }}>MEASURING (20x)</div>
                             <div>Price: {livePnl.price.toFixed(4)}</div>
-                            <div style={{ color: livePnl.price > pnlPoints[0].price ? '#4ade80' : '#f87171' }}>
+                            <div style={{ color: livePnl.price > pnlPoints[0].price ? '#4ade80' : '#f87171', fontWeight: 700 }}>
                                 ROE: {((livePnl.price > pnlPoints[0].price ? (livePnl.price - pnlPoints[0].price) / pnlPoints[0].price : (pnlPoints[0].price - livePnl.price) / pnlPoints[0].price) * 2000).toFixed(2)}%
                             </div>
                             <div style={{ marginTop: 4, fontSize: 10, opacity: 0.7 }}>Click to set <b>EXIT</b></div>
@@ -656,11 +660,11 @@ function MiniChart({ data, indicators, history, vsrRes, symbol, pnlModeExternal,
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                                 <span>ROE%:</span>
-                                <span style={{ color: pnlDetails.roe >= 0 ? '#4ade80' : '#f87171', fontWeight: 800 }}>{pnlDetails.roe.toFixed(2)}%</span>
+                                <span style={{ color: pnlDetails.roe >= 0 ? '#4ade80' : '#f87171', fontWeight: 800 }}>{pnlDetails.roe.toFixed(2)}% (20x)</span>
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                 <span>PnL:</span>
-                                <span style={{ color: pnlDetails.roe >= 0 ? '#4ade80' : '#f87171', fontWeight: 800 }}>{pnlDetails.pnlUsdt.toFixed(2)} USDT</span>
+                                <span style={{ color: pnlDetails.roe >= 0 ? '#4ade80' : '#f87171', fontWeight: 800 }}>{pnlDetails.pnlUsdt.toFixed(2)} USDT (100)</span>
                             </div>
                         </div>
                     )}

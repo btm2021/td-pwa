@@ -2241,28 +2241,42 @@ html.desktop-mode #app {
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(255, 255, 255, 0.1);
     color: var(--text-secondary);
-    font-size: 11px;
-    font-weight: 700;
-    padding: 4px 12px;
-    border-radius: 8px;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
     cursor: pointer;
     transition: all 0.2s;
     display: flex;
     align-items: center;
-    gap: 6px;
-    text-transform: uppercase;
+    justify-content: center;
+    flex-shrink: 0;
 }
 
 .btn-pnl-toggle:hover {
     background: rgba(255, 255, 255, 0.1);
     color: var(--text-primary);
+    transform: translateY(-1px);
 }
 
 .btn-pnl-toggle.active {
     background: var(--accent-blue);
     color: white;
     border-color: var(--accent-blue);
-    box-shadow: 0 0 15px rgba(41, 121, 255, 0.3);
+    box-shadow: 0 4px 12px rgba(41, 121, 255, 0.3);
+}
+
+.pnl-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.mini-chart-container {
+    cursor: default !important;
+}
+
+.mini-chart-container canvas {
+    cursor: default !important;
 }
 
 .pnl-tool-tooltip {
@@ -2574,21 +2588,24 @@ html.desktop-mode #app {
 }
 
 .minimal-action-btn {
-    background: none;
-    border: none;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.05);
     color: #8b949e;
     cursor: pointer;
-    padding: 6px;
-    border-radius: 6px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.2s;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .minimal-action-btn:hover {
-    background: rgba(255, 255, 255, 0.05);
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.15);
     color: #f0f6fc;
+    transform: scale(1.05);
 }
 
 .integrated-search {
