@@ -105,6 +105,7 @@ export default defineConfig({
   server: {
     port: 3000,
     host: true,
+    allowedHosts: true,
     // Tắt cache trong development
     headers: {
       'Cache-Control': 'no-store',
