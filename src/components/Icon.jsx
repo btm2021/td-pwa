@@ -209,6 +209,16 @@ export function Icon({ name, size = 24, className = '' }) {
                 <path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V10h14v10zm0-12H5V6h14v2z" />
             </svg>
         ),
+        futures: (
+            <svg viewBox="0 0 24 24" width={size} height={size} fill="currentColor">
+                <path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z" />
+            </svg>
+        ),
+        scanner: (
+            <svg viewBox="0 0 24 24" width={size} height={size} fill="currentColor">
+                <path d="M13 2.05v3.03c3.39.49 6 3.39 6.49 6.78h3.03c-.5-5.05-4.5-9.05-9.52-9.81zM11 2.05c-5.02.76-9.02 4.76-9.52 9.81h3.03C4.99 8.47 7.6 5.58 11 5.08V2.05zM3.51 13H2.05c.5 5.05 4.5 9.05 9.52 9.81v-3.03c-3.39-.49-6-3.39-6.49-6.78zM13 19.82v3.03c5.02-.76 9.02-4.76 9.52-9.81h-3.03c-.5 3.39-3.11 6.28-6.49 6.78z" />
+            </svg>
+        ),
 
     };
 

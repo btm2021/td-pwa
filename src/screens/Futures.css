@@ -1,0 +1,465 @@
+/* Futures Terminal Styles */
+.futures-screen {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background: #0B0B0E;
+    color: #f0f6fc;
+}
+
+/* Header */
+.futures-header {
+    height: 48px;
+    background: #161a1e;
+    border-bottom: 1px solid #2b3139;
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    gap: 24px;
+    flex-shrink: 0;
+}
+
+.futures-header__symbol {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+}
+
+.futures-header__symbol h2 {
+    font-size: 16px;
+    font-weight: 700;
+    margin: 0;
+}
+
+.futures-header__price-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.futures-header__price {
+    font-size: 16px;
+    font-weight: 700;
+    color: #00ff88;
+}
+
+.futures-header__price.negative {
+    color: #ff4444;
+}
+
+.futures-header__stats {
+    display: flex;
+    gap: 20px;
+}
+
+.futures-header__stat {
+    display: flex;
+    flex-direction: column;
+}
+
+.futures-header__stat .label {
+    font-size: 10px;
+    color: #848e9c;
+}
+
+.futures-header__stat .value {
+    font-size: 11px;
+    font-weight: 500;
+}
+
+.futures-header__stat .value.positive {
+    color: #00ff88;
+}
+
+.futures-header__stat .value.negative {
+    color: #ff4444;
+}
+
+/* Main Grid */
+.futures-grid {
+    display: grid;
+    grid-template-columns: 1fr 280px 280px;
+    grid-template-rows: 1fr 240px;
+    flex: 1;
+    overflow: hidden;
+}
+
+/* Chart Area */
+.futures-chart-area {
+    grid-column: 1;
+    grid-row: 1;
+    background: #000;
+    border-right: 1px solid #2b3139;
+}
+
+/* Order Book Area */
+.futures-order-book {
+    grid-column: 2;
+    grid-row: 1 / 3;
+    background: #161a1e;
+    border-right: 1px solid #2b3139;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Recent Trades Area */
+.futures-recent-trades {
+    display: none;
+    /* Combine with order book or show separately */
+}
+
+/* Order Form Area */
+.futures-order-form {
+    grid-column: 3;
+    grid-row: 1 / 3;
+    background: #161a1e;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    overflow-y: auto;
+}
+
+/* Bottom Panel (Positions) */
+.futures-bottom-panel {
+    grid-column: 1;
+    grid-row: 2;
+    background: #161a1e;
+    border-top: 1px solid #2b3139;
+    border-right: 1px solid #2b3139;
+    display: flex;
+    flex-direction: column;
+}
+
+.futures-tabs {
+    display: flex;
+    height: 36px;
+    border-bottom: 1px solid #2b3139;
+    padding: 0 8px;
+}
+
+.futures-tab {
+    background: none;
+    border: none;
+    padding: 0 16px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #848e9c;
+    cursor: pointer;
+    position: relative;
+    height: 100%;
+}
+
+.futures-tab.active {
+    color: #f0f6fc;
+}
+
+.futures-tab.active::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 16px;
+    right: 16px;
+    height: 2px;
+    background: #f0b90b;
+}
+
+/* Order Book Styles */
+.order-book-header {
+    padding: 8px 12px;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    font-size: 11px;
+    color: #848e9c;
+    border-bottom: 1px solid #2b3139;
+}
+
+.order-book-list {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.order-book-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.order-book-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    padding: 2px 12px;
+    font-size: 11px;
+    position: relative;
+    cursor: pointer;
+}
+
+.order-book-row:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.order-book-row .price {
+    font-weight: 500;
+}
+
+.order-book-row.ask .price {
+    color: #f6465d;
+}
+
+.order-book-row.bid .price {
+    color: #0ecb81;
+}
+
+.order-book-row .size {
+    text-align: right;
+    color: #f0f6fc;
+}
+
+.order-book-row .total {
+    text-align: right;
+    color: #f0f6fc;
+}
+
+.order-book-bar {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: 0;
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0.15;
+}
+
+.order-book-row.ask .order-book-bar {
+    background: #f6465d;
+}
+
+.order-book-row.bid .order-book-bar {
+    background: #0ecb81;
+}
+
+.order-book-spread {
+    padding: 8px 12px;
+    text-align: center;
+    background: rgba(255, 255, 255, 0.02);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.order-book-spread .mid-price {
+    font-size: 16px;
+    font-weight: 700;
+}
+
+/* Order Form Styles */
+.order-form-modes {
+    display: flex;
+    gap: 8px;
+}
+
+.mode-btn {
+    flex: 1;
+    background: #2b3139;
+    border: none;
+    color: #f0f6fc;
+    font-size: 12px;
+    padding: 6px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.order-type-tabs {
+    display: flex;
+    gap: 12px;
+}
+
+.type-tab {
+    background: none;
+    border: none;
+    color: #848e9c;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 0;
+    cursor: pointer;
+}
+
+.type-tab.active {
+    color: #f0b90b;
+}
+
+.input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.input-group label {
+    font-size: 11px;
+    color: #848e9c;
+}
+
+.input-wrapper {
+    display: flex;
+    align-items: center;
+    background: #2b3139;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    padding: 0 10px;
+    height: 36px;
+}
+
+.input-wrapper:focus-within {
+    border-color: #f0b90b;
+}
+
+.input-wrapper input {
+    background: none;
+    border: none;
+    color: #f0f6fc;
+    font-size: 14px;
+    width: 100%;
+    outline: none;
+}
+
+.input-wrapper .suffix {
+    font-size: 12px;
+    color: #848e9c;
+    margin-left: 8px;
+}
+
+.percent-slider {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 4px;
+}
+
+.percent-dot {
+    width: 8px;
+    height: 8px;
+    background: #474d57;
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+.percent-dot.active {
+    background: #f0b90b;
+}
+
+.order-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: auto;
+}
+
+.buy-btn,
+.sell-btn {
+    flex: 1;
+    border: none;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 700;
+    height: 40px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.buy-btn {
+    background: #0ecb81;
+}
+
+.buy-btn:hover {
+    background: #12d98b;
+}
+
+.sell-btn {
+    background: #f6465d;
+}
+
+.sell-btn:hover {
+    background: #ff5267;
+}
+
+/* Positions Table */
+.positions-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.positions-table th {
+    text-align: left;
+    font-size: 11px;
+    color: #848e9c;
+    padding: 8px 12px;
+    border-bottom: 1px solid #2b3139;
+}
+
+.positions-table td {
+    font-size: 12px;
+    padding: 10px 12px;
+    border-bottom: 1px solid #1e2329;
+}
+
+.pos-type {
+    display: inline-block;
+    padding: 2px 4px;
+    border-radius: 2px;
+    font-size: 10px;
+    font-weight: 700;
+    margin-right: 6px;
+}
+
+.pos-type.long {
+    background: rgba(14, 203, 129, 0.1);
+    color: #0ecb81;
+}
+
+.pos-type.short {
+    background: rgba(246, 70, 93, 0.1);
+    color: #f6465d;
+}
+
+.pnl-value.positive {
+    color: #0ecb81;
+}
+
+.pnl-value.negative {
+    color: #f6465d;
+}
+
+/* Mobile Responsive */
+@media (max-width: 1200px) {
+    .futures-grid {
+        grid-template-columns: 1fr 280px;
+        grid-template-rows: 1fr 240px;
+    }
+
+    .futures-order-form {
+        display: none;
+    }
+}
+
+@media (max-width: 768px) {
+    .futures-grid {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .futures-order-book,
+    .futures-order-form {
+        display: none;
+    }
+
+    .futures-header__stats {
+        display: none;
+    }
+
+    .futures-bottom-panel {
+        height: 300px;
+        flex-shrink: 0;
+    }
+}

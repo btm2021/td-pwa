@@ -249,6 +249,11 @@ export function navigateToChart(symbol) {
     setSelectedSymbol(symbol);
 }
 
+export function navigateToFutures(symbol) {
+    setSelectedSymbol(symbol);
+    setActiveTab('futures');
+}
+
 export function navigateToTab(tab) {
     setActiveTab(tab);
 }

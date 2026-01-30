@@ -11,6 +11,7 @@ import { Menu } from '../../screens/Menu';
 import { Account } from '../../screens/Account';
 import { Scanner } from '../../screens/Scanner';
 import { Calendar } from '../../screens/Calendar';
+import { Futures } from '../../screens/Futures';
 
 
 // Desktop-specific components
@@ -20,9 +21,9 @@ import { SymbolInfoPanel } from '../../components/SymbolInfoPanel';
 const screens = {
     watchlist: Watchlist,
     chart: DesktopChart,
+    futures: Futures,
     explore: Explore,
     community: Community,
-    menu: Menu,
     account: Account,
     scanner: Scanner,
     calendar: Calendar,

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'preact/hooks';
 import { Icon } from './Icon';
 import { formatPrice, formatPercent, formatVolume, getCoinLogoUrl, getBaseAsset, getTicker, tickerData } from '../state/watchlist';
-import { selectedSymbolName, navigateToChart } from '../state/store';
+import { selectedSymbolName, navigateToChart, navigateToFutures } from '../state/store';
 import { deviceMode } from '../hooks/useDeviceMode';
 import { fetchOHLCV } from '../utils/data';
 import { calcEMA, calcATR, calcATRBot, calcVSR } from '../utils/indicators';
@@ -239,6 +239,14 @@ export function SymbolInfoPanel() {
                             >
                                 <Icon name="chart-bar" size={14} />
                                 PNL
+                            </button>
+                            <button
+                                className="btn-pnl-toggle"
+                                style={{ background: 'rgba(240, 185, 11, 0.1)', color: '#f0b90b', borderColor: 'rgba(240, 185, 11, 0.3)' }}
+                                onClick={() => navigateToFutures(symbol)}
+                            >
+                                <Icon name="futures" size={14} />
+                                TRADE
                             </button>
                         </div>
                     </div>

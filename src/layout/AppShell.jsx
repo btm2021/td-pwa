@@ -11,10 +11,11 @@ import { Menu } from '../screens/Menu';
 import { Account } from '../screens/Account';
 import { Scanner } from '../screens/Scanner';
 import { Calendar } from '../screens/Calendar';
+import { Futures } from '../screens/Futures';
 
 
 // Screens that have their own header (no TopBar needed)
-const screensWithOwnHeader = ['watchlist', 'chart', 'account', 'calendar'];
+const screensWithOwnHeader = ['watchlist', 'chart', 'futures', 'account', 'calendar'];
 
 const topBarConfig = {
     chart: { type: 'chart' },
@@ -26,9 +27,9 @@ const topBarConfig = {
 const screens = {
     watchlist: Watchlist,
     chart: Chart,
+    futures: Futures,
     explore: Explore,
     community: Community,
-    menu: Menu,
     account: Account,
     scanner: Scanner,
     calendar: Calendar,
