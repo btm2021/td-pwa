@@ -148,7 +148,7 @@ export function useReplayEngine(tvWidgetRef, datafeedRef) {
     };
 
     // Create replay datafeed
-    const createReplayDatafeed = (bars, visibleCount) => {
+    const createReplayDatafeed = (bars, visibleCount, originalSymbolInfo) => {
         return {
             onReady: (callback) => {
                 setTimeout(() => callback({
@@ -164,18 +164,10 @@ export function useReplayEngine(tvWidgetRef, datafeedRef) {
             resolveSymbol: (symbolName, onResolve, onError) => {
                 setTimeout(() => {
                     onResolve({
+                        ...originalSymbolInfo, // Keep original info (pricescale, minmov, etc.)
                         name: symbolName,
-                        description: `${symbolName} (Replay)`,
-                        type: 'crypto',
-                        session: '24x7',
-                        timezone: 'Etc/UTC',
                         ticker: symbolName,
-                        minmov: 1,
-                        pricescale: 100,
-                        has_intraday: true,
-                        has_daily: true,
-                        supported_resolutions: ['1', '5', '15', '30', '60', '240', '1D', '1W', '1M'],
-                        volume_precision: 2,
+                        description: `${symbolName} (Replay)`,
                         data_status: 'streaming'
                     });
                 }, 0);
@@ -206,6 +198,40 @@ export function useReplayEngine(tvWidgetRef, datafeedRef) {
             const resolution = chart.resolution();
 
             console.log(`[ReplayEngine] Starting replay for ${symbol} @ ${resolution}`);
+
+            // Get original Symbol Info to preserve Price Scale / Min Move
+            let originalSymbolInfo = null;
+            try {
+                if (datafeedRef.current) {
+                    originalSymbolInfo = await new Promise((resolve, reject) => {
+                        datafeedRef.current.resolveSymbol(
+                            symbol,
+                            (info) => resolve(info),
+                            (err) => {
+                                console.warn('[ReplayEngine] Resolve symbol failed', err);
+                                resolve(null);
+                            }
+                        );
+                    });
+                }
+            } catch (e) {
+                console.warn('[ReplayEngine] Could not get symbol info:', e);
+            }
+
+            // Fallback defaults if resolve fails
+            if (!originalSymbolInfo) {
+                originalSymbolInfo = {
+                    name: symbol,
+                    pricescale: 100,
+                    minmov: 1,
+                    type: 'crypto',
+                    session: '24x7',
+                    timezone: 'Etc/UTC',
+                    has_intraday: true,
+                    has_daily: true,
+                    supported_resolutions: ['1', '5', '15', '30', '60', '240', '1D', '1W', '1M'],
+                };
+            }
 
             // Save original chart state to replicate exactly
             let savedChartState = null;
@@ -264,7 +290,7 @@ export function useReplayEngine(tvWidgetRef, datafeedRef) {
             replayContainer.innerHTML = '';
 
             // Create replay widget with SAME configuration as original chart
-            const replayDatafeed = createReplayDatafeed(bars, visibleCount);
+            const replayDatafeed = createReplayDatafeed(bars, visibleCount, originalSymbolInfo);
 
             // Get custom studies creators (same as original chart)
             const customStudies = [];
