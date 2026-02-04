@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { Icon } from '../../components/Icon';
 import { SearchPanel } from '../../components/SearchPanel';
-import { ReplayControls, BarSelectionSidebar, useReplayEngine, replayUIVisible } from '../../components/ReplayControls';
+import { ReplayControls, useReplayEngine, replayUIVisible } from '../../components/ReplayControls';
+import { ReplayBarSelector } from '../../components/ReplayBarSelector';
 import { selectedSymbol, selectedTimeframe, setSelectedTimeframe, setSelectedSymbol, toggleFullscreen, isChartReady, setChartReady } from '../../state/store';
 import { timeframes, tickerData, formatPrice, formatPercent } from '../../state/watchlist';
 import '../../styles/replay.css';
@@ -249,8 +250,9 @@ export function DesktopChart() {
             {/* Replay Controls (Sidebar) */}
             <ReplayControls engine={replayEngine} />
 
-            {/* Bar Selection Sidebar (Sidebar) */}
-            <BarSelectionSidebar engine={replayEngine} />
+            {/* On-Chart Bar Selector (TradingView-style) */}
+            <ReplayBarSelector tvWidgetRef={tvWidgetRef} engine={replayEngine} />
+
 
             {/* Search Panel */}
             {showSearch && (

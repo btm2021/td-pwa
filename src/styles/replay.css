@@ -174,33 +174,27 @@
 }
 
 /* --- 2. Replay Selection Sidebar (Initial State) --- */
-/* --- 2. Replay Selection Sidebar (Initial State) --- */
 .replay-selection-sidebar {
     position: fixed;
     top: 48px;
-    /* Below TradingView header */
     left: 72px;
-    /* Next to SideNav */
-    bottom: 0;
     z-index: 10000;
     pointer-events: none;
-    display: flex;
-    flex-direction: column;
 }
 
 .replay-selection-panel {
     pointer-events: auto;
     width: 320px;
-    height: 100%;
+    height: auto;
+    max-height: calc(100vh - 60px);
     background: #0B0B0E;
     border-right: 1px solid rgba(255, 255, 255, 0.08);
-    /* Changed from border-left */
+    border-radius: 0 8px 8px 0;
     display: flex;
     flex-direction: column;
     overflow-y: auto;
     padding: 16px;
     box-shadow: 4px 0 20px rgba(0, 0, 0, 0.3);
-    /* Shadow on right */
     animation: slideInLeft 0.3s ease;
 }
 
@@ -832,4 +826,540 @@ kbd {
     .bar-ohlc {
         flex-wrap: wrap;
     }
+}
+
+/* ============================================
+   REPLAY BAR SELECTOR (On-Chart Selection)
+   ============================================ */
+
+/* Overlay container */
+.replay-bar-selector-overlay {
+    background: rgba(0, 0, 0, 0.15);
+    transition: background 0.2s;
+}
+
+.replay-bar-selector-overlay:hover {
+    background: rgba(0, 0, 0, 0.1);
+}
+
+/* Loading state */
+.replay-selector-loading {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 24px 32px;
+    background: rgba(11, 11, 14, 0.95);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    border-radius: 12px;
+    color: #9ca3af;
+    font-size: 13px;
+    backdrop-filter: blur(8px);
+}
+
+/* Vertical selection line - enhanced glow */
+.replay-selection-line {
+    animation: lineGlow 1.5s ease-in-out infinite alternate;
+}
+
+@keyframes lineGlow {
+    from {
+        box-shadow: 0 0 10px rgba(59, 130, 246, 0.5), 0 0 20px rgba(139, 92, 246, 0.3);
+    }
+
+    to {
+        box-shadow: 0 0 15px rgba(59, 130, 246, 0.7), 0 0 30px rgba(139, 92, 246, 0.5);
+    }
+}
+
+/* Bar info tooltip */
+.replay-bar-tooltip {
+    background: rgba(11, 11, 14, 0.95);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    border-radius: 10px;
+    padding: 12px 14px;
+    min-width: 180px;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    animation: tooltipFadeIn 0.15s ease;
+}
+
+@keyframes tooltipFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-5px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.replay-bar-tooltip .tooltip-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #3b82f6;
+    font-size: 11px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.replay-bar-tooltip .tooltip-time {
+    font-size: 14px;
+    font-weight: 500;
+    color: #fff;
+    margin-bottom: 8px;
+}
+
+.replay-bar-tooltip .tooltip-ohlc {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px 12px;
+    font-size: 11px;
+    color: #9ca3af;
+    font-family: 'SF Mono', Monaco, monospace;
+    margin-bottom: 8px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.replay-bar-tooltip .tooltip-bars-count {
+    font-size: 11px;
+    color: #8b5cf6;
+    font-weight: 500;
+}
+
+/* Bottom hint bar */
+.replay-selector-hint {
+    position: absolute;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+}
+
+.replay-selector-hint .hint-content {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    background: rgba(11, 11, 14, 0.95);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    border-radius: 20px;
+    font-size: 12px;
+    color: #d1d5db;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    white-space: nowrap;
+}
+
+.replay-selector-hint .hint-content svg {
+    color: #3b82f6;
+}
+
+.replay-selector-hint .hint-separator {
+    color: rgba(255, 255, 255, 0.2);
+}
+
+.replay-selector-hint kbd {
+    padding: 3px 6px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+    font-size: 10px;
+    color: #9ca3af;
+}
+
+/* Active button state for replay */
+.tv-replay-btn.active {
+    color: #3b82f6 !important;
+    background: rgba(59, 130, 246, 0.1) !important;
+}
+
+/* ============================================
+   REPLAY SELECTION INFO PANEL
+   ============================================ */
+
+.replay-selection-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 40px;
+    color: #9ca3af;
+}
+
+.replay-selection-waiting {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    padding: 32px;
+    color: #9ca3af;
+    text-align: center;
+}
+
+.replay-selection-info {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.replay-selection-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    color: #fff;
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.replay-selection-header svg {
+    color: #3b82f6;
+}
+
+.replay-selection-details {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px;
+    background: linear-gradient(145deg, rgba(59, 130, 246, 0.08), rgba(139, 92, 246, 0.08));
+    border: 1px solid rgba(59, 130, 246, 0.2);
+    border-radius: 12px;
+}
+
+.replay-selection-time {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.replay-selection-time .label,
+.replay-selection-bars .label {
+    font-size: 11px;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.replay-selection-time .value {
+    font-size: 15px;
+    font-weight: 600;
+    color: #fff;
+}
+
+.replay-selection-ohlc {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    font-size: 12px;
+    color: #9ca3af;
+    font-family: 'SF Mono', Monaco, monospace;
+    padding: 10px 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.replay-selection-bars {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.replay-selection-bars .value {
+    font-size: 14px;
+    font-weight: 600;
+    color: #8b5cf6;
+}
+
+.replay-selection-hint {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    background: rgba(245, 158, 11, 0.1);
+    border: 1px solid rgba(245, 158, 11, 0.2);
+    border-radius: 8px;
+    font-size: 12px;
+    color: #f59e0b;
+}
+
+.replay-selection-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 8px;
+}
+
+.replay-btn-primary {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 20px;
+    background: linear-gradient(145deg, #3b82f6, #2563eb);
+    border: none;
+    border-radius: 8px;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.replay-btn-primary:hover {
+    background: linear-gradient(145deg, #60a5fa, #3b82f6);
+    transform: translateY(-1px);
+}
+
+.replay-btn-secondary {
+    padding: 12px 20px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+    color: #9ca3af;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.replay-btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+}
+
+/* ============================================
+   REPLAY SIDEBAR NEW UI
+   ============================================ */
+
+.replay-panel-header-new {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 14px;
+    margin-bottom: 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.replay-title-new {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 15px;
+    font-weight: 600;
+    color: #fff;
+}
+
+.replay-title-new svg {
+    color: #3b82f6;
+}
+
+.replay-content {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+/* Date/Time Block */
+.replay-datetime-block {
+    background: rgba(59, 130, 246, 0.08);
+    border: 1px solid rgba(59, 130, 246, 0.2);
+    border-radius: 10px;
+    padding: 12px;
+}
+
+.datetime-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+}
+
+.datetime-row:first-child {
+    padding-top: 0;
+}
+
+.datetime-row:last-child {
+    padding-bottom: 0;
+}
+
+.datetime-row:not(:last-child) {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.datetime-label {
+    font-size: 12px;
+    color: #9ca3af;
+}
+
+.datetime-value {
+    font-size: 13px;
+    font-weight: 600;
+    color: #fff;
+    font-family: 'SF Mono', Monaco, 'Consolas', monospace;
+}
+
+/* OHLCV Block */
+.replay-ohlcv-block {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    padding: 12px;
+}
+
+.ohlcv-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.ohlcv-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.ohlcv-label {
+    font-size: 10px;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.ohlcv-value {
+    font-size: 12px;
+    font-weight: 500;
+    color: #d1d5db;
+    font-family: 'SF Mono', Monaco, 'Consolas', monospace;
+}
+
+.ohlcv-value.green {
+    color: #22c55e;
+}
+
+.ohlcv-value.red {
+    color: #ef4444;
+}
+
+.volume-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* Bars Count Block */
+.replay-bars-block {
+    background: linear-gradient(145deg, rgba(139, 92, 246, 0.1), rgba(59, 130, 246, 0.1));
+    border: 1px solid rgba(139, 92, 246, 0.2);
+    border-radius: 10px;
+    padding: 12px;
+}
+
+.bars-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.bars-label {
+    font-size: 12px;
+    color: #9ca3af;
+}
+
+.bars-count {
+    font-size: 18px;
+    font-weight: 700;
+    color: #8b5cf6;
+}
+
+.bars-progress {
+    height: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.bars-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+    border-radius: 2px;
+    transition: width 0.3s ease;
+}
+
+/* Hint Block */
+.replay-hint-block {
+    padding: 10px 12px;
+    background: rgba(245, 158, 11, 0.08);
+    border: 1px solid rgba(245, 158, 11, 0.2);
+    border-radius: 8px;
+    font-size: 12px;
+    color: #f59e0b;
+    line-height: 1.4;
+}
+
+.replay-hint-block strong {
+    color: #fbbf24;
+}
+
+/* Start Button */
+.replay-start-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+    padding: 14px 20px;
+    background: linear-gradient(145deg, #3b82f6, #2563eb);
+    border: none;
+    border-radius: 10px;
+    color: #fff;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: 4px;
+}
+
+.replay-start-btn:hover {
+    background: linear-gradient(145deg, #60a5fa, #3b82f6);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.replay-start-btn:active {
+    transform: translateY(0);
+}
+
+/* Small button for retry */
+.replay-btn-small {
+    padding: 8px 16px;
+    background: rgba(59, 130, 246, 0.2);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    border-radius: 6px;
+    color: #3b82f6;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: 8px;
+}
+
+.replay-btn-small:hover {
+    background: rgba(59, 130, 246, 0.3);
 }

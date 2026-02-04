@@ -38,10 +38,50 @@ const SPEEDS = [
 export function useReplayEngine(tvWidgetRef, datafeedRef) {
     const [allBars, setAllBars] = useState([]);
     const timerRef = useRef(null);
+    const workerRef = useRef(null);
     const realtimeCallbackRef = useRef(null);
     const replayWidgetRef = useRef(null);
     const symbol = selectedSymbol.value.symbol;
     const timeframe = selectedTimeframe.value;
+
+    // Create Web Worker for timer (avoid UI blocking)
+    const createTimerWorker = () => {
+        const workerCode = `
+            let timerId = null;
+            let interval = 1000;
+            
+            self.onmessage = function(e) {
+                if (e.data.type === 'start') {
+                    interval = e.data.interval || 1000;
+                    if (timerId) clearInterval(timerId);
+                    timerId = setInterval(() => {
+                        self.postMessage({ type: 'tick' });
+                    }, interval);
+                } else if (e.data.type === 'stop') {
+                    if (timerId) {
+                        clearInterval(timerId);
+                        timerId = null;
+                    }
+                } else if (e.data.type === 'setInterval') {
+                    interval = e.data.interval;
+                    if (timerId) {
+                        clearInterval(timerId);
+                        timerId = setInterval(() => {
+                            self.postMessage({ type: 'tick' });
+                        }, interval);
+                    }
+                }
+            };
+        `;
+        const blob = new Blob([workerCode], { type: 'application/javascript' });
+        const worker = new Worker(URL.createObjectURL(blob));
+        worker.onmessage = (e) => {
+            if (e.data.type === 'tick') {
+                addNextBar();
+            }
+        };
+        return worker;
+    };
 
     // Reset preview bars when symbol or timeframe changes
     useEffect(() => {
@@ -167,19 +207,17 @@ export function useReplayEngine(tvWidgetRef, datafeedRef) {
 
             console.log(`[ReplayEngine] Starting replay for ${symbol} @ ${resolution}`);
 
-            // Save original chart configuration
-            let chartOverrides = {};
-            let studiesOverrides = {};
+            // Save original chart state to replicate exactly
+            let savedChartState = null;
             try {
-                // Get visible studies from original chart
-                const studies = chart.getAllStudies();
-                originalChartConfig.value = {
-                    symbol,
-                    resolution,
-                    studies: studies.map(s => ({ name: s.name, id: s.id })),
-                };
+                savedChartState = await new Promise((resolve) => {
+                    tvWidgetRef.current.save((state) => {
+                        resolve(state);
+                    });
+                });
+                console.log('[ReplayEngine] Saved original chart state');
             } catch (e) {
-                console.warn('[ReplayEngine] Could not get original chart config:', e);
+                console.warn('[ReplayEngine] Could not save original chart state:', e);
             }
 
             // Use pre-fetched bars or fetch new
@@ -244,6 +282,9 @@ export function useReplayEngine(tvWidgetRef, datafeedRef) {
 
 
             replayWidgetRef.current = new TradingView.widget({
+                // Use saved state if available
+                saved_data: savedChartState,
+
                 symbol: symbol.replace('.P', ''),
                 datafeed: replayDatafeed,
                 interval: resolution,
@@ -283,21 +324,22 @@ export function useReplayEngine(tvWidgetRef, datafeedRef) {
                 autosize: true,
                 theme: 'dark',
                 timezone: 'Etc/UTC',
-                toolbar_bg: '#0B0B0E',
+                toolbar_bg: '#000000',
 
                 loading_screen: {
-                    backgroundColor: '#0B0B0E',
-                    foregroundColor: '#2979FF'
+                    backgroundColor: '#000000',
+                    foregroundColor: '#ff4444'
                 },
                 favorites: {
                     intervals: ['1', '15', '60', '240'],
                     chartTypes: ['Candles', 'Line']
                 },
+                // SAME THEME AS DESKTOP CHART
                 overrides: {
-                    'paneProperties.background': '#0B0B0E',
+                    'paneProperties.background': '#000000',
                     'paneProperties.backgroundType': 'solid',
-                    'paneProperties.vertGridProperties.color': '#1A1A1F',
-                    'paneProperties.horzGridProperties.color': '#1A1A1F',
+                    'paneProperties.vertGridProperties.color': '#1a0000',
+                    'paneProperties.horzGridProperties.color': '#1a0000',
                     'paneProperties.legendProperties.showStudyArguments': true,
                     'paneProperties.legendProperties.showStudyTitles': true,
                     'paneProperties.legendProperties.showStudyValues': true,
@@ -305,26 +347,27 @@ export function useReplayEngine(tvWidgetRef, datafeedRef) {
                     'paneProperties.legendProperties.showSeriesOHLC': true,
                     'paneProperties.legendProperties.showLegend': true,
                     'paneProperties.legendProperties.showBarChange': true,
-                    'scalesProperties.textColor': '#A0A0A8',
-                    'scalesProperties.lineColor': '#2A2A30',
-                    'scalesProperties.backgroundColor': '#0B0B0E',
-                    'mainSeriesProperties.candleStyle.upColor': '#00C853',
-                    'mainSeriesProperties.candleStyle.downColor': '#FF3B30',
+                    'scalesProperties.textColor': '#888888',
+                    'scalesProperties.lineColor': '#1a0000',
+                    'scalesProperties.backgroundColor': '#000000',
+                    'mainSeriesProperties.candleStyle.upColor': '#00ff88',
+                    'mainSeriesProperties.candleStyle.downColor': '#ff4444',
                     'mainSeriesProperties.candleStyle.drawWick': true,
                     'mainSeriesProperties.candleStyle.drawBorder': true,
-                    'mainSeriesProperties.candleStyle.borderUpColor': '#00C853',
-                    'mainSeriesProperties.candleStyle.borderDownColor': '#FF3B30',
-                    'mainSeriesProperties.candleStyle.wickUpColor': '#00C853',
-                    'mainSeriesProperties.candleStyle.wickDownColor': '#FF3B30',
+                    'mainSeriesProperties.candleStyle.borderUpColor': '#00ff88',
+                    'mainSeriesProperties.candleStyle.borderDownColor': '#ff4444',
+                    'mainSeriesProperties.candleStyle.wickUpColor': '#00ff88',
+                    'mainSeriesProperties.candleStyle.wickDownColor': '#ff4444',
                 },
                 studies_overrides: {
-                    'volume.volume.color.0': '#FF3B30',
-                    'volume.volume.color.1': '#00C853',
+                    'volume.volume.color.0': '#ff4444',
+                    'volume.volume.color.1': '#00ff88',
                 },
             });
 
             replayWidgetRef.current.onChartReady(() => {
                 console.log('[ReplayEngine] Replay chart ready');
+
                 replayWidgetRef.current.headerReady().then(() => {
                     // Add REPLAY badge
                     const badge = replayWidgetRef.current.createButton({ align: 'left' });
@@ -413,9 +456,13 @@ export function useReplayEngine(tvWidgetRef, datafeedRef) {
 
     // Stop replay
     const stopReplay = () => {
-        if (timerRef.current) {
-            clearInterval(timerRef.current);
-            timerRef.current = null;
+        // Stop timer (both worker and setInterval)
+        stopTimer();
+
+        // Terminate worker
+        if (workerRef.current) {
+            workerRef.current.terminate();
+            workerRef.current = null;
         }
 
         if (replayWidgetRef.current) {
@@ -452,10 +499,7 @@ export function useReplayEngine(tvWidgetRef, datafeedRef) {
         replayState.value = { ...replayState.value, isPaused: newPaused };
 
         if (newPaused) {
-            if (timerRef.current) {
-                clearInterval(timerRef.current);
-                timerRef.current = null;
-            }
+            stopTimer();
         } else {
             startTimer();
         }
@@ -544,7 +588,7 @@ export function useReplayEngine(tvWidgetRef, datafeedRef) {
         replayState.value = { ...replayState.value, currentSpeedIndex: index };
 
         if (replayState.value.isActive && !replayState.value.isPaused) {
-            if (timerRef.current) clearInterval(timerRef.current);
+            stopTimer();
             startTimer();
         }
     };
@@ -570,18 +614,45 @@ export function useReplayEngine(tvWidgetRef, datafeedRef) {
         }
     };
 
-    // Start timer
+    // Start timer using Web Worker
     const startTimer = () => {
         const speed = SPEEDS[replayState.value.currentSpeedIndex];
-        timerRef.current = setInterval(() => {
-            addNextBar();
-        }, speed.interval);
+
+        // Use Web Worker if available
+        if (!workerRef.current) {
+            try {
+                workerRef.current = createTimerWorker();
+            } catch (e) {
+                console.warn('[ReplayEngine] Worker creation failed, using setInterval');
+            }
+        }
+
+        if (workerRef.current) {
+            workerRef.current.postMessage({ type: 'start', interval: speed.interval });
+        } else {
+            // Fallback to setInterval
+            timerRef.current = setInterval(() => {
+                addNextBar();
+            }, speed.interval);
+        }
+    };
+
+    // Stop timer
+    const stopTimer = () => {
+        if (workerRef.current) {
+            workerRef.current.postMessage({ type: 'stop' });
+        }
+        if (timerRef.current) {
+            clearInterval(timerRef.current);
+            timerRef.current = null;
+        }
     };
 
     // Cleanup on unmount
     useEffect(() => {
         return () => {
             if (timerRef.current) clearInterval(timerRef.current);
+            if (workerRef.current) workerRef.current.terminate();
             if (replayWidgetRef.current) {
                 try { replayWidgetRef.current.remove(); } catch (e) { }
             }
