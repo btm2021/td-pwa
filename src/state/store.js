@@ -209,18 +209,23 @@ export function setActiveTab(tab) {
 /**
  * Set symbol cho chart
  * @param {string} symbolName - Có thể là raw symbol hoặc có prefix
+ * @param {string} timeframe - (Optional) Timeframe cho chart (VD: '1m', '5m', '15m')
  */
-export function setSelectedSymbol(symbolName) {
+export function setSelectedSymbol(symbolName, timeframe = null) {
     // Parse và normalize symbol
     const parsed = parseSymbol(symbolName);
     const normalizedSymbol = parsed.fullSymbol;
 
-    console.log('[Store] Setting symbol:', symbolName, '->', normalizedSymbol);
+    console.log('[Store] Setting symbol:', symbolName, '->', normalizedSymbol, 'Timeframe:', timeframe);
 
     selectedSymbolName.value = normalizedSymbol;
 
-    // Default timeframe to 15m when selecting a symbol from watchlist/search
-    selectedTimeframe.value = '15m';
+    // Set timeframe if provided, otherwise keep current or default to 15m if none exists
+    if (timeframe) {
+        selectedTimeframe.value = timeframe;
+    } else if (!selectedTimeframe.value) {
+        selectedTimeframe.value = '15m';
+    }
 
     // When symbol changes, switch to chart tab
     activeTab.value = 'chart';
@@ -245,8 +250,8 @@ export function setChartReady(ready) {
 // NAVIGATION HELPERS
 // ============================================
 
-export function navigateToChart(symbol) {
-    setSelectedSymbol(symbol);
+export function navigateToChart(symbol, timeframe = null) {
+    setSelectedSymbol(symbol, timeframe);
 }
 
 export function navigateToFutures(symbol) {

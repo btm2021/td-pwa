@@ -2237,38 +2237,62 @@ html.desktop-mode #app {
     border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
-.btn-pnl-toggle {
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    color: var(--text-secondary);
-    width: 34px;
-    height: 34px;
-    border-radius: 50%;
+.pnl-actions-group {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.03);
+    padding: 3px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.pnl-tool-btn,
+.open-chart-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    height: 32px;
+    border-radius: 9px;
+    border: 1px solid transparent;
     cursor: pointer;
-    transition: all 0.2s;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    white-space: nowrap;
+    color: var(--text-secondary);
+    background: transparent;
 }
 
-.btn-pnl-toggle:hover {
-    background: rgba(255, 255, 255, 0.1);
+.pnl-tool-btn:hover {
     color: var(--text-primary);
-    transform: translateY(-1px);
+    background: rgba(255, 255, 255, 0.08);
 }
 
-.btn-pnl-toggle.active {
+.pnl-tool-btn.active {
     background: var(--accent-blue);
-    color: white;
-    border-color: var(--accent-blue);
-    box-shadow: 0 4px 12px rgba(41, 121, 255, 0.3);
+    color: #fff;
+    box-shadow: 0 4px 15px rgba(41, 121, 255, 0.3);
 }
 
-.pnl-actions {
-    display: flex;
-    gap: 10px;
-    align-items: center;
+.open-chart-btn {
+    background: rgba(0, 255, 136, 0.1);
+    color: #00ff88;
+    border-color: rgba(0, 255, 136, 0.1);
+}
+
+.open-chart-btn:hover {
+    background: rgba(0, 255, 136, 0.18);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 20px rgba(0, 255, 136, 0.15);
+}
+
+.pnl-tool-btn span,
+.open-chart-btn span {
+    font-family: var(--font-mono);
 }
 
 .mini-chart-container {

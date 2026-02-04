@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef } from 'preact/hooks';
 import { Icon } from './Icon';
 import { formatPrice, formatPercent, formatVolume, getCoinLogoUrl, getBaseAsset, getTicker, tickerData } from '../state/watchlist';
-import { selectedSymbolName, navigateToChart, navigateToFutures } from '../state/store';
+import { selectedSymbolName, selectedTimeframe, navigateToChart, navigateToFutures } from '../state/store';
 import { deviceMode } from '../hooks/useDeviceMode';
 import { fetchOHLCV } from '../utils/data';
 import { calcEMA, calcATR, calcATRBot, calcVSR } from '../utils/indicators';
-import { createChart, CandlestickSeries, LineSeries } from 'lightweight-charts';
+import { createChart, CandlestickSeries, LineSeries, createSeriesMarkers } from 'lightweight-charts';
 
 export function SymbolInfoPanel() {
     const symbol = selectedSymbolName.value;
@@ -24,8 +24,9 @@ export function SymbolInfoPanel() {
         return unsubscribe;
     }, []);
 
-    // State for Timeframe
-    const [interval, setInterval] = useState('15m');
+    // Use Global Timeframe State
+    const interval = selectedTimeframe.value;
+    const setInterval = (val) => { selectedTimeframe.value = val; };
     const timeframes = ['1m', '5m', '15m', '1h', '4h', '1d'];
 
     // Indicator Logic Lifted Up
@@ -213,40 +214,26 @@ export function SymbolInfoPanel() {
                             ))}
                         </div>
 
-                        <div className="toolbar-separator"></div>
-
-                        <div className="chart-legends-modern">
-                            <div className="legend-item-modern">
-                                <span className="dot-line fill"></span>
-                                <span>Cloud</span>
-                            </div>
-                            <div className="legend-item-modern">
-                                <span className="dot-line green"></span>
-                                <span>EMA14</span>
-                            </div>
-                            <div className="legend-item-modern">
-                                <span className="dot-line red"></span>
-                                <span>BotVal</span>
-                            </div>
-                        </div>
 
                         <div className="toolbar-separator"></div>
 
-                        <div className="pnl-actions">
+                        <div className="pnl-actions-group">
                             <button
-                                className={`btn-pnl-toggle ${pnlMode ? 'active' : ''}`}
+                                className={`pnl-tool-btn ${pnlMode ? 'active' : ''}`}
                                 onClick={() => setPnlMode(!pnlMode)}
-                                title="PNL Measure Tool"
+                                title="Measure Profit/Loss"
                             >
-                                <Icon name="chart-bar" size={18} />
+                                <Icon name="chart-bar" size={16} />
+                                <span>PNL</span>
                             </button>
+
                             <button
-                                className="btn-pnl-toggle"
-                                style={{ background: 'rgba(57, 211, 83, 0.1)', color: '#39d353', borderColor: 'rgba(57, 211, 83, 0.3)' }}
-                                onClick={() => navigateToChart(symbol)}
-                                title="Open Full Chart"
+                                className="open-chart-btn"
+                                onClick={() => navigateToChart(symbol, interval)}
+                                title="Open in Terminal View"
                             >
-                                <Icon name="chart" size={18} />
+                                <Icon name="chart" size={16} />
+                                <span>Open Chart</span>
                             </button>
                         </div>
                     </div>
@@ -336,6 +323,7 @@ function MiniChart({ data, indicators, history, vsrRes, symbol, pnlModeExternal,
     const candleSeriesRef = useRef(null);
     const t3SeriesRef = useRef(null);
     const t4SeriesRef = useRef(null);
+    const markersPluginRef = useRef(null); // LC v5: Series markers plugin
     const [pnlPoints, setPnlPoints] = useState([]);
     const [livePnl, setLivePnl] = useState(null);
 
@@ -348,13 +336,13 @@ function MiniChart({ data, indicators, history, vsrRes, symbol, pnlModeExternal,
             width: container.clientWidth || 800,
             height: container.clientHeight || 500,
             layout: {
-                background: { color: '#0d1117' },
-                textColor: '#8b949e',
+                background: { color: '#000000' },
+                textColor: '#999999',
                 fontFamily: 'Inter, system-ui, sans-serif'
             },
-            grid: { vertLines: { color: 'rgba(255,255,255,0.03)' }, horzLines: { color: 'rgba(255,255,255,0.03)' } },
-            rightPriceScale: { borderColor: 'rgba(255,255,255,0.06)' },
-            timeScale: { borderColor: 'rgba(255,255,255,0.06)', timeVisible: true },
+            grid: { vertLines: { color: '#1a0000' }, horzLines: { color: '#1a0000' } },
+            rightPriceScale: { borderColor: '#1a0000' },
+            timeScale: { borderColor: '#1a0000', timeVisible: true },
             crosshair: {
                 mode: 0,
                 vertLine: { labelBackgroundColor: '#2979FF', color: 'rgba(255,255,255,0.2)' },
@@ -364,16 +352,16 @@ function MiniChart({ data, indicators, history, vsrRes, symbol, pnlModeExternal,
 
         // Initialize series using strict LC v5 pattern (no aliases)
         const candleSeries = chart.addSeries(CandlestickSeries, {
-            upColor: '#238636', downColor: '#da3633', borderVisible: false,
-            wickUpColor: '#238636', wickDownColor: '#da3633',
+            upColor: '#00ff88', downColor: '#ff4444', borderVisible: false,
+            wickUpColor: '#00ff88', wickDownColor: '#ff4444',
         });
 
         const t3Series = chart.addSeries(LineSeries, {
-            color: '#238636', lineWidth: 2, crosshairMarkerVisible: false, lastValueVisible: false, priceLineVisible: false
+            color: '#00ff88', lineWidth: 2, crosshairMarkerVisible: false, lastValueVisible: false, priceLineVisible: false
         });
 
         const t4Series = chart.addSeries(LineSeries, {
-            color: '#da3633', lineWidth: 2, crosshairMarkerVisible: false, lastValueVisible: false, priceLineVisible: false
+            color: '#ff4444', lineWidth: 2, crosshairMarkerVisible: false, lastValueVisible: false, priceLineVisible: false
         });
 
         chartRef.current = chart;
@@ -406,7 +394,7 @@ function MiniChart({ data, indicators, history, vsrRes, symbol, pnlModeExternal,
                 const flushPath = (p, bias) => {
                     if (p.length < 2) return;
                     ctx.beginPath();
-                    ctx.fillStyle = bias === 'up' ? 'rgba(35, 134, 54, 0.12)' : 'rgba(218, 54, 51, 0.12)';
+                    ctx.fillStyle = bias === 'up' ? 'rgba(0, 255, 136, 0.12)' : 'rgba(255, 68, 68, 0.12)';
                     ctx.moveTo(p[0].x, p[0].y1);
                     for (let j = 1; j < p.length; j++) ctx.lineTo(p[j].x, p[j].y1);
                     for (let j = p.length - 1; j >= 0; j--) ctx.lineTo(p[j].x, p[j].y2);
@@ -444,8 +432,8 @@ function MiniChart({ data, indicators, history, vsrRes, symbol, pnlModeExternal,
                     const y1 = series.priceToCoordinate(z.zh);
                     const y2 = series.priceToCoordinate(z.zl);
                     if (y1 === null || y2 === null) return;
-                    ctx.fillStyle = 'rgba(57, 211, 83, 0.08)';
-                    ctx.strokeStyle = 'rgba(57, 211, 83, 0.2)';
+                    ctx.fillStyle = 'rgba(0, 255, 136, 0.08)';
+                    ctx.strokeStyle = 'rgba(0, 255, 136, 0.2)';
                     ctx.lineWidth = 1;
                     const fx1 = x1 === null ? -100 : x1;
                     const fx2 = x2 === null ? container.clientWidth + 100 : x2;
@@ -484,6 +472,11 @@ function MiniChart({ data, indicators, history, vsrRes, symbol, pnlModeExternal,
 
         return () => {
             resizeObserver.disconnect();
+            // LC v5: Detach markers plugin before chart removal
+            if (markersPluginRef.current && typeof markersPluginRef.current.detach === 'function') {
+                markersPluginRef.current.detach();
+                markersPluginRef.current = null;
+            }
             chart.remove();
             container.removeEventListener('contextmenu', onContextMenu);
             if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
@@ -496,9 +489,10 @@ function MiniChart({ data, indicators, history, vsrRes, symbol, pnlModeExternal,
     useEffect(() => {
         if (pnlModeExternal) {
             setPnlPoints([]);
-        } else if (candleSeriesRef.current) {
-            if (typeof candleSeriesRef.current.setMarkers === 'function') {
-                candleSeriesRef.current.setMarkers([]);
+        } else {
+            // LC v5: Use markers plugin to clear
+            if (markersPluginRef.current && typeof markersPluginRef.current.setMarkers === 'function') {
+                markersPluginRef.current.setMarkers([]);
             }
             setPnlPoints([]);
         }
@@ -542,31 +536,66 @@ function MiniChart({ data, indicators, history, vsrRes, symbol, pnlModeExternal,
         }
     }, [data, indicators]);
 
-    // 4. Markers Effect (Dedicated reactive effect for markers)
+    // 4. Markers Effect (LC v5: Use createSeriesMarkers plugin)
     useEffect(() => {
         const series = candleSeriesRef.current;
-        if (!series || typeof series.setMarkers !== 'function') return;
-
-        if (!pnlModeExternal || pnlPoints.length === 0) {
-            series.setMarkers([]);
+        if (!series) {
+            console.warn('[PnL Markers] Series not ready');
             return;
         }
 
-        // Use a simpler approach for v5 markers to ensure visibility
-        const markers = pnlPoints.map((p) => ({
-            time: p.time,
-            position: p.type === 'ENTRY' ? (p.price < 0 ? 'aboveBar' : 'belowBar') : (p.price > 0 ? 'aboveBar' : 'belowBar'),
-            color: p.type === 'ENTRY' ? '#3fb7ff' : '#ff9800',
-            shape: p.type === 'ENTRY' ? 'arrowUp' : 'arrowDown',
-            text: p.type,
-            size: 1
-        })).sort((a, b) => {
+        // Initialize markers plugin if not exists
+        if (!markersPluginRef.current) {
+            console.log('[PnL Markers] Creating markers plugin for series');
+            markersPluginRef.current = createSeriesMarkers(series, []);
+        }
+
+        const markersPlugin = markersPluginRef.current;
+
+        if (!pnlModeExternal || pnlPoints.length === 0) {
+            markersPlugin.setMarkers([]);
+            return;
+        }
+
+        console.log('[PnL Markers] Building markers for points:', pnlPoints);
+
+        // Dynamic Price Format based on lastPrice (same logic as chart's price scale)
+        const lastPrice = data && data.length > 0 ? data[data.length - 1].close : 0;
+        let precision = 2;
+        if (lastPrice < 0.0001) precision = 8;
+        else if (lastPrice < 0.01) precision = 6;
+        else if (lastPrice < 1) precision = 5;
+        else if (lastPrice < 100) precision = 3;
+        else precision = 2;
+
+        const formatPrice = (price) => price.toFixed(precision);
+
+        // Build markers with Lightweight Charts v5 format
+        // Entry: Green arrow pointing up from below the bar
+        // Exit: Red arrow pointing down from above the bar
+        const markers = pnlPoints.map((p, idx) => {
+            const isEntry = p.type === 'ENTRY';
+            const marker = {
+                time: p.time, // Already in correct format from click handler
+                position: isEntry ? 'belowBar' : 'aboveBar',
+                color: isEntry ? '#00ff88' : '#ff4444',
+                shape: isEntry ? 'circle' : 'circle',
+                text: isEntry ? `Entry $${formatPrice(p.price)}` : `Exit $${formatPrice(p.price)}`,
+                size: 2, // Larger size for better visibility
+            };
+            console.log(`[PnL Markers] Created ${isEntry ? 'ENTRY' : 'EXIT'} marker:`, marker);
+            return marker;
+        });
+
+        // Sort markers by time (required by lightweight-charts)
+        markers.sort((a, b) => {
             const tA = typeof a.time === 'number' ? a.time : 0;
             const tB = typeof b.time === 'number' ? b.time : 0;
             return tA - tB;
         });
 
-        series.setMarkers(markers);
+        console.log('[PnL Markers] Setting markers via plugin:', markers);
+        markersPlugin.setMarkers(markers);
     }, [pnlPoints, data, pnlModeExternal]);
 
     // 3. PnL Click
@@ -609,6 +638,18 @@ function MiniChart({ data, indicators, history, vsrRes, symbol, pnlModeExternal,
         return () => { window.removeEventListener('keydown', onKeyDown); window.removeEventListener('keyup', onKeyUp); };
     }, []);
 
+    // Helper: Get price precision based on lastPrice
+    const getPricePrecision = () => {
+        const lastPrice = data && data.length > 0 ? data[data.length - 1].close : 0;
+        if (lastPrice < 0.0001) return 8;
+        if (lastPrice < 0.01) return 6;
+        if (lastPrice < 1) return 5;
+        if (lastPrice < 100) return 3;
+        return 2;
+    };
+    const pricePrecision = getPricePrecision();
+    const fmtPrice = (price) => price.toFixed(pricePrecision);
+
     let pnlDetails = null;
     if (pnlPoints.length === 2) {
         const entry = pnlPoints[0].price;
@@ -636,7 +677,7 @@ function MiniChart({ data, indicators, history, vsrRes, symbol, pnlModeExternal,
                     ) : pnlPoints.length === 1 ? (
                         <div>
                             <div style={{ color: '#d29922', fontWeight: 800, fontSize: 10, marginBottom: 4 }}>MEASURING (20x)</div>
-                            <div>Price: {livePnl.price.toFixed(4)}</div>
+                            <div>Price: {fmtPrice(livePnl.price)}</div>
                             <div style={{ color: livePnl.price > pnlPoints[0].price ? '#4ade80' : '#f87171', fontWeight: 700 }}>
                                 ROE: {((livePnl.price > pnlPoints[0].price ? (livePnl.price - pnlPoints[0].price) / pnlPoints[0].price : (pnlPoints[0].price - livePnl.price) / pnlPoints[0].price) * 2000).toFixed(2)}%
                             </div>
@@ -653,10 +694,10 @@ function MiniChart({ data, indicators, history, vsrRes, symbol, pnlModeExternal,
                                 <span style={{ color: pnlDetails.side === 'LONG' ? '#4ade80' : '#f87171', fontWeight: 700 }}>{pnlDetails.side}</span>
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                                <span>Entry:</span> <span>{pnlDetails.entry.toFixed(4)}</span>
+                                <span>Entry:</span> <span>{fmtPrice(pnlDetails.entry)}</span>
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                                <span>Exit:</span> <span>{pnlDetails.exit.toFixed(4)}</span>
+                                <span>Exit:</span> <span>{fmtPrice(pnlDetails.exit)}</span>
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                                 <span>ROE%:</span>

@@ -69,3 +69,8 @@ button:focus-visible {
     background-color: #f9f9f9;
   }
 }
+
+#tv-attr-logo,
+.tv-lightweight-charts-logo {
+  display: none !important;
+}

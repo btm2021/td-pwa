@@ -188,7 +188,20 @@ export function useReplayEngine(tvWidgetRef, datafeedRef) {
 
     // Start replay from specific bar index
     const startReplayFromIndex = async (startIndex) => {
-        if (replayState.value.isActive) return;
+        // If replay is already active, stop it first to ensure clean state
+        if (replayState.value.isActive) {
+            stopReplay();
+            // Small delay to ensure cleanup completes
+            await new Promise(resolve => setTimeout(resolve, 100));
+        }
+
+        // Full reset before starting
+        stopTimer();
+        if (workerRef.current) {
+            workerRef.current.terminate();
+            workerRef.current = null;
+        }
+        realtimeCallbackRef.current = null;
 
         try {
             if (!tvWidgetRef.current) return;
@@ -491,6 +504,9 @@ export function useReplayEngine(tvWidgetRef, datafeedRef) {
             workerRef.current = null;
         }
 
+        // Clear realtime callback
+        realtimeCallbackRef.current = null;
+
         if (replayWidgetRef.current) {
             if (replayWidgetRef.current._unsubscribeHeader) {
                 replayWidgetRef.current._unsubscribeHeader();
@@ -500,7 +516,10 @@ export function useReplayEngine(tvWidgetRef, datafeedRef) {
         }
 
         const replayContainer = document.getElementById('replay-chart-container');
-        if (replayContainer) replayContainer.style.display = 'none';
+        if (replayContainer) {
+            replayContainer.style.display = 'none';
+            replayContainer.innerHTML = ''; // Clear container content for fresh start
+        }
 
         const mainContainer = document.querySelector('.desktop-chart__container');
         if (mainContainer) mainContainer.style.display = 'block';
@@ -510,10 +529,11 @@ export function useReplayEngine(tvWidgetRef, datafeedRef) {
             isPaused: true,
             visibleBarsCount: 0,
             totalBars: 0,
-            currentSpeedIndex: 1,
+            currentSpeedIndex: 5, // Reset to default speed
             currentBar: null
         };
         originalChartConfig.value = null;
+        previewBars.value = []; // Clear preview bars so they get re-fetched next time
         setAllBars([]);
     };
 
