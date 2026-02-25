@@ -11,6 +11,7 @@ import '../../styles/replay.css';
 function getCustomStudies() {
     const studies = [];
     if (typeof createATRBot !== 'undefined') studies.push(createATRBot);
+    if (typeof createATRBotVP !== 'undefined') studies.push(createATRBotVP);
     if (typeof createVSR !== 'undefined') studies.push(createVSR);
     if (typeof createVSR_1 !== 'undefined') studies.push(createVSR_1);
     if (typeof createVIDYA !== 'undefined') studies.push(createVIDYA);

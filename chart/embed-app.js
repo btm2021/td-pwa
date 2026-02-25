@@ -97,6 +97,7 @@ async function initTradingView() {
         custom_indicators_getter: function (PineJS) {
             return Promise.resolve([
                 createATRBot(PineJS),
+                createATRBotVP(PineJS),
                 createVSR(PineJS),
                 createVSROriginal(PineJS),
                 createSessionVP(PineJS),

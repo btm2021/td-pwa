@@ -22,6 +22,7 @@
 
   <!-- Custom Studies -->
   <script src="/chart/custom_studies/atr-bot.js"></script>
+  <script src="/chart/custom_studies/atr-bot-vp.js"></script>
   <script src="/chart/custom_studies/vsr.js"></script>
   <script src="/chart/custom_studies/vsr_1.js"></script>
   <script src="/chart/custom_studies/vidya.js"></script>
@@ -42,6 +43,29 @@
   <script src="/chart/datafeeds/oanda-datasource.js"></script>
   <script src="/chart/datafeeds/datafeed-manager.js"></script>
   <script src="/chart/datafeeds/unified-datafeed.js"></script>
+  <style>
+    /* Prevent pull-to-refresh and semantic pinch-zoom on mobile */
+    html,
+    body {
+      overscroll-behavior-y: none;
+      overscroll-behavior-x: none;
+    }
+  </style>
+  <script>
+    // Prevent iOS Safari from zooming on pinch/double-tap. The TradingView iframe handles its own zoom.
+    document.addEventListener('gesturestart', function (e) { e.preventDefault(); });
+    document.addEventListener('gesturechange', function (e) { e.preventDefault(); });
+    document.addEventListener('gestureend', function (e) { e.preventDefault(); });
+
+    let lastTouchEnd = 0;
+    document.addEventListener('touchend', function (e) {
+      let now = (new Date()).getTime();
+      if (now - lastTouchEnd <= 300) {
+        e.preventDefault();
+      }
+      lastTouchEnd = now;
+    }, { passive: false });
+  </script>
 </head>
 
 <body>

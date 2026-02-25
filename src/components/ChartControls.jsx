@@ -133,6 +133,7 @@ export function IndicatorsPicker({ tvWidget, onClose }) {
     // List of custom studies
     const customStudies = [
         { id: 'ATR Bot', name: 'ATR Bot', description: 'ATR Dynamic Trail with EMA' },
+        { id: 'ATR Bot VP', name: 'ATR Bot VP', description: 'ATR Dynamic Trail with Volume Profile' },
         { id: 'VSR', name: 'VSR', description: 'Volume Strength Ratio' },
         { id: 'VSR_1', name: 'VSR v1', description: 'Volume Strength Ratio v1' },
         { id: 'VIDYA', name: 'VIDYA', description: 'Variable Index Dynamic Average' },

@@ -540,6 +540,7 @@ html.desktop-mode #app {
     flex: 1;
     position: relative;
     min-height: 0;
+    touch-action: none;
 }
 
 /* ===== Spinner ===== */

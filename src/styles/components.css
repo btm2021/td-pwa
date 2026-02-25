@@ -810,6 +810,7 @@
     min-height: 0;
     position: relative;
     z-index: 1;
+    touch-action: none;
 }
 
 .chart-loading {
