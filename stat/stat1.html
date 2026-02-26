@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ATR Bot + Volume Profile (Lightweight Charts 5.1)</title>
+    <script src="https://unpkg.com/lightweight-charts@5.1.0/dist/lightweight-charts.standalone.production.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #0B0B0E;
+            color: #C3C6CE;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            overflow: hidden;
+        }
+
+        #topbar {
+            height: 40px;
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            background-color: #111118;
+            border-bottom: 1px solid #1f2933;
+            font-size: 14px;
+        }
+
+        #status {
+            color: #00E676;
+            margin-left: auto;
+        }
+
+        #chart-wrapper {
+            position: relative;
+            width: 100vw;
+            height: calc(100vh - 40px);
+        }
+
+        #chart-container {
+            width: 100%;
+            height: 100%;
+        }
+
+        #overlay-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+            z-index: 5;
+            /* Above grid, below crosshair by using careful positioning or just standard z-index */
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="topbar">
+        <b>IMXUSDT (Binance Futures)</b> &nbsp;|&nbsp; 15m Timeframe &nbsp;|&nbsp; 10k Candles &nbsp;|&nbsp; ATR Bot
+        (10, 21, 1.618)
+        <span id="status">Starting...</span>
+    </div>
+
+    <div id="chart-wrapper">
+        <div id="chart-container"></div>
+        <canvas id="overlay-canvas"></canvas>
+    </div>
+
+    <script>
+        const SYMBOL = 'IMXUSDT';
+        const INTERVAL = '15m'; // using 15m to easily grab 10k within a reasonable timeframe (approx 104 days)
+        const LIMIT = 50000;
+
+        // ATR Bot Settings
+        const ATR_LENGTH = 10;
+        const EMA_LENGTH = 21;
+        const ATR_MULT = 1.618;
+
+        // VP Settings
+        const NUM_ROWS = 100;
+        const VA_PCT = 70;
+
+        // VSR Settings
+        const VSR_LENGTH = 10;
+        const VSR_THRESHOLD = 5.0;
+
+        let chart, candleSeries, t1Series, t2Series;
+        const canvas = document.getElementById('overlay-canvas');
+        const ctx = canvas.getContext('2d');
+        let globalCycles = [];
+        let globalVsrZones = [];
+
+        async function fetchBinanceData() {
+            const cacheKey = `${SYMBOL}_${INTERVAL}_${LIMIT}_v5`; // bump version as format changed
+            const cached = localStorage.getItem(cacheKey);
+            if (cached) {
+                try {
+                    const parsed = JSON.parse(cached);
+                    // Map back to objects
+                    if (parsed && parsed.length > 0 && Array.isArray(parsed[0])) {
+                        return parsed.map(p => ({
+                            time: p[0], open: p[1], high: p[2], low: p[3], close: p[4], volume: p[5], buyVolume: p[6]
+                        }));
+                    }
+                    if (parsed && parsed.length > 0) return parsed;
+                } catch (e) {
+                    console.error("Cache parsing error", e);
+                }
+            }
+
+            let allData = [];
+            let endTime = Date.now();
+            const batch = 1500;
+            const statusText = document.getElementById('status');
+
+            while (allData.length < LIMIT) {
+                statusText.innerText = `Loading data... (${allData.length}/${LIMIT})`;
+                let url = `https://fapi.binance.com/fapi/v1/klines?symbol=${SYMBOL}&interval=${INTERVAL}&limit=${batch}&endTime=${endTime}`;
+
+                try {
+                    let res = await fetch(url);
+                    let data = await res.json();
+
+                    if (!data || data.length === 0 || data.code) {
+                        console.error("API Error or End of Data", data);
+                        break;
+                    }
+
+                    allData.unshift(...data);
+                    endTime = data[0][0] - 1; // Step back past the oldest candle
+
+                    if (data.length < batch) break; // Beginning of available history
+                } catch (e) {
+                    console.error("Fetch failed", e);
+                    break;
+                }
+            }
+
+            if (allData.length > LIMIT) {
+                allData = allData.slice(allData.length - LIMIT);
+            }
+
+            // Deduplicate and map
+            const unique = new Map();
+            for (let d of allData) {
+                unique.set(d[0], {
+                    time: d[0] / 1000,
+                    open: parseFloat(d[1]),
+                    high: parseFloat(d[2]),
+                    low: parseFloat(d[3]),
+                    close: parseFloat(d[4]),
+                    volume: parseFloat(d[5]),
+                    buyVolume: parseFloat(d[9])
+                });
+            }
+
+            const sorted = Array.from(unique.values()).sort((a, b) => a.time - b.time);
+
+            // Final sanity check for duplicated timestamps due to lightweight charts strict mode
+            let cleaned = [];
+            for (let i = 0; i < sorted.length; i++) {
+                if (i > 0 && sorted[i].time <= sorted[i - 1].time) continue;
+                cleaned.push(sorted[i]);
+            }
+
+            // Cache as array of arrays to minimize space (key compression)
+            const compressed = cleaned.map(c => [
+                c.time, c.open, c.high, c.low, c.close, c.volume, c.buyVolume
+            ]);
+
+            try {
+                localStorage.setItem(cacheKey, JSON.stringify(compressed));
+            } catch (err) {
+                console.warn("Storage full, trying to clear old cache...");
+                try {
+                    // Remove other large caches before retrying
+                    for (let key in localStorage) {
+                        if (key.includes(SYMBOL) && key !== cacheKey) {
+                            localStorage.removeItem(key);
+                        }
+                    }
+                    localStorage.setItem(cacheKey, JSON.stringify(compressed));
+                } catch (retryErr) {
+                    console.error("Persistent localStorage failure", retryErr);
+                }
+            }
+
+            return cleaned;
+        }
+
+        function calculateATRBot(bars) {
+            if (bars.length === 0) return { t1Data: [], t2Data: [], cycles: [] };
+
+            // 1. Calculate TR
+            let tr = new Array(bars.length);
+            for (let i = 0; i < bars.length; i++) {
+                if (i === 0) {
+                    tr[i] = bars[i].high - bars[i].low;
+                } else {
+                    let h_l = bars[i].high - bars[i].low;
+                    let h_pc = Math.abs(bars[i].high - bars[i - 1].close);
+                    let l_pc = Math.abs(bars[i].low - bars[i - 1].close);
+                    tr[i] = Math.max(h_l, h_pc, l_pc);
+                }
+            }
+
+            // 2. Calculate ATR (RMA of TR)
+            let atr = new Array(bars.length);
+            let alpha = 1 / ATR_LENGTH;
+            let sum = 0;
+            for (let i = 0; i < bars.length; i++) {
+                if (i < ATR_LENGTH) {
+                    sum += tr[i];
+                    atr[i] = sum / (i + 1);
+                } else {
+                    atr[i] = alpha * tr[i] + (1 - alpha) * atr[i - 1];
+                }
+            }
+
+            // 3. Calculate EMA
+            let ema = new Array(bars.length);
+            let k = 2 / (EMA_LENGTH + 1);
+            for (let i = 0; i < bars.length; i++) {
+                if (i === 0) ema[i] = bars[i].close;
+                else ema[i] = bars[i].close * k + ema[i - 1] * (1 - k);
+            }
+
+            // 4. Calculate Trail2 & State
+            let trail2 = new Array(bars.length);
+            let state = new Array(bars.length); // 1 = Uptrend, -1 = Downtrend
+
+            for (let i = 0; i < bars.length; i++) {
+                let loss = atr[i] * ATR_MULT;
+                let t1 = ema[i];
+
+                if (i === 0) {
+                    trail2[i] = t1 - loss;
+                    state[i] = 1;
+                    continue;
+                }
+
+                let prev_t2 = trail2[i - 1];
+                let prev_t1 = ema[i - 1];
+                let curr_t2;
+
+                if (t1 > prev_t2 && prev_t1 > prev_t2) {
+                    curr_t2 = Math.max(prev_t2, t1 - loss);
+                } else if (t1 < prev_t2 && prev_t1 < prev_t2) {
+                    curr_t2 = Math.min(prev_t2, t1 + loss);
+                } else if (t1 > prev_t2) {
+                    curr_t2 = t1 - loss;
+                } else {
+                    curr_t2 = t1 + loss;
+                }
+
+                trail2[i] = curr_t2;
+                state[i] = t1 > curr_t2 ? 1 : -1;
+            }
+
+            // 5. Build LWC Line Data & Extract Cycles
+            let t1Data = [];
+            let t2Data = [];
+            let cycles = [];
+            let currentCycle = null;
+
+            for (let i = 0; i < bars.length; i++) {
+                let t = bars[i].time;
+                let isUp = state[i] === 1;
+                let color = isUp ? '#00E676' : '#FF5252';
+
+                t1Data.push({ time: t, value: ema[i], color: color });
+                t2Data.push({ time: t, value: trail2[i], color: color });
+
+                let barData = { ...bars[i], t1: ema[i], t2: trail2[i] };
+
+                if (currentCycle === null) {
+                    currentCycle = { state: state[i], startIndex: i, endIndex: i, bars: [barData] };
+                } else if (currentCycle.state !== state[i]) {
+                    currentCycle.vp = calculateFRVP(currentCycle.bars, NUM_ROWS, VA_PCT);
+                    cycles.push(currentCycle);
+                    currentCycle = { state: state[i], startIndex: i, endIndex: i, bars: [barData] };
+                } else {
+                    currentCycle.endIndex = i;
+                    currentCycle.bars.push(barData);
+                }
+            }
+
+            if (currentCycle) {
+                currentCycle.vp = calculateFRVP(currentCycle.bars, NUM_ROWS, VA_PCT);
+                cycles.push(currentCycle);
+            }
+
+            return { t1Data, t2Data, cycles };
+        }
+
+        // Bulk Volume Classification (BVC) Algorithm
+        function calculateBVCVolumes(bars, windowSize = 20) {
+            // Approximation of standard normal CDF
+            function normalCDF(x) {
+                let t = 1 / (1 + 0.2316419 * Math.abs(x));
+                let d = 0.3989423 * Math.exp(-x * x / 2);
+                let prob = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
+                return x > 0 ? 1 - prob : prob;
+            }
+
+            let deltaPArray = bars.map(b => b.close - b.open);
+
+            for (let i = 0; i < bars.length; i++) {
+                let b = bars[i];
+                let startIdx = Math.max(0, i - windowSize + 1);
+                let count = i - startIdx + 1;
+
+                let mean = 0;
+                for (let j = startIdx; j <= i; j++) mean += deltaPArray[j];
+                mean /= count;
+
+                let variance = 0;
+                for (let j = startIdx; j <= i; j++) variance += Math.pow(deltaPArray[j] - mean, 2);
+                variance /= count;
+
+                let stdDev = Math.sqrt(variance);
+                let deltaP = deltaPArray[i];
+
+                let Z = 0;
+                if (stdDev > 1e-10) {
+                    Z = deltaP / stdDev;
+                } else {
+                    Z = deltaP > 0 ? 3 : (deltaP < 0 ? -3 : 0);
+                }
+
+                let phiZ = normalCDF(Z);
+                b.bvcBuy = b.volume * phiZ;
+                b.bvcSell = b.volume * (1 - phiZ);
+            }
+        }
+
+        function calculateFRVP(bars, numRows, vaPct) {
+            if (!bars || bars.length === 0) return null;
+
+            let min = Infinity, max = -Infinity, totalVol = 0;
+            for (let b of bars) {
+                if (b.low < min) min = b.low;
+                if (b.high > max) max = b.high;
+                if (b.volume > 0) totalVol += b.volume;
+            }
+
+            if (min === Infinity || max === -Infinity || Math.abs(max - min) < 1e-10 || totalVol === 0) {
+                return null;
+            }
+
+            let rowSize = (max - min) / numRows;
+            let profileUp = new Array(numRows).fill(0);
+            let profileDown = new Array(numRows).fill(0);
+
+            for (let b of bars) {
+                if (b.volume <= 0) continue;
+                let startRow = Math.floor((b.low - min) / rowSize);
+                let endRow = Math.floor((b.high - min) / rowSize);
+
+                startRow = Math.max(0, Math.min(numRows - 1, startRow));
+                endRow = Math.max(0, Math.min(numRows - 1, endRow));
+
+                // Bulk Volume Classification (BVC)
+                // Uses pre-calculated statistically accurate buy/sell distribution
+                let bBuy = b.bvcBuy || 0;
+                let bSell = b.bvcSell || 0;
+
+                if (b.high === b.low) {
+                    profileUp[startRow] += bBuy;
+                    profileDown[startRow] += bSell;
+                    continue;
+                }
+
+                let barTotalAdded = 0;
+                // Pre-calculate per-row overlaps to perfectly assign 100% of volume
+                let totalOverlap = 0;
+                let overlapInfos = [];
+
+                for (let r = startRow; r <= endRow; r++) {
+                    let rowBottom = min + r * rowSize;
+                    let rowTop = rowBottom + rowSize;
+                    let overlapBottom = Math.max(b.low, rowBottom);
+                    let overlapTop = Math.min(b.high, rowTop);
+                    let overlap = overlapTop - overlapBottom;
+                    if (overlap > 0) {
+                        overlapInfos.push({ r, overlap });
+                        totalOverlap += overlap;
+                    }
+                }
+
+                if (totalOverlap > 0) {
+                    for (let info of overlapInfos) {
+                        let pct = info.overlap / totalOverlap; // Guarantee 100% distribution
+                        profileUp[info.r] += pct * bBuy;
+                        profileDown[info.r] += pct * bSell;
+                    }
+                } else {
+                    profileUp[startRow] += bBuy;
+                    profileDown[startRow] += bSell;
+                }
+            }
+
+            let maxVol = -1, pocRow = 0;
+            let profileTotal = new Array(numRows).fill(0);
+            for (let r = 0; r < numRows; r++) {
+                profileTotal[r] = profileUp[r] + profileDown[r];
+                if (profileTotal[r] > maxVol) {
+                    maxVol = profileTotal[r];
+                    pocRow = r;
+                }
+            }
+
+            let currentVol = profileTotal[pocRow];
+            let targetVol = totalVol * (vaPct / 100);
+            let upIdx = pocRow, downIdx = pocRow;
+
+            while (currentVol < targetVol && (upIdx < numRows - 1 || downIdx > 0)) {
+                let upVol = 0;
+                if (upIdx + 1 < numRows) upVol += profileTotal[upIdx + 1];
+                if (upIdx + 2 < numRows) upVol += profileTotal[upIdx + 2];
+
+                let downVol = 0;
+                if (downIdx - 1 >= 0) downVol += profileTotal[downIdx - 1];
+                if (downIdx - 2 >= 0) downVol += profileTotal[downIdx - 2];
+
+                if (upVol === 0 && downVol === 0) break;
+
+                if (upVol >= downVol && upIdx < numRows - 1) {
+                    if (upIdx + 1 < numRows) { upIdx++; currentVol += profileTotal[upIdx]; }
+                    if (currentVol < targetVol && upIdx + 1 < numRows) { upIdx++; currentVol += profileTotal[upIdx]; }
+                } else if (downIdx > 0) {
+                    if (downIdx - 1 >= 0) { downIdx--; currentVol += profileTotal[downIdx]; }
+                    if (currentVol < targetVol && downIdx - 1 >= 0) { downIdx--; currentVol += profileTotal[downIdx]; }
+                } else {
+                    break;
+                }
+            }
+
+            return {
+                min, max, rowSize, numRows,
+                profileTotal, profileUp, profileDown,
+                pocRow, pocPrice: min + (pocRow + 0.5) * rowSize,
+                vahRow: upIdx, vahPrice: min + (upIdx + 1) * rowSize,
+                valRow: downIdx, valPrice: min + downIdx * rowSize,
+            };
+        }
+
+        function calculateVSR(bars, length = 10, threshold = 5.0) {
+            let zones = [];
+            let prev_volume = NaN, prev_high = NaN, prev_low = NaN, prev_close = NaN, prev_stdev = NaN;
+            let volume_changes = [];
+            let vsr_upper = NaN, vsr_lower = NaN;
+            let currentZone = null;
+
+            for (let i = 0; i < bars.length; i++) {
+                let b = bars[i];
+                let volume = b.volume, high = b.high, low = b.low, close = b.close;
+
+                let change = 0;
+                if (!isNaN(prev_volume) && prev_volume !== 0) {
+                    change = volume / prev_volume - 1;
+                }
+
+                volume_changes.push(change);
+                if (volume_changes.length > length) volume_changes.shift();
+
+                let stdev = 0;
+                if (volume_changes.length >= 2) {
+                    let sum = volume_changes.reduce((a, x) => a + x, 0);
+                    let mean = sum / volume_changes.length;
+                    let variance = volume_changes.reduce((a, x) => a + Math.pow(x - mean, 2), 0) / volume_changes.length;
+                    stdev = Math.sqrt(variance);
+                }
+
+                let difference = 0, signal = 0;
+                if (!isNaN(prev_stdev) && prev_stdev !== 0 && volume_changes.length >= 2) {
+                    difference = change / prev_stdev;
+                    signal = Math.abs(difference);
+                }
+
+                if (signal > threshold && !isNaN(prev_high)) {
+                    let proposed_upper = Math.max(prev_high, prev_close);
+                    let proposed_lower = Math.min(prev_low, prev_close);
+
+                    let isOverlap = false;
+                    if (!isNaN(vsr_upper) && !isNaN(vsr_lower)) {
+                        if (proposed_lower <= vsr_upper && vsr_lower <= proposed_upper) {
+                            isOverlap = true;
+                        }
+                    }
+
+                    if (isOverlap) {
+                        vsr_upper = Math.max(vsr_upper, proposed_upper);
+                        vsr_lower = Math.min(vsr_lower, proposed_lower);
+                        if (currentZone) {
+                            currentZone.upper = vsr_upper;
+                            currentZone.lower = vsr_lower;
+                        }
+                    } else {
+                        vsr_upper = proposed_upper;
+                        vsr_lower = proposed_lower;
+                        if (currentZone) {
+                            currentZone.endIndex = i - 1;
+                            zones.push(currentZone);
+                        }
+                        currentZone = { startIndex: i, endIndex: i, upper: vsr_upper, lower: vsr_lower };
+                    }
+                } else if (currentZone) {
+                    currentZone.endIndex = i;
+                }
+
+                prev_volume = volume;
+                prev_high = high;
+                prev_low = low;
+                prev_close = close;
+                prev_stdev = stdev;
+            }
+
+            if (currentZone) {
+                currentZone.endIndex = bars.length - 1;
+                zones.push(currentZone);
+            }
+            return zones;
+        }
+
+        function initChart() {
+            const container = document.getElementById('chart-container');
+            chart = LightweightCharts.createChart(container, {
+                layout: {
+                    background: { type: 'solid', color: '#0B0B0E' },
+                    textColor: '#C3C6CE',
+                },
+                grid: {
+                    vertLines: { color: '#1f2933' },
+                    horzLines: { color: '#1f2933' },
+                },
+                crosshair: {
+                    mode: 0, // 0 = Normal (Chuột tự do, free floating)
+                },
+                timeScale: {
+                    timeVisible: true,
+                    secondsVisible: false,
+                },
+                handleScroll: {
+                    mouseWheel: true,
+                    pressedMouseMove: true,
+                    horzTouchDrag: true,
+                    vertTouchDrag: true,
+                },
+                handleScale: {
+                    axisPressedMouseMove: true,
+                    mouseWheel: true,
+                    pinch: true,
+                },
+                kinematicScroll: {
+                    touch: true,
+                    mouse: true,
+                }
+            });
+
+            const priceFmt = {
+                type: 'price',
+                precision: 4,
+                minMove: 0.0001
+            };
+
+            candleSeries = chart.addSeries(LightweightCharts.CandlestickSeries, {
+                upColor: '#00E676',
+                downColor: '#FF5252',
+                borderVisible: false,
+                wickUpColor: '#00E676',
+                wickDownColor: '#FF5252',
+                priceFormat: priceFmt
+            });
+
+            t1Series = chart.addSeries(LightweightCharts.LineSeries, {
+                lineWidth: 2,
+                crosshairMarkerVisible: false,
+                lastValueVisible: false,
+                priceLineVisible: false,
+                visible: false, // hide line, we only need it for the canvas fill
+                priceFormat: priceFmt
+            });
+
+            t2Series = chart.addSeries(LightweightCharts.LineSeries, {
+                lineWidth: 2,
+                crosshairMarkerVisible: false,
+                lastValueVisible: false,
+                priceLineVisible: false,
+                visible: false, // hide line, we only need it for the canvas fill
+                priceFormat: priceFmt
+            });
+
+            // Sync canvas when chart moves or resizes
+            chart.timeScale().subscribeVisibleLogicalRangeChange(() => {
+                requestAnimationFrame(drawOverlay);
+            });
+
+            chart.timeScale().subscribeSizeChange(() => {
+                syncCanvasSize();
+            });
+
+            window.addEventListener('resize', syncCanvasSize);
+        }
+
+        function syncCanvasSize() {
+            if (!chart || !candleSeries) return;
+            const width = chart.timeScale().width();
+            const height = document.getElementById('chart-container').clientHeight - 26; // approx time scale height
+
+            canvas.width = width;
+            canvas.height = height;
+            canvas.style.width = width + 'px';
+            canvas.style.height = height + 'px';
+
+            drawOverlay();
+        }
+
+        function drawOverlay() {
+            if (!chart || !candleSeries || !globalCycles.length) return;
+
+            const timeScale = chart.timeScale();
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            let visibleRange = timeScale.getVisibleLogicalRange();
+            if (!visibleRange) return;
+
+            // Pass 0: Draw VSR Zones
+            for (let z of globalVsrZones) {
+                if (z.endIndex < visibleRange.from || z.startIndex > visibleRange.to) continue;
+
+                let xStart = timeScale.logicalToCoordinate(z.startIndex);
+                let xEnd = timeScale.logicalToCoordinate(z.endIndex);
+                if (xStart === null) xStart = -1000;
+                if (xEnd === null) xEnd = canvas.width + 1000;
+
+                let cycleW = xEnd - xStart;
+                if (cycleW <= 0) continue;
+
+                let y1 = candleSeries.priceToCoordinate(z.upper);
+                let y2 = candleSeries.priceToCoordinate(z.lower);
+
+                if (y1 !== null && y2 !== null) {
+                    let topY = Math.min(y1, y2);
+                    let botY = Math.max(y1, y2);
+                    ctx.fillStyle = 'rgba(255, 235, 59, 0.2)'; // #FFEB3B with 20% transparency for VSR base
+                    ctx.fillRect(xStart, topY, cycleW, botY - topY);
+
+                    ctx.strokeStyle = 'rgba(255, 235, 59, 0.4)';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(xStart, topY); ctx.lineTo(xEnd, topY);
+                    ctx.moveTo(xStart, botY); ctx.lineTo(xEnd, botY);
+                    ctx.stroke();
+                }
+            }
+
+            // First pass: Draw ATR Cloud Fills
+            for (let cycle of globalCycles) {
+                if (cycle.endIndex < visibleRange.from || cycle.startIndex > visibleRange.to) continue;
+
+                ctx.beginPath();
+                let hasMoved = false;
+
+                // Move along T1
+                for (let i = 0; i < cycle.bars.length; i++) {
+                    let b = cycle.bars[i];
+                    let logicalIdx = cycle.startIndex + i;
+                    if (logicalIdx < Math.floor(visibleRange.from) || logicalIdx > Math.ceil(visibleRange.to)) continue;
+
+                    let x = timeScale.logicalToCoordinate(logicalIdx);
+                    let y = candleSeries.priceToCoordinate(b.t1);
+                    if (x !== null && y !== null) {
+                        if (!hasMoved) { ctx.moveTo(x, y); hasMoved = true; }
+                        else { ctx.lineTo(x, y); }
+                    }
+                }
+
+                // Move back along T2
+                if (hasMoved) {
+                    for (let i = cycle.bars.length - 1; i >= 0; i--) {
+                        let b = cycle.bars[i];
+                        let logicalIdx = cycle.startIndex + i;
+                        if (logicalIdx < Math.floor(visibleRange.from) || logicalIdx > Math.ceil(visibleRange.to)) continue;
+
+                        let x = timeScale.logicalToCoordinate(logicalIdx);
+                        let y = candleSeries.priceToCoordinate(b.t2);
+                        if (x !== null && y !== null) {
+                            ctx.lineTo(x, y);
+                        }
+                    }
+                    ctx.closePath();
+                    // TV style ATR cloud fills
+                    ctx.fillStyle = cycle.state === 1 ? 'rgba(0, 230, 118, 0.2)' : 'rgba(255, 82, 82, 0.2)';
+                    ctx.fill();
+                }
+            }
+
+            // Second pass: Draw VP
+            for (let cycle of globalCycles) {
+                if (!cycle.vp) continue;
+
+                // Skip cycles completely out of view
+                if (cycle.endIndex < visibleRange.from || cycle.startIndex > visibleRange.to) continue;
+
+                let xStart = timeScale.logicalToCoordinate(cycle.startIndex);
+                let xEnd = timeScale.logicalToCoordinate(cycle.endIndex);
+
+                // Extrapolate safely if coords are slightly missing boundaries due to strict logical bounds
+                if (xStart === null) xStart = -1000;
+                if (xEnd === null) xEnd = canvas.width + 1000;
+
+                let cycleW = xEnd - xStart;
+                if (cycleW <= 0) continue;
+
+                let maxBoxWidth = Math.min(150, cycleW * 0.4); // Max 40% of cycle width
+                let cVP = cycle.vp;
+
+                // Draw Value Area Background Fill
+                let yVAH = candleSeries.priceToCoordinate(cVP.vahPrice);
+                let yVAL = candleSeries.priceToCoordinate(cVP.valPrice);
+
+                if (yVAH !== null && yVAL !== null) {
+                    let topY = Math.min(yVAH, yVAL);
+                    let botY = Math.max(yVAH, yVAL);
+                    ctx.fillStyle = 'rgba(41, 98, 255, 0.05)'; // Faint uniform background for Value Area
+                    ctx.fillRect(xStart, topY, cycleW, botY - topY);
+                }
+
+                let maxProfileDelta = 0;
+                for (let r = 0; r < cVP.numRows; r++) {
+                    let d = Math.abs(cVP.profileUp[r] - cVP.profileDown[r]);
+                    if (d > maxProfileDelta) maxProfileDelta = d;
+                }
+                if (maxProfileDelta === 0) maxProfileDelta = 1;
+
+                // Draw Delta Histogram Rows
+                for (let r = 0; r < cVP.numRows; r++) {
+                    let y1 = candleSeries.priceToCoordinate(cVP.min + r * cVP.rowSize);
+                    let y2 = candleSeries.priceToCoordinate(cVP.min + (r + 1) * cVP.rowSize);
+                    if (y1 === null || y2 === null) continue;
+
+                    let top = Math.min(y1, y2);
+                    let bot = Math.max(y1, y2);
+                    let rowHeight = Math.max(1, bot - top);
+
+                    let upVol = cVP.profileUp[r];
+                    let downVol = cVP.profileDown[r];
+                    let deltaVol = upVol - downVol;
+                    let absDelta = Math.abs(deltaVol);
+
+                    // The width represents the Absolute Delta
+                    let w = (absDelta / maxProfileDelta) * maxBoxWidth;
+
+                    let isVA = r >= cVP.valRow && r <= cVP.vahRow;
+
+                    // Color based on whether delta is positive (Blue) or negative (Yellow)
+                    if (deltaVol >= 0) {
+                        ctx.fillStyle = isVA ? 'rgba(33, 150, 243, 0.8)' : 'rgba(33, 150, 243, 0.3)';
+                    } else {
+                        ctx.fillStyle = isVA ? 'rgba(255, 193, 7, 0.8)' : 'rgba(255, 193, 7, 0.3)';
+                    }
+
+                    ctx.fillRect(xStart, top, w, rowHeight);
+
+                    // Stroke enclosing box for the entire row to make it distinct
+                    ctx.strokeStyle = 'rgba(0, 0, 0, 0.1)';
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(xStart, top, w, rowHeight);
+                }
+
+                // Draw POC Line perfectly horizontally
+                let pocY = candleSeries.priceToCoordinate(cVP.pocPrice);
+                if (pocY !== null) {
+                    ctx.strokeStyle = 'rgba(255, 82, 82, 0.9)'; // Red line for POC
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(xStart, pocY);
+                    ctx.lineTo(xEnd, pocY);
+                    ctx.stroke();
+                }
+            }
+        }
+
+        async function run() {
+            initChart();
+            const bars = await fetchBinanceData();
+
+            if (bars.length === 0) {
+                document.getElementById('status').innerText = 'Failed to load data.';
+                return;
+            }
+
+            candleSeries.setData(bars);
+
+            // Calculate BVC algorithm first for the entire history
+            calculateBVCVolumes(bars, 20);
+
+            // Calculate indicators
+            const { t1Data, t2Data, cycles } = calculateATRBot(bars);
+            globalCycles = cycles;
+
+            globalVsrZones = calculateVSR(bars, VSR_LENGTH, VSR_THRESHOLD);
+
+            t1Series.setData(t1Data);
+            t2Series.setData(t2Data);
+
+            document.getElementById('status').innerText = `Data Loaded: ${bars.length} bars. Ready.`;
+
+            // Initial setup for canvas
+            setTimeout(() => syncCanvasSize(), 500);
+        }
+
+        run();
+    </script>
+
+</body>
+
+</html>
