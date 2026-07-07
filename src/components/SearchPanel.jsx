@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from 'preact/hooks';
 import { Icon } from './Icon';
-import { tickerData, getCoinLogoUrl, getBaseAsset, formatPrice, formatPercent } from '../state/watchlist';
+import { getCoinLogoUrl, getBaseAsset, getTicker, formatPrice, formatPercent } from '../state/watchlist';
 
 // Exchange tabs
 const EXCHANGES = [
     { id: 'all', name: 'All' },
     { id: 'BINANCE_FUTURES', name: 'Binance' },
+    { id: 'BINANCE_SPOT', name: 'Binance Spot' },
     { id: 'BYBIT_FUTURES', name: 'Bybit' },
     { id: 'OKX_FUTURES', name: 'OKX' },
     { id: 'OANDA_FOREX', name: 'Forex' },
@@ -16,12 +17,21 @@ export function SearchPanel({ onClose, onSelectSymbol, currentSymbols = [] }) {
     const [results, setResults] = useState([]);
     const [loading, setLoading] = useState(false);
     const [activeExchange, setActiveExchange] = useState('all');
+    const [symbolsVersion, setSymbolsVersion] = useState(0);
     const inputRef = useRef(null);
-    const tickers = tickerData.value;
 
     // Focus input on mount
     useEffect(() => {
         inputRef.current?.focus();
+    }, []);
+
+    useEffect(() => {
+        const handleSymbolsReady = () => {
+            setSymbolsVersion((version) => version + 1);
+        };
+
+        window.addEventListener('datafeed:symbols-ready', handleSymbolsReady);
+        return () => window.removeEventListener('datafeed:symbols-ready', handleSymbolsReady);
     }, []);
 
     // Search using UnifiedDatafeed or fallback to Binance API
@@ -42,7 +52,12 @@ export function SearchPanel({ onClose, onSelectSymbol, currentSymbols = [] }) {
 
             // If still no symbols, fallback to Binance API
             if (!allSymbols || allSymbols.length === 0) {
-                await searchBinanceSymbols(query);
+                if (activeExchange === 'all' || activeExchange === 'BINANCE_FUTURES') {
+                    await searchBinanceSymbols(query);
+                } else {
+                    setResults([]);
+                    setLoading(false);
+                }
                 return;
             }
 
@@ -52,11 +67,7 @@ export function SearchPanel({ onClose, onSelectSymbol, currentSymbols = [] }) {
             let filtered = allSymbols.filter(s => {
                 // Exchange Filter
                 if (activeExchange !== 'all') {
-                    if (s.original?.exchange_id !== activeExchange && !s.full_name.startsWith(activeExchange.split('_')[0])) {
-                        // Check exact exchange id or prefix match
-                        const prefix = activeExchange.split('_')[0];
-                        if (!s.full_name.startsWith(prefix + ':')) return false;
-                    }
+                    if (s.datasource !== activeExchange) return false;
                 }
 
                 // Search Term Filter
@@ -113,7 +124,7 @@ export function SearchPanel({ onClose, onSelectSymbol, currentSymbols = [] }) {
 
         const timeoutId = setTimeout(searchClientSide, 100); // Faster debounce
         return () => clearTimeout(timeoutId);
-    }, [query, activeExchange]);
+    }, [query, activeExchange, symbolsVersion]);
 
     // Fallback Binance search
     const searchBinanceSymbols = async (searchQuery) => {
@@ -213,7 +224,7 @@ export function SearchPanel({ onClose, onSelectSymbol, currentSymbols = [] }) {
                         </div>
                     ) : (
                         results.map((sym) => {
-                            const ticker = tickers[sym.symbol];
+                            const ticker = getTicker(sym.fullName || sym.symbol);
                             const isAdded = currentSymbols.includes(sym.fullName || sym.symbol);
                             return (
                                 <SearchResultItem
@@ -235,8 +246,10 @@ export function SearchPanel({ onClose, onSelectSymbol, currentSymbols = [] }) {
 function SearchResultItem({ symbol, ticker, isAdded, onClick }) {
     const [imgError, setImgError] = useState(false);
     const baseAsset = symbol.baseAsset?.toUpperCase() || getBaseAsset(symbol.symbol).toUpperCase();
-    const isOanda = symbol.exchange === 'OANDA';
     const isForex = symbol.type === 'forex';
+    const isSpot = symbol.exchange?.toUpperCase().includes('SPOT') ||
+        symbol.fullName?.toUpperCase().startsWith('BINANCE_SPOT:') ||
+        symbol.description?.toUpperCase().includes('SPOT');
 
     // Get logo URL based on exchange
     const getLogoUrl = () => {
@@ -287,7 +300,7 @@ function SearchResultItem({ symbol, ticker, isAdded, onClick }) {
                 <div className="search-result__name">
                     {symbol.description || `${symbol.baseAsset} / ${symbol.quoteAsset}`}
                     {isForex && ' Forex'}
-                    {!isForex && symbol.quoteAsset === 'USDT' && ' Perpetual'}
+                    {!isForex && !isSpot && symbol.quoteAsset === 'USDT' && ' Perpetual'}
                 </div>
             </div>
             {ticker && (

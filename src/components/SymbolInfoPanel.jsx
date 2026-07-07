@@ -166,9 +166,13 @@ export function SymbolInfoPanel() {
     const isPositive = displayTicker.priceChangePercent >= 0;
     const baseAsset = getBaseAsset(symbol).toUpperCase();
     const exchange = symbol.split(':')[0];
-    const isForex = !symbol.includes('USDT') && !symbol.includes('BUSD') && !symbol.includes('USDC') && !symbol.includes('PERP');
-    const quoteAsset = isForex ? (symbol.startsWith('OANDA:') ? symbol.replace('OANDA:', '').substring(3) : symbol.substring(3)) : 'USDT';
-    const subtitle = isForex ? `${baseAsset} / ${quoteAsset}` : `${baseAsset} / USDT Perpetual`;
+    const rawSymbol = symbol.includes(':') ? symbol.split(':')[1] : symbol;
+    const isSpot = symbol.toUpperCase().startsWith('BINANCE_SPOT:');
+    const isForex = !symbol.includes('USDT') && !symbol.includes('BUSD') && !symbol.includes('USDC') && !symbol.includes('PERP') && !isSpot;
+    const cryptoQuote = rawSymbol.match(/(USDT|USDC|BUSD|BTC|ETH|BNB)$/i)?.[1]?.toUpperCase() || 'USDT';
+    const quoteAsset = isForex ? (symbol.startsWith('OANDA:') ? symbol.replace('OANDA:', '').substring(3) : symbol.substring(3)) : cryptoQuote;
+    const marketLabel = isSpot ? 'Spot' : 'Perpetual';
+    const subtitle = isForex ? `${baseAsset} / ${quoteAsset}` : `${baseAsset} / ${quoteAsset} ${marketLabel}`;
 
     return (
         <div className="symbol-detail-premium">

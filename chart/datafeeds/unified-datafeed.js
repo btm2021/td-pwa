@@ -18,6 +18,12 @@ window.initializeDatafeed = function () {
     // Register Binance Futures (default)
     manager.registerDatasource(new BinanceFuturesDatasource(), true);
 
+    // Register Binance Spot if available
+    if (typeof BinanceSpotDatasource !== 'undefined') {
+        manager.registerDatasource(new BinanceSpotDatasource(), false);
+        console.log('[Datafeed] Binance Spot datasource registered');
+    }
+
     // Register OANDA if available (Forex)
     if (typeof OANDADatasource !== 'undefined') {
         manager.registerDatasource(new OANDADatasource(), false);
@@ -35,9 +41,6 @@ window.initializeDatafeed = function () {
         manager.registerDatasource(new OKXFuturesDatasource(), false);
         console.log('[Datafeed] OKX Perpetual datasource registered');
     }
-
-    // NOTE: Spot datasources removed - only perpetual/futures supported
-
 
     // Initialize all datasources (fetch exchange info)
     manager.initialize().then(() => {

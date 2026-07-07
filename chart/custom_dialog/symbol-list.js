@@ -72,7 +72,7 @@ class SymbolListDialog extends DialogBase {
     getExchangeName(datasourceId) {
         const exchangeMap = {
             'BINANCE_FUTURES': 'BINANCE',
-            'BINANCE_SPOT': 'BINANCE',
+            'BINANCE_SPOT': 'BINANCE_SPOT',
             'OKX_FUTURES': 'OKX',
             'OKX_SPOT': 'OKX',
             'BYBIT_FUTURES': 'BYBIT',

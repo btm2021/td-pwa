@@ -2,7 +2,8 @@
  * Utility to fetch OHLCV data from various exchanges
  */
 
-const BINANCE_BASE = 'https://fapi.binance.com/fapi/v1';
+const BINANCE_FUTURES_BASE = 'https://fapi.binance.com/fapi/v1';
+const BINANCE_SPOT_BASE = 'https://api.binance.com/api/v3';
 const BYBIT_BASE = 'https://api.bybit.com/v5/market';
 const OKX_BASE = 'https://www.okx.com/api/v5/market';
 
@@ -17,7 +18,22 @@ export async function fetchOHLCV(symbol, interval = '15m', limit = 1500) {
 
     try {
         if (exchange === 'BINANCE' || exchange === 'BINANCE_FUTURES') {
-            const url = `${BINANCE_BASE}/klines?symbol=${rawSymbol}&interval=${interval}&limit=${limit}`;
+            const url = `${BINANCE_FUTURES_BASE}/klines?symbol=${rawSymbol}&interval=${interval}&limit=${limit}`;
+            const resp = await fetch(url);
+            const data = await resp.json();
+            return data.map(d => ({
+                time: Math.floor(d[0] / 1000),
+                open: parseFloat(d[1]),
+                high: parseFloat(d[2]),
+                low: parseFloat(d[3]),
+                close: parseFloat(d[4]),
+                volume: parseFloat(d[5])
+            }));
+        }
+
+        if (exchange === 'BINANCE_SPOT') {
+            const spotLimit = Math.min(limit, 1000);
+            const url = `${BINANCE_SPOT_BASE}/klines?symbol=${rawSymbol}&interval=${interval}&limit=${spotLimit}`;
             const resp = await fetch(url);
             const data = await resp.json();
             return data.map(d => ({

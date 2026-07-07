@@ -73,9 +73,16 @@ class DatafeedManager {
                 const info = ds ? ds.getInfo() : {};
 
                 const mapped = result.symbols.map(s => {
-                    // Determine exchange prefix from datasource ID
-                    let prefix = info.id.split('_')[0].toUpperCase();
-                    if (prefix === 'OANDA') prefix = 'OANDA';
+                    // Keep legacy short prefixes for futures, but use explicit
+                    // prefixes for markets where the same venue has spot too.
+                    const prefixMap = {
+                        BINANCE_FUTURES: 'BINANCE',
+                        BINANCE_SPOT: 'BINANCE_SPOT',
+                        BYBIT_FUTURES: 'BYBIT',
+                        OKX_FUTURES: 'OKX',
+                        OANDA: 'OANDA'
+                    };
+                    let prefix = prefixMap[info.id] || info.id;
 
                     let fullName = `${prefix}:${s.symbol}`;
                     let description = s.description || s.symbol;
@@ -84,6 +91,8 @@ class DatafeedManager {
 
                     if (info.id === 'OANDA') {
                         description = `${base} / ${quote}`;
+                    } else if (info.id === 'BINANCE_SPOT') {
+                        description = `${base}/${quote} Spot`;
                     } else {
                         description = `${base}/${quote}`;
                     }
@@ -108,6 +117,12 @@ class DatafeedManager {
 
         // Expose globally for UI
         window.allSearchableSymbols = this.allSymbols;
+        window.dispatchEvent(new CustomEvent('datafeed:symbols-ready', {
+            detail: {
+                symbols: this.allSymbols,
+                symbolConfig: window.symbolConfig
+            }
+        }));
 
         this.initialized = true;
         console.log('[DatafeedManager] Initialization complete');
@@ -132,6 +147,7 @@ class DatafeedManager {
     static PREFIX_DATASOURCE_MAP = {
         'BINANCE': 'BINANCE_FUTURES',
         'BINANCE_FUTURES': 'BINANCE_FUTURES',
+        'BINANCE_SPOT': 'BINANCE_SPOT',
         'BYBIT': 'BYBIT_FUTURES',
         'BYBIT_FUTURES': 'BYBIT_FUTURES',
         'BYBITF': 'BYBIT_FUTURES',
@@ -368,6 +384,10 @@ class DatafeedManager {
             }
 
             const symbolInfo = await datasource.resolveSymbol(symbolName);
+            symbolInfo.datasource = datasource.getInfo().id;
+            if (!symbolInfo.full_name && symbolName.includes(':')) {
+                symbolInfo.full_name = symbolName;
+            }
             onSymbolResolvedCallback(symbolInfo);
 
         } catch (error) {
@@ -381,7 +401,9 @@ class DatafeedManager {
      */
     async getBars(symbolInfo, resolution, periodParams, onHistoryCallback, onErrorCallback) {
         try {
-            const datasource = this.findDatasource(symbolInfo.name);
+            const datasource = symbolInfo.datasource
+                ? this.datasources.find(ds => ds.getInfo().id === symbolInfo.datasource)
+                : this.findDatasource(symbolInfo.full_name || symbolInfo.name);
 
             if (!datasource) {
                 throw new Error('No datasource available');
@@ -400,7 +422,9 @@ class DatafeedManager {
      * Subscribe bars - route đến datasource phù hợp
      */
     subscribeBars(symbolInfo, resolution, onRealtimeCallback, subscriberUID) {
-        const datasource = this.findDatasource(symbolInfo.name);
+        const datasource = symbolInfo.datasource
+            ? this.datasources.find(ds => ds.getInfo().id === symbolInfo.datasource)
+            : this.findDatasource(symbolInfo.full_name || symbolInfo.name);
 
         if (!datasource) {
             console.error('[DatafeedManager] No datasource for subscription');

@@ -4,7 +4,7 @@ import { SearchPanel } from '../../components/SearchPanel';
 import { ReplayControls, useReplayEngine, replayUIVisible } from '../../components/ReplayControls';
 import { ReplayBarSelector } from '../../components/ReplayBarSelector';
 import { selectedSymbol, selectedTimeframe, setSelectedTimeframe, setSelectedSymbol, toggleFullscreen, isChartReady, setChartReady } from '../../state/store';
-import { timeframes, tickerData, formatPrice, formatPercent } from '../../state/watchlist';
+import { timeframes, getTicker, formatPrice, formatPercent } from '../../state/watchlist';
 import '../../styles/replay.css';
 
 // Get custom studies creators
@@ -30,7 +30,6 @@ export function DesktopChart() {
     const symbol = selectedSymbol.value;
     const currentTimeframe = selectedTimeframe.value;
     const chartReady = isChartReady.value;
-    const tickers = tickerData.value;
 
     const [showSearch, setShowSearch] = useState(false);
     const lastResolutionRef = useRef(null);
@@ -39,7 +38,7 @@ export function DesktopChart() {
     const replayEngine = useReplayEngine(tvWidgetRef, datafeedRef);
 
     // Get ticker data for current symbol
-    const ticker = tickers[symbol.symbol] || {};
+    const ticker = getTicker(symbol.tickerKey || symbol.fullSymbol || symbol.symbol) || {};
     const price = ticker.price || 0;
     const changePercent = ticker.priceChangePercent || 0;
     const isPositive = changePercent >= 0;

@@ -4,7 +4,7 @@ import { signal, computed } from '@preact/signals';
 // EXCHANGE CONFIGURATION
 // ============================================
 
-// Định nghĩa các exchange được hỗ trợ (Perpetual/Futures only)
+// Định nghĩa các exchange được hỗ trợ
 export const EXCHANGES = {
     BINANCE: {
         id: 'BINANCE',
@@ -13,6 +13,15 @@ export const EXCHANGES = {
         type: 'crypto',
         prefixes: ['BINANCE:', 'BINANCE_FUTURES:'],
         tickerPrefix: 'BINANCE'
+    },
+    BINANCE_SPOT: {
+        id: 'BINANCE_SPOT',
+        datafeedId: 'BINANCE_SPOT',
+        name: 'Binance Spot',
+        type: 'crypto',
+        market: 'spot',
+        prefixes: ['BINANCE_SPOT:'],
+        tickerPrefix: 'BINANCE_SPOT'
     },
     BYBIT: {
         id: 'BYBIT',
@@ -182,7 +191,8 @@ export const selectedSymbol = computed(() => {
         // Crypto: BTCUSDT -> BTC/USDT Perpetual
         baseAsset = parsed.symbol.replace(/USDT$|USDC$|BUSD$|PERP$/i, '');
         quoteAsset = parsed.symbol.replace(baseAsset, '');
-        description = `${baseAsset} / ${quoteAsset} Perpetual`;
+        const marketLabel = parsed.exchange.market === 'spot' ? 'Spot' : 'Perpetual';
+        description = `${baseAsset} / ${quoteAsset} ${marketLabel}`;
     }
 
     return {

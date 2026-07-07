@@ -20,9 +20,13 @@ export function SymbolPanel({ symbol, ticker, onClose }) {
 
     const isPositive = displayTicker.priceChangePercent >= 0;
     const baseAsset = getBaseAsset(symbol).toUpperCase();
-    const isForex = !symbol.includes('USDT') && !symbol.includes('BUSD');
-    const quoteAsset = isForex ? symbol.substring(3) : 'USDT';
-    const subtitle = isForex ? `${baseAsset} / ${quoteAsset}` : `${baseAsset} / USDT Perpetual`;
+    const rawSymbol = symbol.includes(':') ? symbol.split(':')[1] : symbol;
+    const isSpot = symbol.toUpperCase().startsWith('BINANCE_SPOT:');
+    const isForex = !symbol.includes('USDT') && !symbol.includes('BUSD') && !symbol.includes('USDC') && !isSpot;
+    const cryptoQuote = rawSymbol.match(/(USDT|USDC|BUSD|BTC|ETH|BNB)$/i)?.[1]?.toUpperCase() || 'USDT';
+    const quoteAsset = isForex ? rawSymbol.substring(3) : cryptoQuote;
+    const marketLabel = isSpot ? 'Spot' : 'Perpetual';
+    const subtitle = isForex ? `${baseAsset} / ${quoteAsset}` : `${baseAsset} / ${quoteAsset} ${marketLabel}`;
 
     const handleGoToChart = () => {
         // Symbol đã có prefix (VD: BINANCE:BTCUSDT, BYBIT:ETHUSDT, OANDA:EURUSD)

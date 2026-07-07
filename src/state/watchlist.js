@@ -67,6 +67,12 @@ const firebaseConfig = {
 let db = null;
 let firebaseInitialized = false;
 
+function syncLoadedDatafeedWatchlists() {
+    if (typeof window !== 'undefined' && window.allSearchableSymbols?.length > 0) {
+        syncDatafeedWatchlists(window.allSearchableSymbols);
+    }
+}
+
 // Initialize Firebase
 function initializeFirebase() {
     if (firebaseInitialized) return true;
@@ -179,6 +185,7 @@ async function loadCategoriesFromFirebase() {
         // Fallback to localStorage
         loadCategoriesFromLocalStorage();
     } finally {
+        syncLoadedDatafeedWatchlists();
         isWatchlistLoading.value = false;
     }
 
@@ -223,6 +230,7 @@ function loadCategoriesFromLocalStorage() {
     } catch (e) {
         console.warn('[Watchlist] Could not load from localStorage:', e);
     } finally {
+        syncLoadedDatafeedWatchlists();
         isWatchlistLoading.value = false;
     }
 }
@@ -302,6 +310,10 @@ let bybitWs = null;
 let bybitReconnectTimeout = null;
 let bybitPingInterval = null;
 
+// Binance Spot WebSocket
+let binanceSpotWs = null;
+let binanceSpotReconnectTimeout = null;
+
 // OKX WebSocket
 let okxWs = null;
 let okxReconnectTimeout = null;
@@ -329,6 +341,7 @@ function queueTickerUpdate(key, data) {
 // Subscribe to all exchange ticker streams
 export function subscribeToTickers() {
     subscribeToBinance();
+    subscribeToBinanceSpot();
     subscribeToBybit();
     subscribeToOKX();
     subscribeToOANDA();
@@ -381,6 +394,58 @@ function subscribeToBinance() {
         ws.onclose = () => {
             console.log('[WebSocket] Disconnected, reconnecting in 3s...');
             reconnectTimeout = setTimeout(connect, 3000);
+        };
+    };
+
+    connect();
+}
+
+function subscribeToBinanceSpot() {
+    if (binanceSpotWs && binanceSpotWs.readyState === WebSocket.OPEN) {
+        return;
+    }
+
+    const connect = () => {
+        console.log('[Binance Spot WebSocket] Connecting to ticker stream...');
+        binanceSpotWs = new WebSocket('wss://stream.binance.com:9443/ws/!ticker@arr');
+
+        binanceSpotWs.onopen = () => {
+            console.log('[Binance Spot WebSocket] Connected to ticker stream');
+        };
+
+        binanceSpotWs.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                if (Array.isArray(data)) {
+                    data.forEach(ticker => {
+                        const symbol = ticker.s;
+                        const key = `BINANCE_SPOT:${symbol}`;
+                        queueTickerUpdate(key, {
+                            symbol: symbol,
+                            exchange: 'BINANCE_SPOT',
+                            price: parseFloat(ticker.c),
+                            priceChange: parseFloat(ticker.p),
+                            priceChangePercent: parseFloat(ticker.P),
+                            high: parseFloat(ticker.h),
+                            low: parseFloat(ticker.l),
+                            volume: parseFloat(ticker.v),
+                            quoteVolume: parseFloat(ticker.q),
+                            lastUpdate: Date.now(),
+                        });
+                    });
+                }
+            } catch (error) {
+                console.error('[Binance Spot WebSocket] Parse error:', error);
+            }
+        };
+
+        binanceSpotWs.onerror = (error) => {
+            console.error('[Binance Spot WebSocket] Error:', error);
+        };
+
+        binanceSpotWs.onclose = () => {
+            console.log('[Binance Spot WebSocket] Disconnected, reconnecting in 3s...');
+            binanceSpotReconnectTimeout = setTimeout(connect, 3000);
         };
     };
 
@@ -714,6 +779,16 @@ export function unsubscribeFromTickers() {
         ws = null;
     }
 
+    // Binance Spot
+    if (binanceSpotReconnectTimeout) {
+        clearTimeout(binanceSpotReconnectTimeout);
+        binanceSpotReconnectTimeout = null;
+    }
+    if (binanceSpotWs) {
+        binanceSpotWs.close();
+        binanceSpotWs = null;
+    }
+
     // OKX
     if (okxReconnectTimeout) {
         clearTimeout(okxReconnectTimeout);
@@ -758,6 +833,7 @@ export function unsubscribeFromTickers() {
 const TICKER_PREFIX_MAP = {
     'BINANCE': 'BINANCE',
     'BINANCE_FUTURES': 'BINANCE',
+    'BINANCE_SPOT': 'BINANCE_SPOT',
     'BYBIT': 'BYBIT',
     'BYBIT_FUTURES': 'BYBIT',
     'OKX': 'OKX',
@@ -770,6 +846,7 @@ const TICKER_PREFIX_MAP = {
  * Supports multiple formats:
  * - BINANCE:BTCUSDT
  * - BINANCE_FUTURES:BTCUSDT
+ * - BINANCE_SPOT:BTCUSDT
  * - BYBIT:BTCUSDT
  * - OKX:BTCUSDT
  * - OANDA:EURUSD
@@ -797,6 +874,11 @@ export function getTicker(symbol) {
 
         if (tickers[tickerKey]) {
             return tickers[tickerKey];
+        }
+
+        // Explicitly prefixed symbols should not borrow prices from another market.
+        if (Object.prototype.hasOwnProperty.call(TICKER_PREFIX_MAP, prefix)) {
+            return null;
         }
 
         // Fallback: thử tìm với raw symbol
@@ -981,6 +1063,7 @@ export function syncDatafeedWatchlists(allSymbols) {
     // Mapping từ long prefix sang short prefix cho ticker lookup
     const PREFIX_SHORT_MAP = {
         'BINANCE_FUTURES': 'BINANCE',
+        'BINANCE_SPOT': 'BINANCE_SPOT',
         'BYBIT_FUTURES': 'BYBIT',
         'OKX_FUTURES': 'OKX',
         'OANDA': 'OANDA'
@@ -993,7 +1076,14 @@ export function syncDatafeedWatchlists(allSymbols) {
             shortPrefix: 'BINANCE',
             label: 'Binance',
             color: '#F3BA2F',
-            filter: (s) => (s.datasource === 'BINANCE_FUTURES' || (s.exchange || '').toUpperCase().includes('BINANCE'))
+            filter: (s) => s.datasource === 'BINANCE_FUTURES'
+        },
+        {
+            id: 'BINANCE_SPOT',
+            shortPrefix: 'BINANCE_SPOT',
+            label: 'Binance Spot',
+            color: '#F3BA2F',
+            filter: (s) => s.datasource === 'BINANCE_SPOT'
         },
         {
             id: 'BYBIT_FUTURES',

@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'preact/hooks';
+import { useState } from 'preact/hooks';
 import { Icon } from '../../components/Icon';
 import './Scanner.css';
 
 export function Scanner() {
-    const [sources, setSources] = useState([
+    const [sources] = useState([
         { id: 'binance', name: 'Binance', status: 'connected', count: 1542 },
         { id: 'bybit', name: 'Bybit', status: 'connected', count: 823 },
         { id: 'okx', name: 'OKX', status: 'disconnected', count: 0 },

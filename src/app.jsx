@@ -24,12 +24,6 @@ fontLink.href = 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600
 fontLink.rel = 'stylesheet';
 document.head.appendChild(fontLink);
 
-// Meta viewport for mobile
-const existingViewport = document.querySelector('meta[name="viewport"]');
-if (existingViewport) {
-  existingViewport.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover';
-}
-
 // Mode Toggle Button Component (shown on mobile to switch to desktop)
 function ModeToggle() {
   const mode = deviceMode.value;
