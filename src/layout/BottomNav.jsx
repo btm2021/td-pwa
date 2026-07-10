@@ -4,10 +4,9 @@ import { activeTab, setActiveTab } from '../state/store';
 const navItems = [
     { id: 'watchlist', icon: 'watchlist', label: 'Watchlist' },
     { id: 'chart', icon: 'chart', label: 'Chart' },
-    { id: 'futures', icon: 'futures', label: 'Futures' },
+    { id: 'futures', icon: 'futures', label: 'Trade' },
     { id: 'scanner', icon: 'scanner', label: 'Scanner' },
-    { id: 'calendar', icon: 'calendar', label: 'Calendar' },
-    { id: 'account', icon: 'wallet', label: 'Account' },
+    { id: 'account', icon: 'menu', label: 'Menu' },
 ];
 
 export function BottomNav() {
@@ -24,6 +23,8 @@ export function BottomNav() {
                     key={item.id}
                     className={`bottom-nav__item ${currentTab === item.id ? 'bottom-nav__item--active' : ''}`}
                     onClick={() => handleTabClick(item.id)}
+                    aria-label={item.label}
+                    aria-current={currentTab === item.id ? 'page' : undefined}
                 >
                     <span className="bottom-nav__icon">
                         <Icon name={item.icon} size={22} />

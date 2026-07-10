@@ -16,7 +16,7 @@ import { Icon } from './components/Icon';
 
 import { subscribeToTickers } from './state/watchlist';
 import { deviceMode, initDeviceMode, loadUserPreference, setDeviceMode } from './hooks/useDeviceMode';
-import { useWakeLock } from './hooks/useWakeLock';
+import { activeTab } from './state/store';
 
 // Google Font
 const fontLink = document.createElement('link');
@@ -26,14 +26,15 @@ document.head.appendChild(fontLink);
 
 // Mode Toggle Button Component (shown on mobile to switch to desktop)
 function ModeToggle() {
-  const mode = deviceMode.value;
+    const mode = deviceMode.value;
+    const currentTab = activeTab.value;
 
   const handleClick = () => {
     setDeviceMode(mode === 'mobile' ? 'desktop' : 'mobile');
   };
 
   // Only show in mobile mode for switching to desktop
-  if (mode !== 'mobile') return null;
+  if (mode !== 'mobile' || currentTab === 'chart') return null;
 
   return (
     <button
@@ -50,9 +51,6 @@ export function App() {
   const [showSplash, setShowSplash] = useState(true);
   const [isReady, setIsReady] = useState(false);
   const mode = deviceMode.value;
-
-  // Prevent screen from turning off (System API)
-  useWakeLock();
 
   useEffect(() => {
     // Initialize device mode detection

@@ -3,38 +3,38 @@
    ======================================== */
 
 :root {
-    /* Background Colors - Đen thuần */
-    --bg-primary: #000000;
-    --bg-secondary: #000000;
-    --bg-tertiary: #0a0000;
-    --bg-elevated: #0f0000;
-    --bg-card: #000000;
+    /* Background Colors - TradingView dark */
+    --bg-primary: #0B0E14;
+    --bg-secondary: #11151D;
+    --bg-tertiary: #1A202B;
+    --bg-elevated: #171C26;
+    --bg-card: #11151D;
 
     /* Text Colors */
-    --text-primary: #FFFFFF;
-    --text-secondary: #999999;
-    --text-tertiary: #666666;
-    --text-muted: #444444;
+    --text-primary: #F0F3FA;
+    --text-secondary: #B9C0CC;
+    --text-tertiary: #7D8594;
+    --text-muted: #5F6775;
 
-    /* Accent Colors - Xanh lá sáng và đỏ sáng */
-    --accent-green: #00ff88;
-    --accent-green-light: #69ffaa;
-    --accent-green-bg: rgba(0, 255, 136, 0.15);
+    /* Accent Colors - TV green / red */
+    --accent-green: #22AB94;
+    --accent-green-light: #4DB6AC;
+    --accent-green-bg: rgba(38, 166, 154, 0.15);
 
-    --accent-red: #ff4444;
-    --accent-red-light: #ff6666;
-    --accent-red-bg: rgba(255, 68, 68, 0.15);
+    --accent-red: #F23645;
+    --accent-red-light: #E57373;
+    --accent-red-bg: rgba(239, 83, 80, 0.15);
 
-    --accent-blue: #2979FF;
-    --accent-blue-light: #82B1FF;
+    --accent-blue: #2962FF;
+    --accent-blue-light: #5B8CFF;
 
     --accent-yellow: #FFD600;
     --accent-orange: #FF9100;
 
-    /* Border Colors - Đen đỏ */
-    --border-primary: #1a0000;
-    --border-secondary: #2a0000;
-    --border-light: rgba(255, 0, 0, 0.08);
+    /* Border Colors */
+    --border-primary: #202631;
+    --border-secondary: #2A3240;
+    --border-light: rgba(255, 255, 255, 0.06);
 
     /* Status Colors */
     --status-online: #00ff88;
@@ -78,9 +78,8 @@
     --font-weight-bold: 700;
 
     /* Layout */
-    --header-height: 10px;
-    /* Fixed from -50px */
-    --bottom-nav-height: 15px;
+    --header-height: 48px;
+    --bottom-nav-height: 62px;
     --safe-area-top: env(safe-area-inset-top, 0px);
     --safe-area-bottom: env(safe-area-inset-bottom, 0px);
     --safe-area-left: env(safe-area-inset-left, 0px);
@@ -99,21 +98,21 @@
     --z-nav: 400;
 }
 
-/* Dark mode scrollbar - Đen đỏ */
+/* Dark mode scrollbar */
 ::-webkit-scrollbar {
     width: 6px;
     height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-    background: #000000;
+    background: var(--bg-primary);
 }
 
 ::-webkit-scrollbar-thumb {
-    background: #2a0000;
+    background: var(--bg-tertiary);
     border-radius: var(--radius-full);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: #440000;
+    background: var(--border-secondary);
 }

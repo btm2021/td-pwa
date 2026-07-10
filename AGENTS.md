@@ -14,7 +14,7 @@ Use `npm run build` as the minimum pre-PR validation step because there is no au
 ## Coding Style & Naming Conventions
 Write ES module code with functional Preact components and hooks. Match the surrounding file’s formatting; this codebase mixes 2-space and 4-space indentation, so avoid broad reformatting. Prefer:
 - `PascalCase` for components and screen files, for example `SymbolPanel.jsx`
-- `camelCase` for hooks, helpers, and state actions, for example `useWakeLock.js`
+- `camelCase` for hooks, helpers, and state actions, for example `useDeviceMode.js`
 - `UPPER_SNAKE_CASE` for exported constants such as exchange maps in `src/state/store.js`
 
 Keep imports grouped logically and comments brief.

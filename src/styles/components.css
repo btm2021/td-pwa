@@ -10,7 +10,7 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(180deg, #0B0B0E 0%, #111118 100%);
+    background: linear-gradient(180deg, #131722 0%, #1E222D 100%);
     z-index: 9999;
     animation: fadeIn 0.3s ease;
 }
@@ -90,9 +90,9 @@
 
 /* ===== Watchlist Mobile Header & Tabs ===== */
 .watchlist-mobile-header {
-    background: var(--bg-secondary);
+    background: var(--bg-primary);
     border-bottom: 1px solid var(--border-primary);
-    padding-top: calc(var(--spacing-md) + var(--safe-area-top));
+    padding-top: calc(10px + var(--safe-area-top));
     flex-shrink: 0;
 }
 
@@ -100,57 +100,61 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0 var(--spacing-lg) var(--spacing-md);
+    padding: 0 16px 10px;
 }
 
 .watchlist-mobile-header__title h1 {
-    font-size: 24px;
-    font-weight: 800;
+    font-size: 20px;
+    font-weight: 700;
     color: var(--text-primary);
     margin: 0;
-    letter-spacing: -0.5px;
+    letter-spacing: -0.4px;
 }
 
 .watchlist-mobile-header__title .count {
     font-size: 11px;
     color: var(--text-tertiary);
-    text-transform: uppercase;
-    font-weight: 600;
-    letter-spacing: 0.5px;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
 }
 
 .watchlist-mobile-header__actions {
     display: flex;
-    gap: var(--spacing-xs);
+    gap: 4px;
 }
 
 .watchlist-mobile-header__actions .icon-btn {
-    width: 40px;
-    height: 40px;
+    width: 36px;
+    height: 36px;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: var(--bg-tertiary);
+    background: transparent;
     border: none;
-    border-radius: var(--radius-full);
+    border-radius: 8px;
     color: var(--text-secondary);
     cursor: pointer;
+}
+
+.watchlist-mobile-header__actions .icon-btn:active {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
 }
 
 .watchlist-mobile-tabs {
     display: flex;
     align-items: center;
-    padding-left: var(--spacing-lg);
-    gap: var(--spacing-sm);
-    border-top: 1px solid var(--border-light);
+    padding-left: 12px;
+    gap: 4px;
 }
 
 .watchlist-mobile-tabs__scroll {
     flex: 1;
     display: flex;
-    gap: var(--spacing-lg);
+    gap: 4px;
     overflow-x: auto;
-    padding: var(--spacing-md) 10px var(--spacing-md) 0;
+    padding: 0 4px 10px 0;
     -webkit-overflow-scrolling: touch;
 }
 
@@ -162,39 +166,40 @@
     background: none;
     border: none;
     color: var(--text-tertiary);
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 600;
     white-space: nowrap;
     position: relative;
-    padding: 4px 0;
+    padding: 6px 12px;
+    border-radius: 6px;
     cursor: pointer;
-    transition: color 0.2s ease;
+    transition: color 0.15s ease, background 0.15s ease;
 }
 
 .tab-item--active {
-    color: var(--text-primary);
+    color: var(--accent-blue);
+    background: rgba(41, 98, 255, 0.12);
 }
 
 .tab-indicator {
-    position: absolute;
-    bottom: -8px;
-    left: 0;
-    right: 0;
-    height: 3px;
-    border-radius: 3px 3px 0 0;
+    display: none;
 }
 
 .add-tab-btn {
-    width: 44px;
-    height: 44px;
+    width: 40px;
+    height: 36px;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: var(--bg-secondary);
+    background: transparent;
     border: none;
-    border-left: 1px solid var(--border-light);
     color: var(--text-tertiary);
     flex-shrink: 0;
+    margin-bottom: 10px;
+}
+
+.add-tab-btn:active {
+    color: var(--accent-blue);
 }
 
 
@@ -211,14 +216,14 @@
 .watchlist-list-header {
     display: grid;
     grid-template-columns: 1fr 100px 80px 30px;
-    padding: var(--spacing-sm) var(--spacing-lg);
-    background: var(--bg-secondary);
+    padding: 8px 16px;
+    background: var(--bg-primary);
     border-bottom: 1px solid var(--border-primary);
     color: var(--text-tertiary);
     font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+    font-weight: 500;
+    text-transform: none;
+    letter-spacing: 0;
     position: sticky;
     top: 0;
     z-index: 10;
@@ -228,7 +233,7 @@
     display: grid;
     grid-template-columns: 1fr 100px 80px 30px;
     align-items: center;
-    padding: 12px var(--spacing-lg);
+    padding: 14px 16px;
     background: var(--bg-primary);
     border-bottom: 1px solid var(--border-light);
     cursor: default;
@@ -285,17 +290,25 @@
 }
 
 .col-change {
-    font-size: 13px;
-    font-weight: 700;
+    font-size: 12px;
+    font-weight: 600;
     font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+    padding: 6px 8px;
+    border-radius: 4px;
+    min-width: 68px;
+    box-sizing: border-box;
 }
 
 .col-change.positive {
-    color: var(--accent-green);
+    color: #fff;
+    background: var(--accent-green);
 }
 
 .col-change.negative {
-    color: var(--accent-red);
+    color: #fff;
+    background: var(--accent-red);
 }
 
 .item-remove-btn {
@@ -790,27 +803,205 @@
     border-radius: var(--radius-full);
 }
 
-/* ===== Chart Screen ===== */
+/* ===== Chart Screen (TradingView-inspired mobile layout) ===== */
 .chart-screen {
     display: flex;
     flex-direction: column;
     flex: 1;
     width: 100%;
-    background: var(--bg-primary);
+    min-height: 0;
     overflow: hidden;
     position: relative;
     padding-top: var(--safe-area-top);
+    background: var(--bg-primary);
+}
+
+.tv-chart-header {
+    flex: 0 0 66px;
+    height: 66px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 7px 8px 7px 12px;
+    position: relative;
+    background: var(--bg-primary);
+    border-bottom: 1px solid var(--border-primary);
+    z-index: 30;
+}
+
+.tv-chart-header__symbol {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    max-width: 54%;
+    flex: 0 1 auto;
+    padding: 0;
+    color: var(--text-primary);
+    background: none;
+    border: 0;
+    cursor: pointer;
+    font-family: inherit;
+    text-align: left;
+}
+
+.tv-chart-header__asset {
+    width: 34px;
+    height: 34px;
+    display: grid;
+    place-items: center;
+    flex: 0 0 34px;
+    border-radius: 50%;
+    color: #fff;
+    background: var(--accent-blue);
+    font-size: 15px;
+    font-weight: 700;
+}
+
+.tv-chart-header__asset.is-bitcoin {
+    background: #f7931a;
+    font-size: 0;
+}
+
+.tv-chart-header__asset.is-bitcoin::before {
+    content: '₿';
+    font-size: 19px;
+    font-weight: 700;
+}
+
+.tv-chart-header__identity {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.tv-chart-header__symbol-line {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.tv-chart-header__symbol-name {
+    overflow: hidden;
+    color: var(--text-primary);
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tv-chart-header__symbol svg {
+    flex-shrink: 0;
+    color: var(--text-tertiary);
+}
+
+.tv-chart-header__market {
+    max-width: 100%;
+    overflow: hidden;
+    color: var(--text-tertiary);
+    font-size: 9.5px;
+    font-weight: 500;
+    line-height: 1.25;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tv-chart-header__price {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 0;
+}
+
+.tv-chart-header__last {
+    font-size: 15px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+    white-space: nowrap;
+}
+
+.tv-chart-header__change {
+    font-size: 11px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.tv-chart-header__last.is-up,
+.tv-chart-header__change.is-up { color: var(--accent-green); }
+
+.tv-chart-header__last.is-down,
+.tv-chart-header__change.is-down { color: var(--accent-red); }
+
+.tv-chart-header__icon-btn {
+    width: 34px;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 34px;
+    color: var(--text-secondary);
+    background: none;
+    border: 0;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+}
+
+.tv-chart-header__icon-btn.is-active { color: var(--accent-blue); }
+
+.tv-chart-header__icon-btn:active {
+    color: var(--text-primary);
+    background: var(--bg-tertiary);
+}
+
+.tv-chart-more {
+    width: 184px;
+    position: absolute;
+    top: 58px;
+    right: 8px;
+    padding: 6px;
+    background: #171c26;
+    border: 1px solid var(--border-secondary);
+    border-radius: 10px;
+    box-shadow: 0 14px 36px rgba(0, 0, 0, 0.42);
+    z-index: 40;
+}
+
+.tv-chart-more button {
+    width: 100%;
+    min-height: 40px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 10px;
+    color: var(--text-secondary);
+    background: transparent;
+    border: 0;
+    border-radius: 7px;
+    font: 500 12px/1 var(--font-family);
+    text-align: left;
+}
+
+.tv-chart-more button:active {
+    color: var(--text-primary);
+    background: var(--bg-tertiary);
 }
 
 .chart-container {
     flex: 1;
     width: 100%;
-    height: calc(100% + 26px);
-    margin-bottom: -26px;
     min-height: 0;
     position: relative;
     z-index: 1;
     touch-action: none;
+    background: var(--bg-primary);
 }
 
 .chart-loading {
@@ -825,89 +1016,22 @@
 }
 
 .chart-loading__text {
-    font-size: var(--font-size-sm);
     color: var(--text-secondary);
-}
-
-/* ===== Chart Toolbar ===== */
-.chart-toolbar {
-    flex-shrink: 0;
-    width: 100%;
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-sm);
-    padding: var(--spacing-sm) var(--spacing-md);
-    background-color: var(--bg-secondary);
-    border-top: 1px solid var(--border-primary);
-    min-height: 52px;
-    z-index: 10;
-}
-
-/* Fullscreen mode adjustments - Handle safe areas only when sidebars/nav are hidden */
-.app-shell--fullscreen .chart-screen {
-    padding-top: 0;
-}
-
-.app-shell--fullscreen .chart-toolbar {
-    padding-bottom: calc(var(--spacing-sm) + env(safe-area-inset-bottom, 0px));
-}
-
-.chart-toolbar__btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: var(--spacing-xs);
-    padding: var(--spacing-sm) var(--spacing-md);
-    border: none;
-    border-radius: var(--radius-md);
-    background-color: var(--bg-tertiary);
-    color: var(--text-primary);
     font-size: var(--font-size-sm);
-    font-weight: var(--font-weight-medium);
-    cursor: pointer;
-    white-space: nowrap;
-    transition: all var(--transition-fast);
-    font-family: inherit;
 }
 
-.chart-toolbar__btn:hover {
-    background-color: var(--bg-elevated);
-}
+.app-shell--fullscreen .chart-screen { padding-top: var(--safe-area-top); }
 
-.chart-toolbar__btn:active {
-    transform: scale(0.98);
-}
+.app-shell--fullscreen .tv-chart-header { display: none; }
 
-.chart-toolbar__btn--symbol {
-    font-weight: var(--font-weight-semibold);
-}
+.chart-toolbar { display: none; }
 
-.chart-toolbar__btn--timeframe {
-    min-width: 48px;
-}
-
-.chart-toolbar__btn--icon {
-    width: 40px;
-    height: 40px;
-    padding: 0;
-    background: transparent;
-    color: var(--text-secondary);
-}
-
-.chart-toolbar__btn--icon:hover {
-    background-color: var(--bg-tertiary);
-    color: var(--text-primary);
-}
-
-.chart-toolbar__divider {
-    width: 1px;
-    height: 24px;
-    background-color: var(--border-secondary);
-    flex-shrink: 0;
-}
-
-.chart-toolbar__spacer {
-    flex: 1;
+@media (max-width: 374px) {
+    .tv-chart-header { padding-left: 8px; }
+    .tv-chart-header__asset { width: 30px; height: 30px; flex-basis: 30px; }
+    .tv-chart-header__market { max-width: 126px; }
+    .tv-chart-header__last { font-size: 13px; }
+    .tv-chart-header__icon-btn { width: 30px; flex-basis: 30px; }
 }
 
 /* ===== Symbol Picker ===== */
@@ -925,7 +1049,8 @@
     display: flex;
     align-items: center;
     gap: var(--spacing-md);
-    padding: var(--spacing-md) var(--spacing-lg);
+    min-height: calc(64px + var(--safe-area-top));
+    padding: calc(var(--safe-area-top) + 16px) var(--spacing-lg) 12px;
     background: var(--bg-secondary);
     border-bottom: 1px solid var(--border-primary);
 }

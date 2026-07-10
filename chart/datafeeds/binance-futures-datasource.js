@@ -175,19 +175,15 @@ class BinanceFuturesDatasource extends BaseDatasource {
     }
 
     calculatePrecision(price) {
-        if (price === 0) {
-            return { minmov: 1, pricescale: 100 };
+        const numericPrice = Math.abs(Number(price));
+        if (!Number.isFinite(numericPrice) || numericPrice === 0) {
+            return { minmov: 1, pricescale: 100000 };
         }
 
-        let decimals;
-        if (price >= 10000) decimals = 1;       // >= 10000: 1 số (10000.1)
-        else if (price >= 100) decimals = 2;    // >= 100: 2 số (1000.01, 9999.20)
-        else if (price >= 1) decimals = 3;      // >= 1: 3 số (1.123, 10.313)
-        else if (price >= 0.1) decimals = 4;    // >= 0.1: 4 số (0.4312)
-        else if (price >= 0.01) decimals = 5;   // >= 0.01: 5 số (0.015435)
-        else if (price >= 0.001) decimals = 6;  // >= 0.001: 6 số
-        else if (price >= 0.0001) decimals = 7; // >= 0.0001: 7 số
-        else decimals = 8;                      // < 0.0001: 8 số
+        const integerDigits = numericPrice >= 1
+            ? Math.floor(Math.log10(numericPrice)) + 1
+            : 1;
+        const decimals = Math.max(0, 6 - integerDigits);
 
         return {
             minmov: 1,

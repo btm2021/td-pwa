@@ -116,6 +116,11 @@ export function Icon({ name, size = 24, className = '' }) {
                 <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
             </svg>
         ),
+        starOutline: (
+            <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                <path d="m12 3.1 2.75 5.58 6.16.9-4.46 4.34 1.05 6.14L12 17.17l-5.5 2.89 1.05-6.14-4.46-4.34 6.16-.9L12 3.1Z" />
+            </svg>
+        ),
         restore: (
             <svg viewBox="0 0 24 24" width={size} height={size} fill="currentColor">
                 <path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z" />

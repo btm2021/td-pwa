@@ -176,19 +176,15 @@ class BybitFuturesDatasource extends BaseDatasource {
     }
 
     calculatePrecision(price) {
-        if (price === 0) {
-            return { minmov: 1, pricescale: 100 };
+        const numericPrice = Math.abs(Number(price));
+        if (!Number.isFinite(numericPrice) || numericPrice === 0) {
+            return { minmov: 1, pricescale: 100000 };
         }
 
-        let decimals;
-        if (price >= 1000) decimals = 2;
-        else if (price >= 100) decimals = 2;
-        else if (price >= 10) decimals = 3;
-        else if (price >= 1) decimals = 4;
-        else if (price >= 0.1) decimals = 5;
-        else if (price >= 0.01) decimals = 6;
-        else if (price >= 0.001) decimals = 7;
-        else decimals = 8;
+        const integerDigits = numericPrice >= 1
+            ? Math.floor(Math.log10(numericPrice)) + 1
+            : 1;
+        const decimals = Math.max(0, 6 - integerDigits);
 
         return {
             minmov: 1,
