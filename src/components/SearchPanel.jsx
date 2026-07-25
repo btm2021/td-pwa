@@ -1,16 +1,15 @@
 import { useState, useEffect, useRef } from 'preact/hooks';
 import { Icon } from './Icon';
-import { getCoinLogoUrl, getBaseAsset, getTicker, formatPrice, formatPercent } from '../state/watchlist';
+import { getCoinLogoUrl, getBaseAsset, getTicker, formatPrice, formatPercent, subscribeToExchange } from '../state/watchlist';
 
 // Exchange tabs
 const EXCHANGES = [
     { id: 'all', name: 'All' },
     { id: 'BINANCE_FUTURES', name: 'Binance' },
-    { id: 'BINANCE_SPOT', name: 'Binance Spot' },
-    { id: 'BYBIT_FUTURES', name: 'Bybit' },
-    { id: 'OKX_FUTURES', name: 'OKX' },
     { id: 'OANDA_FOREX', name: 'Forex' },
 ];
+
+const SUPPORTED_DATASOURCES = new Set(['BINANCE_FUTURES', 'OANDA']);
 
 export function SearchPanel({ onClose, onSelectSymbol, currentSymbols = [] }) {
     const [query, setQuery] = useState('');
@@ -66,8 +65,12 @@ export function SearchPanel({ onClose, onSelectSymbol, currentSymbols = [] }) {
 
             let filtered = allSymbols.filter(s => {
                 // Exchange Filter
-                if (activeExchange !== 'all') {
-                    if (s.datasource !== activeExchange) return false;
+                if (activeExchange === 'all') {
+                    if (!SUPPORTED_DATASOURCES.has(s.datasource)) return false;
+                } else if (activeExchange === 'OANDA_FOREX') {
+                    if (s.datasource !== 'OANDA') return false;
+                } else if (s.datasource !== activeExchange) {
+                    return false;
                 }
 
                 // Search Term Filter
@@ -200,7 +203,10 @@ export function SearchPanel({ onClose, onSelectSymbol, currentSymbols = [] }) {
                         <button
                             key={ex.id}
                             className={`search-panel__tab ${activeExchange === ex.id ? 'active' : ''}`}
-                            onClick={() => setActiveExchange(ex.id)}
+                            onClick={() => {
+                                setActiveExchange(ex.id);
+                                subscribeToExchange(ex.id);
+                            }}
                         >
                             {ex.name}
                         </button>

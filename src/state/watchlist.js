@@ -45,6 +45,18 @@ export const activeCategorySymbols = computed(() => {
 // Ticker data from WebSocket (symbol -> ticker data)
 export const tickerData = signal({});
 
+// Connection state is keyed by the exchange watchlist ID (for example,
+// BINANCE_FUTURES). It lets the UI indicate only streams that are actually open.
+export const exchangeConnectionStatus = signal({});
+
+function setExchangeConnectionStatus(exchangeId, status) {
+    if (exchangeConnectionStatus.value[exchangeId] === status) return;
+    exchangeConnectionStatus.value = {
+        ...exchangeConnectionStatus.value,
+        [exchangeId]: status
+    };
+}
+
 // WebSocket connection
 let ws = null;
 let reconnectTimeout = null;
@@ -305,26 +317,26 @@ const OANDA_API_KEY = '7a53c4eeff879ba6118ddc416c2d2085-4a766a7d07af7bd629c07b45
 const OANDA_API_URL = 'https://api-fxpractice.oanda.com/v3';
 const OANDA_STREAM_URL = 'https://stream-fxpractice.oanda.com/v3';
 
-// Bybit WebSocket
-let bybitWs = null;
-let bybitReconnectTimeout = null;
-let bybitPingInterval = null;
-
-// Binance Spot WebSocket
-let binanceSpotWs = null;
-let binanceSpotReconnectTimeout = null;
-
-// OKX WebSocket
-let okxWs = null;
-let okxReconnectTimeout = null;
-let okxPingInterval = null;
+let binanceFuturesSnapshotPromise = null;
 
 // Ticker update batching
 let tickerUpdateBuffer = {};
 let tickerUpdateTimer = null;
 
 function queueTickerUpdate(key, data) {
-    tickerUpdateBuffer[key] = data;
+    const previousTicker = tickerUpdateBuffer[key] || tickerData.value[key];
+    const hasInitialVolume = previousTicker && Object.prototype.hasOwnProperty.call(previousTicker, 'volume');
+
+    // The first ticker snapshot supplies volume. Subsequent all-market WebSocket
+    // messages keep that value stable while still updating lastPrice and change.
+    tickerUpdateBuffer[key] = {
+        ...previousTicker,
+        ...data,
+        ...(hasInitialVolume ? {
+            volume: previousTicker.volume,
+            quoteVolume: previousTicker.quoteVolume
+        } : {})
+    };
     if (!tickerUpdateTimer) {
         tickerUpdateTimer = setTimeout(() => {
             tickerData.value = {
@@ -337,313 +349,127 @@ function queueTickerUpdate(key, data) {
     }
 }
 
+// !bookTicker is the reliable Binance Futures all-market stream in this
+// environment. Load the 24h snapshot once to seed volume and the initial change.
+function loadBinanceFuturesSnapshot() {
+    if (binanceFuturesSnapshotPromise) return binanceFuturesSnapshotPromise;
 
-// Subscribe to all exchange ticker streams
+    binanceFuturesSnapshotPromise = fetch('https://fapi.binance.com/fapi/v1/ticker/24hr')
+        .then((response) => {
+            if (!response.ok) throw new Error(`Binance Futures snapshot failed: ${response.status}`);
+            return response.json();
+        })
+        .then((tickers) => {
+            tickers.forEach((ticker) => {
+                const lastPrice = parseFloat(ticker.lastPrice);
+                const openPrice = parseFloat(ticker.openPrice);
+                const symbol = ticker.symbol;
+
+                queueTickerUpdate(`BINANCE:${symbol}`, {
+                    symbol,
+                    exchange: 'BINANCE',
+                    price: lastPrice,
+                    lastPrice,
+                    priceChange: parseFloat(ticker.priceChange),
+                    priceChangePercent: parseFloat(ticker.priceChangePercent),
+                    high: parseFloat(ticker.highPrice),
+                    low: parseFloat(ticker.lowPrice),
+                    volume: parseFloat(ticker.volume),
+                    quoteVolume: parseFloat(ticker.quoteVolume),
+                    lastUpdate: Date.now(),
+                    openPrice
+                });
+            });
+        })
+        .catch((error) => {
+            binanceFuturesSnapshotPromise = null;
+            console.error('[Binance Futures] Unable to load the initial ticker snapshot:', error);
+        });
+
+    return binanceFuturesSnapshotPromise;
+}
+
+
+// Keep the legacy public function for callers that need every market stream.
 export function subscribeToTickers() {
     subscribeToBinance();
-    subscribeToBinanceSpot();
-    subscribeToBybit();
-    subscribeToOKX();
     subscribeToOANDA();
+}
+
+// Start a market stream only after its exchange has been selected in the UI.
+export function subscribeToExchange(exchangeId) {
+    switch (exchangeId) {
+        case 'BINANCE':
+        case 'BINANCE_FUTURES':
+            subscribeToBinance();
+            break;
+        case 'OANDA':
+        case 'OANDA_FOREX':
+            subscribeToOANDA();
+            break;
+        default:
+            break;
+    }
 }
 
 
 function subscribeToBinance() {
-    if (ws && ws.readyState === WebSocket.OPEN) {
+    if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
         return;
     }
 
     const connect = () => {
         console.log('[WebSocket] Connecting to Binance Futures ticker stream...');
-        ws = new WebSocket('wss://fstream.binance.com/ws/!ticker@arr');
+        setExchangeConnectionStatus('BINANCE_FUTURES', 'connecting');
+        const socket = new WebSocket('wss://fstream.binance.com/ws/!bookTicker');
+        ws = socket;
 
-        ws.onopen = () => {
+        socket.onopen = () => {
             console.log('[WebSocket] Connected to ticker stream');
+            setExchangeConnectionStatus('BINANCE_FUTURES', 'connected');
+            loadBinanceFuturesSnapshot();
         };
 
-        ws.onmessage = (event) => {
+        socket.onmessage = (event) => {
             try {
-                const data = JSON.parse(event.data);
-                if (Array.isArray(data)) {
-                    data.forEach(ticker => {
-                        const symbol = ticker.s;
-                        const key = `BINANCE:${symbol}`;
-                        queueTickerUpdate(key, {
-                            symbol: symbol,
-                            exchange: 'BINANCE',
-                            price: parseFloat(ticker.c),
-                            priceChange: parseFloat(ticker.p),
-                            priceChangePercent: parseFloat(ticker.P),
-                            high: parseFloat(ticker.h),
-                            low: parseFloat(ticker.l),
-                            volume: parseFloat(ticker.v),
-                            quoteVolume: parseFloat(ticker.q),
-                            lastUpdate: Date.now(),
-                        });
-                    });
-                }
+                const ticker = JSON.parse(event.data);
+                if (!ticker.s) return;
+
+                const currentTicker = tickerData.value[`BINANCE:${ticker.s}`] || {};
+                const bid = parseFloat(ticker.b);
+                const ask = parseFloat(ticker.a);
+                const lastPrice = (bid + ask) / 2;
+                const openPrice = currentTicker.openPrice || lastPrice;
+
+                queueTickerUpdate(`BINANCE:${ticker.s}`, {
+                    ...currentTicker,
+                    symbol: ticker.s,
+                    exchange: 'BINANCE',
+                    price: lastPrice,
+                    lastPrice,
+                    priceChange: lastPrice - openPrice,
+                    priceChangePercent: openPrice ? ((lastPrice - openPrice) / openPrice) * 100 : 0,
+                    lastUpdate: Date.now(),
+                });
             } catch (error) {
                 console.error('[WebSocket] Parse error:', error);
             }
         };
 
-        ws.onerror = (error) => {
+        socket.onerror = (error) => {
             console.error('[WebSocket] Error:', error);
         };
 
-        ws.onclose = () => {
+        socket.onclose = () => {
+            if (ws !== socket) return;
             console.log('[WebSocket] Disconnected, reconnecting in 3s...');
+            setExchangeConnectionStatus('BINANCE_FUTURES', 'disconnected');
             reconnectTimeout = setTimeout(connect, 3000);
         };
     };
 
     connect();
 }
-
-function subscribeToBinanceSpot() {
-    if (binanceSpotWs && binanceSpotWs.readyState === WebSocket.OPEN) {
-        return;
-    }
-
-    const connect = () => {
-        console.log('[Binance Spot WebSocket] Connecting to ticker stream...');
-        binanceSpotWs = new WebSocket('wss://stream.binance.com:9443/ws/!ticker@arr');
-
-        binanceSpotWs.onopen = () => {
-            console.log('[Binance Spot WebSocket] Connected to ticker stream');
-        };
-
-        binanceSpotWs.onmessage = (event) => {
-            try {
-                const data = JSON.parse(event.data);
-                if (Array.isArray(data)) {
-                    data.forEach(ticker => {
-                        const symbol = ticker.s;
-                        const key = `BINANCE_SPOT:${symbol}`;
-                        queueTickerUpdate(key, {
-                            symbol: symbol,
-                            exchange: 'BINANCE_SPOT',
-                            price: parseFloat(ticker.c),
-                            priceChange: parseFloat(ticker.p),
-                            priceChangePercent: parseFloat(ticker.P),
-                            high: parseFloat(ticker.h),
-                            low: parseFloat(ticker.l),
-                            volume: parseFloat(ticker.v),
-                            quoteVolume: parseFloat(ticker.q),
-                            lastUpdate: Date.now(),
-                        });
-                    });
-                }
-            } catch (error) {
-                console.error('[Binance Spot WebSocket] Parse error:', error);
-            }
-        };
-
-        binanceSpotWs.onerror = (error) => {
-            console.error('[Binance Spot WebSocket] Error:', error);
-        };
-
-        binanceSpotWs.onclose = () => {
-            console.log('[Binance Spot WebSocket] Disconnected, reconnecting in 3s...');
-            binanceSpotReconnectTimeout = setTimeout(connect, 3000);
-        };
-    };
-
-    connect();
-}
-
-// Subscribe to Bybit Futures ticker stream
-async function subscribeToBybit() {
-    if (bybitWs && bybitWs.readyState === WebSocket.OPEN) {
-        return;
-    }
-
-    // Clear existing
-    if (bybitPingInterval) clearInterval(bybitPingInterval);
-
-    const connect = async () => {
-        console.log('[Bybit WebSocket] Connecting to ticker stream...');
-        bybitWs = new WebSocket('wss://stream.bybit.com/v5/public/linear');
-
-        bybitWs.onopen = async () => {
-            console.log('[Bybit WebSocket] Connected');
-
-            // Heartbeat
-            bybitPingInterval = setInterval(() => {
-                if (bybitWs.readyState === WebSocket.OPEN) {
-                    bybitWs.send(JSON.stringify({ op: "ping" }));
-                }
-            }, 20000);
-
-            // Fetch symbols if not in window.symbolConfig
-            let symbols = [];
-            if (window.symbolConfig?.['BYBIT_FUTURES']) {
-                symbols = window.symbolConfig['BYBIT_FUTURES'].map(s => s.symbol);
-            } else {
-                try {
-                    const response = await fetch('https://api.bybit.com/v5/market/instruments-info?category=linear');
-                    const data = await response.json();
-                    if (data.retCode === 0 && data.result?.list) {
-                        symbols = data.result.list
-                            .filter(s => s.status === 'Trading' && s.symbol.endsWith('USDT'))
-                            .map(s => s.symbol);
-                    }
-                } catch (e) {
-                    console.warn('[Bybit WebSocket] Failed to fetch symbols, using defaults');
-                    symbols = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'XRPUSDT', 'ADAUSDT'];
-                }
-            }
-
-            // Subscribe in batches (max 10 per message is recommended by Bybit for reliability, though more is possible)
-            if (symbols.length > 0) {
-                const topics = symbols.map(s => `tickers.${s}`);
-                for (let i = 0; i < topics.length; i += 10) {
-                    const batch = topics.slice(i, i + 10);
-                    bybitWs.send(JSON.stringify({
-                        op: 'subscribe',
-                        args: batch
-                    }));
-                }
-                console.log(`[Bybit WebSocket] Subscribed to ${symbols.length} tickers`);
-            }
-        };
-
-        bybitWs.onmessage = (event) => {
-            try {
-                const data = JSON.parse(event.data);
-                if (data.topic && data.topic.startsWith('tickers.') && data.data) {
-                    const ticker = data.data;
-                    const symbol = ticker.symbol;
-                    const key = `BYBIT:${symbol}`;
-
-                    // Get current state to merge with delta
-                    const currentTicker = tickerData.value[key] || {};
-
-                    // Helper to get value or keep current
-                    const getVal = (field, oldField) => {
-                        const val = parseFloat(ticker[field]);
-                        if (!isNaN(val)) return val;
-                        return currentTicker[oldField] || 0;
-                    };
-
-                    const lastPrice = getVal('lastPrice', 'price');
-
-                    if (lastPrice === 0 && !currentTicker.price) {
-                        // Skip if we don't have a valid price yet
-                        return;
-                    }
-
-                    queueTickerUpdate(key, {
-                        symbol: symbol,
-                        exchange: 'BYBIT',
-                        price: lastPrice,
-                        priceChange: parseFloat(ticker.price24hPcnt) ? (parseFloat(ticker.price24hPcnt) * lastPrice) : (currentTicker.priceChange || 0),
-                        priceChangePercent: parseFloat(ticker.price24hPcnt) ? (parseFloat(ticker.price24hPcnt) * 100) : (currentTicker.priceChangePercent || 0),
-                        high: getVal('highPrice24h', 'high'),
-                        low: getVal('lowPrice24h', 'low'),
-                        volume: getVal('volume24h', 'volume'),
-                        quoteVolume: getVal('turnover24h', 'quoteVolume'),
-                        lastUpdate: Date.now(),
-                    });
-                }
-            } catch (error) {
-                // Ignore
-            }
-        };
-
-        bybitWs.onerror = (error) => {
-            console.error('[Bybit WebSocket] Error:', error);
-        };
-
-        bybitWs.onclose = () => {
-            console.log('[Bybit WebSocket] Disconnected, reconnecting in 5s...');
-            if (bybitPingInterval) clearInterval(bybitPingInterval);
-            bybitReconnectTimeout = setTimeout(connect, 5000);
-        };
-    };
-
-    connect();
-}
-
-// Subscribe to OKX ticker stream
-function subscribeToOKX() {
-    if (okxWs && okxWs.readyState === WebSocket.OPEN) {
-        return;
-    }
-
-    if (okxPingInterval) clearInterval(okxPingInterval);
-
-    const connect = () => {
-        console.log('[OKX WebSocket] Connecting to ticker stream...');
-        okxWs = new WebSocket('wss://ws.okx.com:8443/ws/v5/public');
-
-        okxWs.onopen = () => {
-            console.log('[OKX WebSocket] Connected');
-
-            // Heartbeat
-            okxPingInterval = setInterval(() => {
-                if (okxWs.readyState === WebSocket.OPEN) {
-                    okxWs.send("ping");
-                }
-            }, 25000);
-
-            // Subscribe to all USDT SWAP tickers
-            okxWs.send(JSON.stringify({
-                op: 'subscribe',
-                args: [
-                    { channel: 'tickers', instType: 'SWAP' }
-                ]
-            }));
-            console.log('[OKX WebSocket] Subscribed to all SWAP tickers');
-        };
-
-        okxWs.onmessage = (event) => {
-            if (event.data === "pong") return;
-
-            try {
-                const data = JSON.parse(event.data);
-                if (data.data && data.data.length > 0) {
-                    data.data.forEach(ticker => {
-                        const symbol = ticker.instId.replace(/-SWAP$/, '').replace(/-/g, '');
-                        if (!symbol.endsWith('USDT')) return;
-
-                        const key = `OKX:${symbol}`;
-                        const openPrice = parseFloat(ticker.open24h);
-                        const lastPrice = parseFloat(ticker.last);
-
-                        queueTickerUpdate(key, {
-                            symbol: symbol,
-                            exchange: 'OKX',
-                            price: lastPrice,
-                            priceChange: lastPrice - openPrice,
-                            priceChangePercent: openPrice !== 0 ? ((lastPrice - openPrice) / openPrice) * 100 : 0,
-                            high: parseFloat(ticker.high24h),
-                            low: parseFloat(ticker.low24h),
-                            volume: parseFloat(ticker.vol24h),
-                            quoteVolume: parseFloat(ticker.volCcy24h),
-                            lastUpdate: Date.now(),
-                        });
-                    });
-                }
-            } catch (error) {
-                // Ignore
-            }
-        };
-
-        okxWs.onerror = (error) => {
-            console.error('[OKX WebSocket] Error:', error);
-        };
-
-        okxWs.onclose = () => {
-            console.log('[OKX WebSocket] Disconnected, reconnecting in 5s...');
-            if (okxPingInterval) clearInterval(okxPingInterval);
-            okxReconnectTimeout = setTimeout(connect, 5000);
-        };
-    };
-
-    connect();
-}
-
 
 async function subscribeToOANDA() {
     if (oandaAbortController) return;
@@ -779,45 +605,6 @@ export function unsubscribeFromTickers() {
         ws = null;
     }
 
-    // Binance Spot
-    if (binanceSpotReconnectTimeout) {
-        clearTimeout(binanceSpotReconnectTimeout);
-        binanceSpotReconnectTimeout = null;
-    }
-    if (binanceSpotWs) {
-        binanceSpotWs.close();
-        binanceSpotWs = null;
-    }
-
-    // OKX
-    if (okxReconnectTimeout) {
-        clearTimeout(okxReconnectTimeout);
-        okxReconnectTimeout = null;
-    }
-    if (okxPingInterval) {
-        clearInterval(okxPingInterval);
-        okxPingInterval = null;
-    }
-    if (okxWs) {
-        okxWs.close();
-        okxWs = null;
-    }
-
-    // Bybit
-    if (bybitReconnectTimeout) {
-        clearTimeout(bybitReconnectTimeout);
-        bybitReconnectTimeout = null;
-    }
-    if (bybitPingInterval) {
-        clearInterval(bybitPingInterval);
-        bybitPingInterval = null;
-    }
-    if (bybitWs) {
-        bybitWs.close();
-        bybitWs = null;
-    }
-
-
     // OANDA
     if (oandaAbortController) {
         oandaAbortController.abort();
@@ -833,11 +620,6 @@ export function unsubscribeFromTickers() {
 const TICKER_PREFIX_MAP = {
     'BINANCE': 'BINANCE',
     'BINANCE_FUTURES': 'BINANCE',
-    'BINANCE_SPOT': 'BINANCE_SPOT',
-    'BYBIT': 'BYBIT',
-    'BYBIT_FUTURES': 'BYBIT',
-    'OKX': 'OKX',
-    'OKX_FUTURES': 'OKX',
     'OANDA': 'OANDA'
 };
 
@@ -846,9 +628,6 @@ const TICKER_PREFIX_MAP = {
  * Supports multiple formats:
  * - BINANCE:BTCUSDT
  * - BINANCE_FUTURES:BTCUSDT
- * - BINANCE_SPOT:BTCUSDT
- * - BYBIT:BTCUSDT
- * - OKX:BTCUSDT
  * - OANDA:EURUSD
  * - BTCUSDT (no prefix - defaults to BINANCE)
  * 
@@ -891,7 +670,7 @@ export function getTicker(symbol) {
     }
 
     // Không có prefix - thử tìm theo thứ tự ưu tiên
-    const priorityExchanges = ['BINANCE', 'BYBIT', 'OKX', 'OANDA'];
+    const priorityExchanges = ['BINANCE', 'OANDA'];
     for (const exchange of priorityExchanges) {
         const key = `${exchange}:${upperSymbol}`;
         if (tickers[key]) {
@@ -996,6 +775,7 @@ export function formatVolume(volume) {
 // Set active category
 export function setActiveCategory(categoryId) {
     activeCategory.value = categoryId;
+    subscribeToExchange(categoryId);
     saveCategoriesToStorage();
 }
 
@@ -1063,9 +843,6 @@ export function syncDatafeedWatchlists(allSymbols) {
     // Mapping từ long prefix sang short prefix cho ticker lookup
     const PREFIX_SHORT_MAP = {
         'BINANCE_FUTURES': 'BINANCE',
-        'BINANCE_SPOT': 'BINANCE_SPOT',
-        'BYBIT_FUTURES': 'BYBIT',
-        'OKX_FUTURES': 'OKX',
         'OANDA': 'OANDA'
     };
 
@@ -1079,27 +856,6 @@ export function syncDatafeedWatchlists(allSymbols) {
             filter: (s) => s.datasource === 'BINANCE_FUTURES'
         },
         {
-            id: 'BINANCE_SPOT',
-            shortPrefix: 'BINANCE_SPOT',
-            label: 'Binance Spot',
-            color: '#F3BA2F',
-            filter: (s) => s.datasource === 'BINANCE_SPOT'
-        },
-        {
-            id: 'BYBIT_FUTURES',
-            shortPrefix: 'BYBIT',
-            label: 'Bybit',
-            color: '#F7A600',
-            filter: (s) => s.datasource === 'BYBIT_FUTURES' || (s.exchange || '').toUpperCase() === 'BYBIT FUTURES'
-        },
-        {
-            id: 'OKX_FUTURES',
-            shortPrefix: 'OKX',
-            label: 'OKX',
-            color: '#00C8FF',
-            filter: (s) => s.datasource === 'OKX_FUTURES' || (s.exchange || '').toUpperCase() === 'OKX FUTURES'
-        },
-        {
             id: 'OANDA_FOREX',
             shortPrefix: 'OANDA',
             label: 'Forex',
@@ -1109,8 +865,18 @@ export function syncDatafeedWatchlists(allSymbols) {
         }
     ];
 
-    const currentCats = [...categories.value];
-    let changed = false;
+    const supportedSystemCategoryIds = new Set(exchangeConfigs.map(config => config.id));
+    const removedExchangeSymbol = /^(?:BINANCE_SPOT|BYBIT(?:_FUTURES)?|OKX(?:_FUTURES)?):/i;
+    const categoriesWithoutRemovedExchanges = categories.value.map((category) => ({
+        ...category,
+        symbols: (category.symbols || []).filter((symbol) => !removedExchangeSymbol.test(symbol))
+    }));
+    const currentCats = categoriesWithoutRemovedExchanges.filter((category) =>
+        category.type !== 'system' || supportedSystemCategoryIds.has(category.id)
+    );
+    let changed = currentCats.length !== categories.value.length || currentCats.some((category, index) =>
+        category.symbols.length !== categories.value[index]?.symbols?.length
+    );
 
     exchangeConfigs.forEach(config => {
         let exchangeSymbols = allSymbols.filter(config.filter);
@@ -1166,6 +932,9 @@ export function syncDatafeedWatchlists(allSymbols) {
             return 0;
         });
         categories.value = currentCats;
+        if (!currentCats.some(category => category.id === activeCategory.value)) {
+            activeCategory.value = currentCats[0]?.id || 'favorites';
+        }
         console.log('[Watchlist] Exchange categories synced with normalized symbol names');
     }
 }

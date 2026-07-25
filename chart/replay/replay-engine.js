@@ -452,6 +452,8 @@ class ReplayEngine {
                 custom_indicators_getter: function (PineJS) {
                     return Promise.resolve([
                         ...(typeof createATRBot !== 'undefined' ? [createATRBot(PineJS)] : []),
+                        ...(typeof createATRVector !== 'undefined' ? [createATRVector(PineJS)] : []),
+                        ...(typeof createATRHMM !== 'undefined' ? [createATRHMM(PineJS)] : []),
                         ...(typeof createVSR !== 'undefined' ? [createVSR(PineJS)] : []),
                     ]);
                 },

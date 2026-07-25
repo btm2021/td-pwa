@@ -14,31 +14,6 @@ export const EXCHANGES = {
         prefixes: ['BINANCE:', 'BINANCE_FUTURES:'],
         tickerPrefix: 'BINANCE'
     },
-    BINANCE_SPOT: {
-        id: 'BINANCE_SPOT',
-        datafeedId: 'BINANCE_SPOT',
-        name: 'Binance Spot',
-        type: 'crypto',
-        market: 'spot',
-        prefixes: ['BINANCE_SPOT:'],
-        tickerPrefix: 'BINANCE_SPOT'
-    },
-    BYBIT: {
-        id: 'BYBIT',
-        datafeedId: 'BYBIT_FUTURES',
-        name: 'Bybit Perpetual',
-        type: 'crypto',
-        prefixes: ['BYBIT:', 'BYBIT_FUTURES:', 'BYBITF:'],
-        tickerPrefix: 'BYBIT'
-    },
-    OKX: {
-        id: 'OKX',
-        datafeedId: 'OKX_FUTURES',
-        name: 'OKX Perpetual',
-        type: 'crypto',
-        prefixes: ['OKX:', 'OKX_FUTURES:', 'OKXF:'],
-        tickerPrefix: 'OKX'
-    },
     OANDA: {
         id: 'OANDA',
         datafeedId: 'OANDA',

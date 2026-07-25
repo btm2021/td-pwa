@@ -14,7 +14,6 @@ import { AppShell } from './layout/AppShell';
 import { DesktopShell } from './layout/desktop/DesktopShell';
 import { Icon } from './components/Icon';
 
-import { subscribeToTickers } from './state/watchlist';
 import { deviceMode, initDeviceMode, loadUserPreference, setDeviceMode } from './hooks/useDeviceMode';
 import { activeTab } from './state/store';
 
@@ -57,10 +56,7 @@ export function App() {
     const cleanupDeviceMode = initDeviceMode();
     loadUserPreference();
 
-    // Subscribe to ticker data during splash
-    subscribeToTickers();
-
-    // Mark ready after a small delay for data to arrive
+    // Keep startup light; exchange streams start when the user opens an exchange.
     const timeout = setTimeout(() => {
       setIsReady(true);
     }, 1500);
@@ -71,20 +67,10 @@ export function App() {
     };
   }, []);
 
-  const handleSplashComplete = () => {
-    if (isReady) {
-      setShowSplash(false);
-    } else {
-      // Wait for ready state
-      const checkReady = setInterval(() => {
-        setShowSplash(false);
-        clearInterval(checkReady);
-      }, 100);
-    }
-  };
+  const handleSplashComplete = () => setShowSplash(false);
 
   if (showSplash) {
-    return <SplashScreen onComplete={handleSplashComplete} />;
+    return <SplashScreen onComplete={handleSplashComplete} ready={isReady} />;
   }
 
   // Render based on device mode

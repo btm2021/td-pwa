@@ -12,7 +12,8 @@ function serveChartPlugin() {
       server.middlewares.use((req, res, next) => {
         // Check if request is for /chart/*
         if (req.url && req.url.startsWith('/chart/')) {
-          const relativePath = req.url.replace('/chart/', '')
+          const requestPath = req.url.split('?')[0]
+          const relativePath = requestPath.replace('/chart/', '')
           const filePath = resolve(process.cwd(), 'chart', relativePath)
 
           if (existsSync(filePath) && statSync(filePath).isFile()) {
@@ -35,7 +36,7 @@ function serveChartPlugin() {
             }
 
             res.setHeader('Content-Type', mimeTypes[ext] || 'application/octet-stream')
-            res.setHeader('Cache-Control', 'public, max-age=31536000')
+            res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate')
             createReadStream(filePath).pipe(res)
             return
           }

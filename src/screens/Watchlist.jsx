@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'preact/hooks';
 import { Icon } from '../components/Icon';
-import { SymbolPanel } from '../components/SymbolPanel';
 import { SearchPanel } from '../components/SearchPanel';
 import { CategoryModal } from '../components/CategoryModal';
 import { CatalogManager } from '../components/CatalogManager';
@@ -9,7 +8,7 @@ import {
     activeCategory,
     activeCategorySymbols,
     tickerData,
-    subscribeToTickers,
+    exchangeConnectionStatus,
     setActiveCategory,
     getTicker,
     getCoinLogoUrl,
@@ -21,49 +20,34 @@ import {
     addCategory,
     removeCategory,
     updateCategory,
-    removeSymbolFromCategory,
 } from '../state/watchlist';
 import { deviceMode } from '../hooks/useDeviceMode';
-import { selectedSymbolName } from '../state/store';
+import { selectedSymbolName, setSelectedSymbol } from '../state/store';
 
 
 
 export function Watchlist() {
-    const [selectedSymbol, setSelectedSymbolState] = useState(null);
     const [showSearch, setShowSearch] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [showCategoryModal, setShowCategoryModal] = useState(false);
     const [showCatalogManager, setShowCatalogManager] = useState(false);
     const [editingCategory, setEditingCategory] = useState(null);
 
-    // Sort State
-    const [sortConfig, setSortConfig] = useState({ key: 'symbol', direction: 'asc' });
+    const [sortConfig, setSortConfig] = useState({ key: 'symbol', direction: 1 });
 
     const cats = categories.value;
     const activeCat = activeCategory.value;
     const symbols = activeCategorySymbols.value;
     const tickers = tickerData.value;
+    const connectionStatuses = exchangeConnectionStatus.value;
     const isDesktop = deviceMode.value === 'desktop';
 
-    // Subscribe to tickers on mount
-    useEffect(() => {
-        subscribeToTickers();
-    }, []);
-
     const handleSymbolClick = (symbol) => {
-        // Symbol đã có prefix (VD: BINANCE:BTCUSDT, BYBIT:ETHUSDT, OKX:SOLUSDT)
-        // Truyền trực tiếp - store.js sẽ xử lý normalize
-        console.log('[Watchlist] Symbol clicked:', symbol);
-
-        selectedSymbolName.value = symbol;
-
-        if (window.innerWidth < 1024) {
-            setSelectedSymbolState(symbol);
+        if (isDesktop) {
+            selectedSymbolName.value = symbol;
+        } else {
+            setSelectedSymbol(symbol);
         }
-    };
-
-    const handleClosePanel = () => {
-        setSelectedSymbolState(null);
     };
 
     const handleSearchSelect = (symbol) => {
@@ -93,31 +77,38 @@ export function Watchlist() {
 
         const sorted = [...filtered];
         sorted.sort((a, b) => {
-            const tickerA = getTicker(a) || { price: 0, priceChangePercent: 0, quoteVolume: 0 };
-            const tickerB = getTicker(b) || { price: 0, priceChangePercent: 0, quoteVolume: 0 };
+            const tickerA = getTicker(a) || { lastPrice: 0, priceChangePercent: 0, quoteVolume: 0, volume: 0 };
+            const tickerB = getTicker(b) || { lastPrice: 0, priceChangePercent: 0, quoteVolume: 0, volume: 0 };
 
             let valA, valB;
             if (sortConfig.key === 'symbol') {
                 valA = a;
                 valB = b;
             } else if (sortConfig.key === 'price') {
-                valA = tickerA.price;
-                valB = tickerB.price;
+                valA = tickerA.lastPrice ?? tickerA.price ?? 0;
+                valB = tickerB.lastPrice ?? tickerB.price ?? 0;
             } else if (sortConfig.key === 'change') {
                 valA = tickerA.priceChangePercent;
                 valB = tickerB.priceChangePercent;
+            } else if (sortConfig.key === 'volume') {
+                valA = tickerA.quoteVolume ?? tickerA.volume ?? 0;
+                valB = tickerB.quoteVolume ?? tickerB.volume ?? 0;
             }
 
-            if (valA < valB) return sortConfig.direction === -1;
-            if (valA > valB) return sortConfig.direction === 1;
-            return 0;
+            if (typeof valA === 'string') return valA.localeCompare(valB) * sortConfig.direction;
+            return (valA - valB) * sortConfig.direction;
         });
         return sorted;
     };
 
-    const sortedSymbols = getSortedSymbols();
-    const selectedTicker = selectedSymbol ? getTicker(selectedSymbol) : null;
+    const toggleSort = (key) => {
+        setSortConfig((current) => ({
+            key,
+            direction: current.key === key ? current.direction * -1 : key === 'volume' ? -1 : 1
+        }));
+    };
 
+    const sortedSymbols = getSortedSymbols();
     if (isDesktop) {
         return (
             <div className="screen screen--no-padding screen--full-height watchlist-screen">
@@ -159,22 +150,28 @@ export function Watchlist() {
                     <table className="watchlist-table">
                         <thead>
                             <tr>
-                                <th className="sortable" onClick={() => setSortConfig({ key: 'symbol', direction: sortConfig.direction * -1 })}>
+                                <th className="sortable" onClick={() => toggleSort('symbol')}>
                                     <div className="th-content">
                                         Symbol
                                         {sortConfig.key === 'symbol' && <Icon name={sortConfig.direction === 1 ? 'arrow-up' : 'arrow-down'} size={10} />}
                                     </div>
                                 </th>
-                                <th className="text-right sortable" style={{ width: '100px' }} onClick={() => setSortConfig({ key: 'price', direction: sortConfig.direction * -1 })}>
+                                <th className="text-right sortable" style={{ width: '100px' }} onClick={() => toggleSort('price')}>
                                     <div className="th-content justify-end">
                                         Last
                                         {sortConfig.key === 'price' && <Icon name={sortConfig.direction === 1 ? 'arrow-up' : 'arrow-down'} size={10} />}
                                     </div>
                                 </th>
-                                <th className="text-right sortable" style={{ width: '90px' }} onClick={() => setSortConfig({ key: 'change', direction: sortConfig.direction * -1 })}>
+                                <th className="text-right sortable" style={{ width: '90px' }} onClick={() => toggleSort('change')}>
                                     <div className="th-content justify-end">
                                         Chg%
-                                        {sortConfig.key === 'change' && <Icon name={sortConfig.direction === 'asc' ? 'arrow-up' : 'arrow-down'} size={10} />}
+                                        {sortConfig.key === 'change' && <Icon name={sortConfig.direction === 1 ? 'arrow-up' : 'arrow-down'} size={10} />}
+                                    </div>
+                                </th>
+                                <th className="text-right sortable" style={{ width: '100px' }} onClick={() => toggleSort('volume')}>
+                                    <div className="th-content justify-end">
+                                        Volume
+                                        {sortConfig.key === 'volume' && <Icon name={sortConfig.direction === 1 ? 'arrow-up' : 'arrow-down'} size={10} />}
                                     </div>
                                 </th>
                             </tr>
@@ -208,7 +205,7 @@ export function Watchlist() {
                                 onClick={() => setActiveCategory(cat.id)}
                                 title={cat.label}
                             >
-                                <span className="cat-dot" style={{ background: cat.color }}></span>
+                                {cat.id !== 'OANDA_FOREX' && connectionStatuses[cat.id] === 'connected' && <span className="exchange-connection-dot" aria-label={`${cat.label} market stream connected`} />}
                                 <span className="cat-label">{cat.label}</span>
                             </button>
                         ))}
@@ -271,6 +268,7 @@ export function Watchlist() {
                                 className={`tab-item ${activeCat === cat.id ? 'tab-item--active' : ''}`}
                                 onClick={() => setActiveCategory(cat.id)}
                             >
+                                {cat.id !== 'OANDA_FOREX' && connectionStatuses[cat.id] === 'connected' && <span className="exchange-connection-dot" aria-label={`${cat.label} market stream connected`} />}
                                 {cat.label}
                                 {activeCat === cat.id && <div className="tab-indicator" style={{ background: cat.color || '#2979FF' }} />}
                             </button>
@@ -286,9 +284,13 @@ export function Watchlist() {
             <div className="watchlist-list">
                 {/* List Header */}
                 <div className="watchlist-list-header">
-                    <span className="col-symbol">Pair</span>
-                    <span className="col-price text-right">Last</span>
-                    <span className="col-change text-right">Chg%</span>
+                    <button className="col-symbol sortable" onClick={() => toggleSort('symbol')}>Pair</button>
+                    <button className="col-price text-right sortable" onClick={() => toggleSort('price')}>
+                        Last {sortConfig.key === 'price' && <Icon name={sortConfig.direction === 1 ? 'arrow-up' : 'arrow-down'} size={10} />}
+                    </button>
+                    <button className="col-volume text-right sortable" onClick={() => toggleSort('volume')}>
+                        Vol {sortConfig.key === 'volume' && <Icon name={sortConfig.direction === 1 ? 'arrow-up' : 'arrow-down'} size={10} />}
+                    </button>
                 </div>
 
                 {sortedSymbols.length > 0 ? (
@@ -299,7 +301,6 @@ export function Watchlist() {
                             isActive={selectedSymbolName.value === symbol}
                             ticker={getTicker(symbol)}
                             onClick={() => handleSymbolClick(symbol)}
-                            onRemove={(sym) => removeSymbolFromCategory(activeCat, sym)}
                         />
                     ))
                 ) : (
@@ -328,14 +329,6 @@ export function Watchlist() {
             </div>
 
             {/* Modals & Panels */}
-            {!isDesktop && selectedSymbol && (
-                <SymbolPanel
-                    symbol={selectedSymbol}
-                    ticker={selectedTicker}
-                    onClose={handleClosePanel}
-                />
-            )}
-
             {showSearch && (
                 <SearchPanel
                     onClose={() => setShowSearch(false)}
@@ -375,7 +368,8 @@ function DesktopWatchlistRow({ symbol, isActive, ticker, onClick }) {
     displaySymbol = displaySymbol.replace(/USDT$|USDC$|USD$|BUSD$/i, '');
 
     const logoUrl = getCoinLogoUrl(symbol);
-    const price = ticker?.price || 0;
+    const price = ticker?.lastPrice ?? ticker?.price ?? 0;
+    const volume = ticker?.quoteVolume ?? ticker?.volume ?? 0;
     const changePercent = ticker?.priceChangePercent || 0;
     const isPositive = changePercent >= 0;
 
@@ -461,18 +455,23 @@ function DesktopWatchlistRow({ symbol, isActive, ticker, onClick }) {
             <td className={`text-right change-cell ${isPositive ? 'positive' : 'negative'}`}>
                 {formatPercent(changePercent)}
             </td>
+            <td className="text-right volume-cell">{formatVolume(volume)}</td>
         </tr>
     );
 }
 
-function SymbolListItem({ symbol, isActive, ticker, onClick, onRemove }) {
+function SymbolListItem({ symbol, isActive, ticker, onClick }) {
     const [priceColor, setPriceColor] = useState('');
+    const [imgError, setImgError] = useState(false);
     const prevPriceRef = useRef(0);
-    const displaySymbol = symbol.includes(':') ? symbol.split(':')[1] : symbol;
+    const rawSymbol = symbol.includes(':') ? symbol.split(':')[1] : symbol;
+    const displaySymbol = formatMobilePair(rawSymbol);
+    const exchange = symbol.startsWith('OANDA:') ? 'OANDA Forex' : 'Binance Futures';
+    const logoUrl = getCoinLogoUrl(symbol);
+    const fallbackLetter = getBaseAsset(symbol).charAt(0) || rawSymbol.charAt(0);
 
-    const price = ticker?.price || 0;
-    const changePercent = ticker?.priceChangePercent || 0;
-    const isPositive = changePercent >= 0;
+    const price = ticker?.lastPrice ?? ticker?.price ?? 0;
+    const volume = ticker?.quoteVolume ?? ticker?.volume ?? 0;
 
     useEffect(() => {
         if (price !== 0) {
@@ -491,31 +490,43 @@ function SymbolListItem({ symbol, isActive, ticker, onClick, onRemove }) {
             onClick={onClick}
             draggable={false}
         >
-            <div className="col-symbol">
-                <span className="symbol-name">{displaySymbol}</span>
-                <span className="exchange-name">{ticker?.exchange || (symbol.includes(':') ? symbol.split(':')[0] : '')}</span>
+            <div className="watchlist-pair">
+                <div className="watchlist-pair__icon">
+                    {logoUrl && !imgError ? (
+                        <img src={logoUrl} alt="" onError={() => setImgError(true)} />
+                    ) : (
+                        <span>{fallbackLetter.toUpperCase()}</span>
+                    )}
+                </div>
+                <div className="col-symbol">
+                    <span className="symbol-name">{displaySymbol}</span>
+                    <span className="exchange-name">{exchange}</span>
+                </div>
             </div>
 
             <div className={`col-price text-right ${priceColor}`}>
                 {formatPrice(price)}
             </div>
 
-            <div className={`col-change text-right ${isPositive ? 'positive' : 'negative'}`}>
-                {isPositive ? '+' : ''}{formatPercent(changePercent)}
-            </div>
-
-            <button
-                className="item-remove-btn"
-                onClick={(e) => {
-                    e.stopPropagation();
-                    onRemove(symbol);
-                }}
-            >
-                <Icon name="close" size={10} />
-            </button>
+            <div className="col-volume text-right">{formatVolume(volume)}</div>
         </div>
     );
 }
 
-// Final empty block to complete the refactor
+function formatMobilePair(symbol) {
+    const upperSymbol = symbol.toUpperCase();
+    const quoteAssets = ['USDT', 'USDC', 'BUSD', 'USD'];
+    const quoteAsset = quoteAssets.find((quote) => upperSymbol.endsWith(quote));
 
+    if (quoteAsset && upperSymbol.length > quoteAsset.length) {
+        return `${upperSymbol.slice(0, -quoteAsset.length)}/${quoteAsset}`;
+    }
+
+    if (upperSymbol.length === 6) {
+        return `${upperSymbol.slice(0, 3)}/${upperSymbol.slice(3)}`;
+    }
+
+    return upperSymbol;
+}
+
+// Final empty block to complete the refactor

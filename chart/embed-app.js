@@ -98,8 +98,12 @@ async function initTradingView() {
             return Promise.resolve([
                 createATRBot(PineJS),
                 createATRBotVP(PineJS),
+                createATRMoving(PineJS),
+                createATRVector(PineJS),
+                createATRHMM(PineJS),
                 createVSR(PineJS),
                 createVSROriginal(PineJS),
+                createVSRBeta(PineJS),
                 createSessionVP(PineJS),
                 createSwingPoints(PineJS),
                 createVIDYA(PineJS),

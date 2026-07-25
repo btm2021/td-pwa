@@ -308,8 +308,12 @@ export function useReplayEngine(tvWidgetRef, datafeedRef) {
             // Get custom studies creators (same as original chart)
             const customStudies = [];
             if (typeof createATRBot !== 'undefined') customStudies.push(createATRBot);
+            if (typeof createATRMoving !== 'undefined') customStudies.push(createATRMoving);
+            if (typeof createATRVector !== 'undefined') customStudies.push(createATRVector);
+            if (typeof createATRHMM !== 'undefined') customStudies.push(createATRHMM);
             if (typeof createVSR !== 'undefined') customStudies.push(createVSR);
             if (typeof createVSR_1 !== 'undefined') customStudies.push(createVSR_1);
+            if (typeof createVSRBeta !== 'undefined') customStudies.push(createVSRBeta);
             if (typeof createVIDYA !== 'undefined') customStudies.push(createVIDYA);
             if (typeof createSessionVP !== 'undefined') customStudies.push(createSessionVP);
             if (typeof createSwingPoints !== 'undefined') customStudies.push(createSwingPoints);

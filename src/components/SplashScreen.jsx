@@ -1,71 +1,80 @@
 import { useEffect, useState } from 'preact/hooks';
 
-export function SplashScreen({ onComplete }) {
-    const [progress, setProgress] = useState(0);
-    const [status, setStatus] = useState('Initializing...');
+const STARTUP_STEPS = [
+    { label: 'Interface ready', detail: 'Loading workspace' },
+    { label: 'Market sources ready', detail: 'Preparing market sources' },
+    { label: 'Watchlist prepared', detail: 'Restoring your watchlist' },
+];
+
+export function SplashScreen({ onComplete, ready }) {
+    const [completedSteps, setCompletedSteps] = useState(0);
+    const [progress, setProgress] = useState(8);
 
     useEffect(() => {
-        const steps = [
-            { progress: 20, status: 'Loading assets...' },
-            { progress: 40, status: 'Connecting to market...' },
-            { progress: 60, status: 'Fetching prices...' },
-            { progress: 80, status: 'Setting up charts...' },
-            { progress: 100, status: 'Ready!' },
-        ];
-
-        let currentStep = 0;
         const interval = setInterval(() => {
-            if (currentStep < steps.length) {
-                setProgress(steps[currentStep].progress);
-                setStatus(steps[currentStep].status);
-                currentStep++;
-            } else {
-                clearInterval(interval);
-                setTimeout(() => onComplete(), 300);
-            }
-        }, 400);
+            setCompletedSteps((current) => {
+                if (current >= STARTUP_STEPS.length - 1) return current;
+                return current + 1;
+            });
+        }, 280);
 
         return () => clearInterval(interval);
-    }, [onComplete]);
+    }, []);
+
+    useEffect(() => {
+        const baseProgress = [24, 54, 82][completedSteps];
+        setProgress(ready ? 100 : baseProgress);
+    }, [completedSteps, ready]);
+
+    useEffect(() => {
+        if (!ready || completedSteps < STARTUP_STEPS.length - 1) return undefined;
+
+        const timeout = setTimeout(onComplete, 260);
+        return () => clearTimeout(timeout);
+    }, [completedSteps, onComplete, ready]);
+
+    const status = ready
+        ? 'Your market view is ready'
+        : STARTUP_STEPS[completedSteps].detail;
 
     return (
-        <div className="splash-screen">
-            {/* Logo */}
-            <div className="splash-screen__logo">
-                <svg width="80" height="80" viewBox="0 0 80 80" fill="none">
-                    <defs>
-                        <linearGradient id="logoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" stopColor="#2979FF" />
-                            <stop offset="100%" stopColor="#00C853" />
-                        </linearGradient>
-                    </defs>
-                    <rect x="8" y="8" width="64" height="64" rx="16" fill="url(#logoGradient)" />
-                    <path
-                        d="M24 50 L32 38 L40 44 L52 28 L56 32 L40 52 L32 46 L24 54 Z"
-                        fill="white"
-                        opacity="0.9"
-                    />
-                    <circle cx="56" cy="28" r="4" fill="white" />
-                </svg>
+        <main className="splash-screen" aria-label="Preparing Mint Hunter">
+            <div className="splash-screen__grid" aria-hidden="true" />
+            <div className="splash-screen__content">
+                <div className="splash-screen__mark" aria-hidden="true">
+                    <svg viewBox="0 0 96 96" fill="none">
+                        <circle cx="48" cy="48" r="39" />
+                        <path d="M14 52h17l7-10 8 18 14-34 9 26h13" />
+                    </svg>
+                </div>
+
+                <div className="splash-screen__brand">
+                    <h1>Mint Hunter</h1>
+                    <p>Market workspace</p>
+                </div>
+
+                <ol className="splash-screen__steps">
+                    {STARTUP_STEPS.map((step, index) => {
+                        const state = index < completedSteps ? 'done' : index === completedSteps ? 'current' : 'pending';
+                        return (
+                            <li key={step.label} className={`splash-screen__step splash-screen__step--${state}`}>
+                                <span className="splash-screen__step-icon">
+                                    {state === 'done' ? '✓' : <span />}
+                                </span>
+                                <span>{step.label}</span>
+                            </li>
+                        );
+                    })}
+                </ol>
+
+                <div className="splash-screen__progress-wrap">
+                    <div className="splash-screen__progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow={progress}>
+                        <div className="splash-screen__progress-bar" style={{ width: `${progress}%` }} />
+                    </div>
+                    <p className="splash-screen__status" aria-live="polite">{status}</p>
+                </div>
             </div>
-
-            {/* App Name */}
-            <h1 className="splash-screen__title">Mint</h1>
-            <p className="splash-screen__subtitle">Hunter</p>
-
-            {/* Progress Bar */}
-            <div className="splash-screen__progress">
-                <div
-                    className="splash-screen__progress-bar"
-                    style={{ width: `${progress}%` }}
-                />
-            </div>
-
-            {/* Status */}
-            <p className="splash-screen__status">{status}</p>
-
-            {/* Version */}
             <p className="splash-screen__version">v1.0.0</p>
-        </div>
+        </main>
     );
 }

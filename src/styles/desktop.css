@@ -2701,6 +2701,16 @@ html.desktop-mode #app {
     color: #8b949e;
 }
 
+.category-tab .exchange-connection-dot {
+    margin-right: 1px;
+}
+
+.watchlist-table .volume-cell {
+    color: #8b949e;
+    font-family: var(--font-mono);
+    font-size: 11px;
+}
+
 .category-tab:hover {
     background: rgba(255, 255, 255, 0.05);
 }
