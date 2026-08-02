@@ -58,17 +58,13 @@ function createVSR(PineJS) {
                     id: "vsr2_length",
                     name: "Volume SD Length",
                     defval: 10,
-                    type: "integer",
-                    min: 1,
-                    max: 500
+                    type: "integer"
                 },
                 {
                     id: "vsr2_threshold",
                     name: "Volume Threshold",
                     defval: 10.0,
                     type: "float",
-                    min: 1.0,
-                    max: 20.0,
                     step: 0.1
                 }
             ],
@@ -110,9 +106,6 @@ function createVSR(PineJS) {
 
                 // Variables to store previous values
                 this.prev_volume = NaN;
-                this.prev_high = NaN;
-                this.prev_low = NaN;
-                this.prev_close = NaN;
                 this.prev_stdev = NaN;
 
                 this.vsr_upper = NaN;
@@ -174,11 +167,10 @@ function createVSR(PineJS) {
                     signal = Math.abs(difference);
                 }
 
-                // Update VSR levels when signal exceeds threshold
-                // Use previous bar's high/close for upper and low/close for lower
-                if (signal > threshold && !isNaN(this.prev_high)) {
-                    const proposed_upper = Math.max(this.prev_high, this.prev_close);
-                    const proposed_lower = Math.min(this.prev_low, this.prev_close);
+                // Create the VSR zone from the candle that generated the signal.
+                if (signal > threshold && !isNaN(high) && !isNaN(low) && !isNaN(close)) {
+                    const proposed_upper = Math.max(high, close);
+                    const proposed_lower = Math.min(low, close);
 
                     // Check for overlap with existing VSR zone
                     let isOverlap = false;
@@ -210,9 +202,6 @@ function createVSR(PineJS) {
 
                 // Store current values for next bar
                 this.prev_volume = volume;
-                this.prev_high = high;
-                this.prev_low = low;
-                this.prev_close = close;
                 this.prev_stdev = stdev;
 
                 return [this.vsr_upper, this.vsr_lower];
