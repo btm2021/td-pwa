@@ -16,6 +16,7 @@ function getCustomStudies() {
     if (typeof createATRVector !== 'undefined') studies.push(createATRVector);
     if (typeof createATRHMM !== 'undefined') studies.push(createATRHMM);
     if (typeof createVSR !== 'undefined') studies.push(createVSR);
+    if (typeof createVSRDual !== 'undefined') studies.push(createVSRDual);
     if (typeof createVSR_1 !== 'undefined') studies.push(createVSR_1);
     if (typeof createVSRBeta !== 'undefined') studies.push(createVSRBeta);
     if (typeof createVIDYA !== 'undefined') studies.push(createVIDYA);

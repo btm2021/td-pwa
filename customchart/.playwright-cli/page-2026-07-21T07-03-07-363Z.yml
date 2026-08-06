@@ -1,0 +1,248 @@
+- main [ref=e3]:
+  - generic [ref=e4]:
+    - generic [ref=e5]: CustomChart
+    - generic [ref=e6]:
+      - combobox [ref=e7]:
+        - option "Binance Futures" [selected]
+        - option "Binance Spot"
+      - textbox "Symbol" [ref=e8]: BTCUSDT
+      - combobox [ref=e9]:
+        - option "1m"
+        - option "5m"
+        - option "15m" [selected]
+        - option "30m"
+        - option "1h"
+        - option "4h"
+        - option "1d"
+        - option "1w"
+      - spinbutton "Candle count" [ref=e10]: "1500"
+      - button "Load" [ref=e11] [cursor=pointer]
+    - button "Import CSV" [ref=e12] [cursor=pointer]
+    - button "Choose File" [ref=e15]
+  - generic [ref=e16]:
+    - generic [ref=e17]:
+      - generic [ref=e18]:
+        - strong [ref=e19]: BTCUSDT · 15m
+        - generic [ref=e20]: Binance Futures
+        - generic [ref=e21]:
+          - text: O 65892.5 H 65922 L 65867.9
+          - generic [ref=e22]: C 65922
+        - emphasis [ref=e23]: 1,500 candles · Binance Futures · live
+      - table [ref=e27]:
+        - row [ref=e28]:
+          - cell
+          - cell [ref=e29]:
+            - link "Charting by TradingView" [ref=e33] [cursor=pointer]:
+              - /url: https://www.tradingview.com/?utm_medium=lwc-link&utm_campaign=lwc-chart&utm_source=127.0.0.1/
+          - cell [ref=e38]
+        - row [ref=e42]:
+          - cell
+          - cell [ref=e43]
+          - cell [ref=e47]
+    - complementary [ref=e50]:
+      - generic [ref=e51]:
+        - heading "VSR" [level=2] [ref=e52]
+        - generic [ref=e53]:
+          - generic [ref=e54]: Volume SD length
+          - spinbutton "Volume SD length" [ref=e55]: "10"
+        - generic [ref=e56]:
+          - generic [ref=e57]: Threshold
+          - spinbutton "Threshold" [ref=e58]: "5"
+        - generic [ref=e59] [cursor=pointer]:
+          - generic [ref=e60]: Show VSR zones
+          - checkbox "Show VSR zones" [checked] [ref=e61]
+      - generic [ref=e63]:
+        - heading "ATRBot" [level=2] [ref=e64]
+        - generic [ref=e65]:
+          - generic [ref=e66]: EMA length
+          - spinbutton "EMA length" [ref=e67]: "10"
+        - generic [ref=e68]:
+          - generic [ref=e69]: ATR length
+          - spinbutton "ATR length" [ref=e70]: "14"
+        - generic [ref=e71]:
+          - generic [ref=e72]: Multiplier
+          - spinbutton "Multiplier" [ref=e73]: "1"
+        - generic [ref=e74] [cursor=pointer]:
+          - generic [ref=e75]: Show EMA
+          - checkbox "Show EMA" [checked] [ref=e76]
+        - generic [ref=e78] [cursor=pointer]:
+          - generic [ref=e79]: Show ATRBot
+          - checkbox "Show ATRBot" [checked] [ref=e80]
+      - generic [ref=e82]:
+        - heading "Backtest" [level=2] [ref=e83]
+        - generic [ref=e84]:
+          - generic [ref=e85]: Initial capital (USDT)
+          - spinbutton "Initial capital (USDT)" [ref=e86]: "1000"
+        - generic [ref=e87]:
+          - generic [ref=e88]: Margin / trade (USDT)
+          - spinbutton "Margin / trade (USDT)" [ref=e89]: "100"
+        - generic [ref=e90]:
+          - generic [ref=e91]: Leverage
+          - spinbutton "Leverage" [ref=e92]: "20"
+        - generic [ref=e93]:
+          - generic [ref=e94]: "Reward : Risk"
+          - 'spinbutton "Reward : Risk" [ref=e95]': "2"
+        - generic [ref=e96]:
+          - generic [ref=e97]: Fee per side (%)
+          - spinbutton "Fee per side (%)" [ref=e98]: "0.04"
+        - button "Run backtest" [ref=e99] [cursor=pointer]
+  - generic [ref=e100]:
+    - generic [ref=e101]:
+      - generic [ref=e102]:
+        - generic [ref=e103]: Net PnL
+        - strong [ref=e104]: "-97.58 USDT"
+      - generic [ref=e105]:
+        - generic [ref=e106]: Win rate
+        - strong [ref=e107]: 23.1%
+      - generic [ref=e108]:
+        - generic [ref=e109]: Profit factor
+        - strong [ref=e110]: "0.49"
+      - generic [ref=e111]:
+        - generic [ref=e112]: Max drawdown
+        - strong [ref=e113]: 16.01%
+      - generic [ref=e114]:
+        - generic [ref=e115]: Trades
+        - strong [ref=e116]: "13"
+    - table [ref=e118]:
+      - rowgroup [ref=e119]:
+        - row [ref=e120]:
+          - columnheader "#" [ref=e121]
+          - columnheader "Entry time" [ref=e122]
+          - columnheader "Exit time" [ref=e123]
+          - columnheader "Side" [ref=e124]
+          - columnheader "Entry" [ref=e125]
+          - columnheader "Exit" [ref=e126]
+          - columnheader "R" [ref=e127]
+          - columnheader "PnL (USDT)" [ref=e128]
+          - columnheader "Result" [ref=e129]
+      - rowgroup [ref=e130]:
+        - row [ref=e131]:
+          - cell "1" [ref=e132]
+          - cell "Jul 06, 10:45 AM" [ref=e133]
+          - cell "Jul 06, 07:00 PM" [ref=e134]
+          - cell "SHORT" [ref=e135]
+          - cell "63,273.00" [ref=e136]
+          - cell "62,268.74" [ref=e137]
+          - cell "2.00R" [ref=e138]
+          - cell "30.14" [ref=e139]
+          - cell "TP" [ref=e140]
+        - row [ref=e141]:
+          - cell "2" [ref=e142]
+          - cell "Jul 07, 09:15 AM" [ref=e143]
+          - cell "Jul 08, 03:15 PM" [ref=e144]
+          - cell "SHORT" [ref=e145]
+          - cell "63,544.10" [ref=e146]
+          - cell "62,085.30" [ref=e147]
+          - cell "2.00R" [ref=e148]
+          - cell "44.31" [ref=e149]
+          - cell "TP" [ref=e150]
+        - row [ref=e151]:
+          - cell "3" [ref=e152]
+          - cell "Jul 10, 08:00 AM" [ref=e153]
+          - cell "Jul 10, 08:45 AM" [ref=e154]
+          - cell "SHORT" [ref=e155]
+          - cell "63,105.00" [ref=e156]
+          - cell "63,447.66" [ref=e157]
+          - cell "-1.00R" [ref=e158]
+          - cell "-12.46" [ref=e159]
+          - cell "SL" [ref=e160]
+        - row [ref=e161]:
+          - cell "4" [ref=e162]
+          - cell "Jul 10, 08:45 AM" [ref=e163]
+          - cell "Jul 13, 10:00 AM" [ref=e164]
+          - cell "LONG" [ref=e165]
+          - cell "63,726.60" [ref=e166]
+          - cell "62,904.14" [ref=e167]
+          - cell "-1.00R" [ref=e168]
+          - cell "-27.41" [ref=e169]
+          - cell "SL" [ref=e170]
+        - row [ref=e171]:
+          - cell "5" [ref=e172]
+          - cell "Jul 13, 07:00 PM" [ref=e173]
+          - cell "Jul 13, 08:45 PM" [ref=e174]
+          - cell "SHORT" [ref=e175]
+          - cell "62,820.20" [ref=e176]
+          - cell "62,143.95" [ref=e177]
+          - cell "2.00R" [ref=e178]
+          - cell "19.93" [ref=e179]
+          - cell "TP" [ref=e180]
+        - row [ref=e181]:
+          - cell "6" [ref=e182]
+          - cell "Jul 15, 01:00 PM" [ref=e183]
+          - cell "Jul 15, 02:15 PM" [ref=e184]
+          - cell "LONG" [ref=e185]
+          - cell "65,016.10" [ref=e186]
+          - cell "64,492.56" [ref=e187]
+          - cell "-1.00R" [ref=e188]
+          - cell "-17.71" [ref=e189]
+          - cell "SL" [ref=e190]
+        - row [ref=e191]:
+          - cell "7" [ref=e192]
+          - cell "Jul 15, 03:00 PM" [ref=e193]
+          - cell "Jul 15, 07:45 PM" [ref=e194]
+          - cell "SHORT" [ref=e195]
+          - cell "64,560.10" [ref=e196]
+          - cell "65,042.23" [ref=e197]
+          - cell "-1.00R" [ref=e198]
+          - cell "-16.54" [ref=e199]
+          - cell "SL" [ref=e200]
+        - row [ref=e201]:
+          - cell "8" [ref=e202]
+          - cell "Jul 15, 08:00 PM" [ref=e203]
+          - cell "Jul 16, 07:30 AM" [ref=e204]
+          - cell "LONG" [ref=e205]
+          - cell "65,354.60" [ref=e206]
+          - cell "64,524.37" [ref=e207]
+          - cell "-1.00R" [ref=e208]
+          - cell "-27.01" [ref=e209]
+          - cell "SL" [ref=e210]
+        - row [ref=e211]:
+          - cell "9" [ref=e212]
+          - cell "Jul 16, 12:45 PM" [ref=e213]
+          - cell "Jul 16, 02:15 PM" [ref=e214]
+          - cell "LONG" [ref=e215]
+          - cell "64,897.90" [ref=e216]
+          - cell "64,528.75" [ref=e217]
+          - cell "-1.00R" [ref=e218]
+          - cell "-12.98" [ref=e219]
+          - cell "SL" [ref=e220]
+        - row [ref=e221]:
+          - cell "10" [ref=e222]
+          - cell "Jul 16, 09:00 PM" [ref=e223]
+          - cell "Jul 17, 06:15 AM" [ref=e224]
+          - cell "LONG" [ref=e225]
+          - cell "64,610.00" [ref=e226]
+          - cell "63,841.30" [ref=e227]
+          - cell "-1.00R" [ref=e228]
+          - cell "-25.39" [ref=e229]
+          - cell "SL" [ref=e230]
+        - row [ref=e231]:
+          - cell "11" [ref=e232]
+          - cell "Jul 17, 08:15 PM" [ref=e233]
+          - cell "Jul 17, 09:00 PM" [ref=e234]
+          - cell "SHORT" [ref=e235]
+          - cell "62,829.90" [ref=e236]
+          - cell "63,286.55" [ref=e237]
+          - cell "-1.00R" [ref=e238]
+          - cell "-16.14" [ref=e239]
+          - cell "SL" [ref=e240]
+        - row [ref=e241]:
+          - cell "12" [ref=e242]
+          - cell "Jul 19, 11:00 AM" [ref=e243]
+          - cell "Jul 20, 05:15 AM" [ref=e244]
+          - cell "SHORT" [ref=e245]
+          - cell "64,617.10" [ref=e246]
+          - cell "64,861.67" [ref=e247]
+          - cell "-1.00R" [ref=e248]
+          - cell "-9.17" [ref=e249]
+          - cell "SL" [ref=e250]
+        - row [ref=e251]:
+          - cell "13" [ref=e252]
+          - cell "Jul 20, 12:15 PM" [ref=e253]
+          - cell "Jul 20, 06:45 PM" [ref=e254]
+          - cell "SHORT" [ref=e255]
+          - cell "64,160.00" [ref=e256]
+          - cell "64,980.34" [ref=e257]
+          - cell "-1.00R" [ref=e258]
+          - cell "-27.17" [ref=e259]
+          - cell "SL" [ref=e260]

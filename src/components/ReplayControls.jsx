@@ -312,6 +312,7 @@ export function useReplayEngine(tvWidgetRef, datafeedRef) {
             if (typeof createATRVector !== 'undefined') customStudies.push(createATRVector);
             if (typeof createATRHMM !== 'undefined') customStudies.push(createATRHMM);
             if (typeof createVSR !== 'undefined') customStudies.push(createVSR);
+            if (typeof createVSRDual !== 'undefined') customStudies.push(createVSRDual);
             if (typeof createVSR_1 !== 'undefined') customStudies.push(createVSR_1);
             if (typeof createVSRBeta !== 'undefined') customStudies.push(createVSRBeta);
             if (typeof createVIDYA !== 'undefined') customStudies.push(createVIDYA);
