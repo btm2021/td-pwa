@@ -373,7 +373,7 @@ Ngay sau khi xử lý, code lưu `V_t`, `H_t`, `L_t`, `C_t` và `stdev_t` làm d
 
 ## 3. VSR Dual Zones (panel dưới)
 
-`VSR Dual Zones` là study ở panel riêng (`is_price_study: false`), vì vậy khi thêm từ danh sách Indicators nó nằm dưới biểu đồ giá như RSI. Study vẽ hai vùng VSR dạng hộp bằng phần tô giữa đường Upper và Lower: VSR 1 màu vàng, VSR 2 màu xanh dương. Cùng panel đó có ba đường giá: EMA, VIDYA và VWAP.
+`VSR Dual Zones` là study ở panel riêng (`is_price_study: false`), vì vậy khi thêm từ danh sách Indicators nó nằm dưới biểu đồ giá như RSI. Study vẽ hai vùng VSR dạng hộp bằng phần tô giữa đường Upper và Lower: VSR 1 màu vàng, VSR 2 màu xanh dương. Khi hai hộp giao nhau, phần giao được tô đỏ/hồng để highlight. Cùng panel đó có ba đường giá (EMA, VIDYA, VWAP), một đường ZigZag và một ATR Bot.
 
 ### Cách study hiển thị trong hệ thống
 
@@ -385,9 +385,13 @@ Study có `is_price_study: false`, nên TradingView tạo một panel mới bên
 | --- | --- | --- |
 | `VSR 1 Upper` / `VSR 1 Lower` | `vsr1Upper`, `vsr1Lower` | Đường rộng 0; phần tô giữa hai đường là hộp vàng, 50% trong suốt. |
 | `VSR 2 Upper` / `VSR 2 Lower` | `vsr2Upper`, `vsr2Lower` | Đường rộng 0; phần tô giữa hai đường là hộp xanh, 65% trong suốt. |
+| `VSR Overlap Upper` / `VSR Overlap Lower` | Biên trên/dưới của phần giao giữa hai hộp | Đường rộng 0; phần tô đỏ/hồng, 25% trong suốt. Chỉ có khi cả hai hộp chồng lấp. |
 | `Price EMA` | EMA của close | Đường cam `#FF9800`, rộng 2. |
 | `Price VIDYA` | VIDYA của close | Đường tím `#AB47BC`, rộng 2. |
 | `Price VWAP` | VWAP trượt của typical price | Đường cyan `#00E5FF`, rộng 2. |
+| `ZigZag` | Pivot High/Low đã xác nhận | Đường hồng `#EC407A`, rộng 2, nối các pivot xen kẽ. |
+| `ATR Bot EMA` / `ATR Bot Trail` | EMA(close) / ATR trailing line | EMA xanh ngọc, Trail đỏ, mỗi đường rộng 2. |
+| `ATR Bot Green Fill` / `ATR Bot Red Fill` | ATR Bot EMA khi nằm trên / dưới Trail | Tô xanh hoặc đỏ 85% trong suốt giữa EMA và Trail. |
 
 Một hộp bắt đầu khi VSR tương ứng tạo zone đầu tiên. Trong các nến tiếp theo, Upper và Lower được trả lại không đổi nên phần fill tiếp tục kéo sang phải. Khi có một zone mới không chồng lấp, hai mức được thay bằng zone mới và hộp chuyển sang biên độ mới tại nến kích hoạt. Khi chưa có zone, Upper/Lower là `NaN` nên không có hộp nào được tô.
 
@@ -403,6 +407,10 @@ Một hộp bắt đầu khi VSR tương ứng tạo zone đầu tiên. Trong c�
 | `Price VIDYA Length` | 20 | Chu kỳ EMA cơ sở của VIDYA(close). |
 | `VIDYA CMO Length` | 9 | Chu kỳ CMO để điều chỉnh độ mượt VIDYA. |
 | `Price VWAP Length` | 20 | Số nến của VWAP trượt tính từ typical price. |
+| `ZigZag Depth` | 5 | Số nến kiểm tra ở mỗi phía của một pivot High/Low. |
+| `ATR Bot ATR Length` | 14 | Chu kỳ Wilder RMA của True Range. |
+| `ATR Bot Multiplier` | 2.0 | Hệ số khoảng cách giữa ATR Bot EMA và Trail. |
+| `ATR Bot EMA Length` | 30 | Chu kỳ EMA(close) của ATR Bot. |
 
 ### Tính VSR 1 và VSR 2
 
@@ -445,6 +453,23 @@ proposedLower_j ≤ upper_j và lower_j ≤ proposedUpper_j
 
 Khi chồng lấp, hộp được mở rộng bằng `upper_j = max(upper_j, proposedUpper_j)` và `lower_j = min(lower_j, proposedLower_j)`. Khi không chồng lấp, hộp cũ của VSR đó bị thay bằng hộp mới. Khi không có spike, hộp giữ nguyên và tiếp tục hiển thị trong panel dưới.
 
+### Highlight phần chồng lấp giữa VSR 1 và VSR 2
+
+Sau khi hai hộp độc lập đã được cập nhật, study kiểm tra giao nhau của hai khoảng giá:
+
+```text
+zonesOverlap = vsr1Lower ≤ vsr2Upper và vsr2Lower ≤ vsr1Upper
+```
+
+Khi `zonesOverlap` đúng, hai plots highlight là chính phần giao của hai vùng:
+
+```text
+overlapUpper = min(vsr1Upper, vsr2Upper)
+overlapLower = max(vsr1Lower, vsr2Lower)
+```
+
+Khi không chồng lấp, cả `overlapUpper` và `overlapLower` là `NaN`, nên fill đỏ/hồng không hiển thị. Highlight không thay đổi biên, state hoặc quy tắc gộp của bất kỳ hộp VSR nào; nó chỉ biểu thị nơi hai hộp đang cùng bao phủ một vùng giá.
+
 ### Trình tự tính trên mỗi nến
 
 Để tái tạo đúng state của study, mọi bước sau phải chạy theo thứ tự cho nến `t`:
@@ -456,8 +481,10 @@ Khi chồng lấp, hộp được mở rộng bằng `upper_j = max(upper_j, pro
 4. Tính stdev1_t và stdev2_t từ buffer sau khi đã thêm change_t.
 5. Tính signal1_t bằng stdev1_(t-1), signal2_t bằng stdev2_(t-1).
 6. Nếu signal_j_t > Threshold_j, tạo/gộp hộp j từ H_(t-1), L_(t-1), C_(t-1).
-7. Lưu OHLCV và hai stdev hiện tại làm state cho nến sau.
-8. Tính EMA(close), VIDYA(close), rolling VWAP và trả bảy plots.
+7. Tính phần giao của hai hộp; chỉ trả biên overlap khi hai vùng chồng lấp.
+8. Lưu OHLCV và hai stdev hiện tại làm state cho nến sau.
+9. Tính EMA(close), VIDYA(close), rolling VWAP, ZigZag và ATR Bot.
+10. Trả mười bốn plots cho Charting Library.
 ```
 
 Điểm quan trọng là `signal_j_t` dùng **stdev của bar trước**, còn stdev mới tính ở bước 4 chỉ được lưu cho nến kế tiếp. Hai VSR cùng dùng `change_t`, `H_(t-1)`, `L_(t-1)` và `C_(t-1)`, nhưng có buffer, stdev, threshold và hộp hoàn toàn độc lập.
@@ -502,12 +529,54 @@ VWAP_t = Σ(typicalPrice_i × V_i) / ΣV_i
 
 Nếu tổng volume bằng 0, code dùng `typicalPrice_t`.
 
+### ZigZag
+
+ZigZag dùng `D = ZigZag Depth` và giữ cửa sổ gồm `2D + 1` nến High/Low. Khi cửa sổ đã đủ, phần tử giữa cửa sổ là nến ứng viên tại `t - D`; nó chỉ được xác nhận sau khi có `D` nến nằm bên phải.
+
+```text
+pivotHigh = H_(t-D), khi H_(t-D) > H_i với mọi i trong [t-2D, t], i ≠ t-D
+pivotLow  = L_(t-D), khi L_(t-D) < L_i với mọi i trong [t-2D, t], i ≠ t-D
+```
+
+So sánh là nghiêm ngặt: một high bằng high khác hoặc low bằng low khác không phải pivot. Study chỉ nhận pivot có loại ngược với pivot trước (`High → Low → High ...`) để đường nối tạo thành ZigZag. Nếu pivot ứng viên cùng loại với pivot đã nhận gần nhất, output của nến đó là `NaN` và không tạo điểm ZigZag mới.
+
+Mỗi pivot được biết muộn `D` nến vì phải chờ dữ liệu xác nhận phía phải. Điểm được vẽ ở nến xác nhận hiện tại; `joinPoints: true` nối các điểm xác nhận không-`NaN` lại thành đường ZigZag. Vì vậy, đường này không tự vẽ lại pivot đã xác nhận, nhưng vị trí hiển thị của mỗi điểm có độ trễ `D` nến so với nến pivot gốc.
+
+### ATR Bot
+
+ATR Bot trong panel dùng cố định nguồn `close` và MA type `EMA`; ba input riêng của nó là `A = ATR Bot ATR Length`, `M = ATR Bot Multiplier` và `E = ATR Bot EMA Length`.
+
+```text
+Trail1_0 = C_0
+Trail1_t = (2 / (E + 1)) × C_t + (1 - 2 / (E + 1)) × Trail1_(t-1)
+
+TR_0 = H_0 - L_0
+TR_t = max(H_t - L_t, |H_t - C_(t-1)|, |L_t - C_(t-1)|)
+
+ATR_0 = TR_0
+ATR_t = (ATR_(t-1) × (A - 1) + TR_t) / A
+distance_t = ATR_t × M
+```
+
+`Trail2` dùng previous Trail 1 và Trail 2. Với Trail 2 trước đó chưa tồn tại, code dùng `0`; với Trail 1 trước đó chưa tồn tại, code dùng Trail 1 hiện tại:
+
+```text
+nếu Trail1_t > Trail2_(t-1):
+    Trail2_t = max(Trail2_(t-1), Trail1_t - distance_t), nếu Trail1_(t-1) > Trail2_(t-1)
+             = Trail1_t - distance_t,                    nếu không
+ngược lại:
+    Trail2_t = min(Trail2_(t-1), Trail1_t + distance_t), nếu Trail1_t < Trail2_(t-1) và Trail1_(t-1) < Trail2_(t-1)
+             = Trail1_t + distance_t,                    nếu không
+```
+
+Khi `Trail1_t > Trail2_t`, study trả `Trail1_t` cho plot Green Fill và `NaN` cho Red Fill, vì vậy vùng giữa hai trail được tô xanh. Khi bằng hoặc dưới, Green Fill là `NaN`, Red Fill nhận `Trail1_t` và vùng được tô đỏ.
+
 ### Giá trị trả về cho Charting Library
 
 Ở cuối mỗi nến, study trả đúng thứ tự sau:
 
 ```text
-[vsr1Upper, vsr1Lower, vsr2Upper, vsr2Lower, ema, vidya, vwap]
+[vsr1Upper, vsr1Lower, vsr2Upper, vsr2Lower, ema, vidya, vwap, zigzag, overlapUpper, overlapLower, atrBotTrail1, atrBotTrail2, atrBotGreen, atrBotRed]
 ```
 
-Hai `filledAreas` ghép plot 0–1 và plot 2–3. Vì vậy chỉ bốn giá trị đầu quyết định hai hộp; ba giá trị sau là các đường giá và không làm thay đổi điều kiện VSR hay biên của hộp.
+Năm `filledAreas` ghép plot 0–1, plot 2–3, plot 8–9, plot 12–11 và plot 13–11. Bốn giá trị đầu quyết định hai hộp; `overlapUpper`/`overlapLower` chỉ highlight phần giao; EMA/VIDYA/VWAP/ZigZag/ATR Bot là các đường giá và không làm thay đổi điều kiện VSR hay biên của hộp.
