@@ -142,6 +142,16 @@ export function IndicatorsPicker({ tvWidget, onClose }) {
         { id: 'KAMA', name: 'KAMA', description: "Kaufman's Adaptive MA" },
         { id: 'SMC', name: 'SMC', description: 'Smart Money Concepts' },
         { id: 'FVG', name: 'FVG', description: 'Fair Value Gaps' },
+        {
+            id: 'ForexFlow Supply & Demand',
+            name: 'ForexFlow S/D',
+            description: 'Scored supply and demand zones from the ForexFlow detector',
+        },
+        {
+            id: 'ForexFlow Trend & Structure',
+            name: 'ForexFlow Trend',
+            description: 'Market structure, trend state, and controlling swing from ForexFlow',
+        },
     ];
 
     // Popular built-in indicators - Using standard names that work in all versions

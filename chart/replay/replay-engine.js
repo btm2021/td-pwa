@@ -455,6 +455,12 @@ class ReplayEngine {
                         ...(typeof createATRVector !== 'undefined' ? [createATRVector(PineJS)] : []),
                         ...(typeof createATRHMM !== 'undefined' ? [createATRHMM(PineJS)] : []),
                         ...(typeof createVSR !== 'undefined' ? [createVSR(PineJS)] : []),
+                        ...(typeof createForexFlowSupplyDemand !== 'undefined'
+                            ? [createForexFlowSupplyDemand(PineJS)]
+                            : []),
+                        ...(typeof createForexFlowTrend !== 'undefined'
+                            ? [createForexFlowTrend(PineJS)]
+                            : []),
                     ]);
                 },
             });

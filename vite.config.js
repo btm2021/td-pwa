@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite'
 import preact from '@preact/preset-vite'
 import { resolve } from 'path'
-import { createReadStream, existsSync, statSync } from 'fs'
+import { cpSync, createReadStream, existsSync, rmSync, statSync } from 'fs'
 import { VitePWA } from 'vite-plugin-pwa'
 
 // Custom plugin to serve chart library
@@ -47,11 +47,45 @@ function serveChartPlugin() {
   }
 }
 
+// Git stores public/chart as a symlink to ../chart. On Windows checkouts with
+// core.symlinks=false it becomes an 8-byte text file, so Vite cannot copy the
+// chart assets into the production bundle. Repair only that checkout shape;
+// real directory/symlink checkouts continue through Vite's normal publicDir.
+function copyChartAssetsOnBuild() {
+  let rootDir = process.cwd()
+  let outputDir = resolve(rootDir, 'dist')
+
+  return {
+    name: 'copy-chart-assets-on-build',
+    apply: 'build',
+    configResolved(config) {
+      rootDir = config.root
+      outputDir = resolve(rootDir, config.build.outDir)
+    },
+    closeBundle() {
+      const publicChartPath = resolve(rootDir, 'public', 'chart')
+      if (existsSync(publicChartPath) && statSync(publicChartPath).isDirectory()) return
+
+      const sourcePath = resolve(rootDir, 'chart')
+      const targetPath = resolve(outputDir, 'chart')
+      if (!existsSync(sourcePath) || !statSync(sourcePath).isDirectory()) {
+        throw new Error(`Chart asset directory not found: ${sourcePath}`)
+      }
+
+      if (existsSync(targetPath)) {
+        rmSync(targetPath, { recursive: true, force: true })
+      }
+      cpSync(sourcePath, targetPath, { recursive: true })
+    },
+  }
+}
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
     preact(),
     serveChartPlugin(),
+    copyChartAssetsOnBuild(),
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'icon.png'],

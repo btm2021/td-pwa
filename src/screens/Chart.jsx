@@ -25,7 +25,7 @@ function getCustomStudies() {
     const names = [
         'createATRBot', 'createATRMoving', 'createATRVector', 'createATRHMM', 'createVSR', 'createVSRDual', 'createVSR_1', 'createVSRBeta', 'createVIDYA',
         'createSessionVP', 'createSwingPoints', 'createKAMA',
-        'createSMC', 'createFVG'
+        'createSMC', 'createFVG', 'createForexFlowSupplyDemand', 'createForexFlowTrend'
     ];
 
     names.forEach(name => {

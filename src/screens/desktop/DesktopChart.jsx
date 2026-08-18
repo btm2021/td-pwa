@@ -25,6 +25,8 @@ function getCustomStudies() {
     if (typeof createKAMA !== 'undefined') studies.push(createKAMA);
     if (typeof createSMC !== 'undefined') studies.push(createSMC);
     if (typeof createFVG !== 'undefined') studies.push(createFVG);
+    if (typeof createForexFlowSupplyDemand !== 'undefined') studies.push(createForexFlowSupplyDemand);
+    if (typeof createForexFlowTrend !== 'undefined') studies.push(createForexFlowTrend);
     return studies;
 }
 
