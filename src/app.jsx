@@ -16,6 +16,11 @@ import { Icon } from './components/Icon';
 
 import { deviceMode, initDeviceMode, loadUserPreference, setDeviceMode } from './hooks/useDeviceMode';
 import { activeTab } from './state/store';
+import {
+  activeCategory as activeWatchlistCategory,
+  subscribeToExchange,
+  unsubscribeFromTickers
+} from './state/watchlist';
 
 // Google Font
 const fontLink = document.createElement('link');
@@ -56,13 +61,21 @@ export function App() {
     const cleanupDeviceMode = initDeviceMode();
     loadUserPreference();
 
-    // Keep startup light; exchange streams start when the user opens an exchange.
+    // The signal subscription fires immediately, so Binance (the default
+    // category) is seeded before the splash screen finishes. Restored and
+    // clicked categories use this same single lifecycle owner.
+    const unsubscribeMarketSelection = activeWatchlistCategory.subscribe((categoryId) => {
+      subscribeToExchange(categoryId);
+    });
+
     const timeout = setTimeout(() => {
       setIsReady(true);
     }, 1500);
 
     return () => {
       clearTimeout(timeout);
+      unsubscribeMarketSelection();
+      unsubscribeFromTickers();
       cleanupDeviceMode();
     };
   }, []);

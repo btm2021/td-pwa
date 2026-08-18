@@ -31,7 +31,7 @@ const exchangeSymbolMap = signal({});
 export const categories = signal([...defaultCategories]);
 
 // Active category
-export const activeCategory = signal('favorites');
+export const activeCategory = signal('BINANCE_FUTURES');
 
 // Loading state
 export const isWatchlistLoading = signal(true);
@@ -57,9 +57,15 @@ function setExchangeConnectionStatus(exchangeId, status) {
     };
 }
 
-// WebSocket connection
+// Active market connection. Only one exchange feed may run at a time.
 let ws = null;
 let reconnectTimeout = null;
+let activeMarketExchange = null;
+let marketGeneration = 0;
+let snapshotAbortController = null;
+let binanceFuturesSnapshotPromise = null;
+let snapshotRetryTimeout = null;
+let snapshotRetryAttempt = 0;
 
 // ============================================
 // FIREBASE HELPERS
@@ -317,25 +323,22 @@ const OANDA_API_KEY = '7a53c4eeff879ba6118ddc416c2d2085-4a766a7d07af7bd629c07b45
 const OANDA_API_URL = 'https://api-fxpractice.oanda.com/v3';
 const OANDA_STREAM_URL = 'https://stream-fxpractice.oanda.com/v3';
 
-let binanceFuturesSnapshotPromise = null;
-
 // Ticker update batching
 let tickerUpdateBuffer = {};
 let tickerUpdateTimer = null;
 
 function queueTickerUpdate(key, data) {
     const previousTicker = tickerUpdateBuffer[key] || tickerData.value[key];
-    const hasInitialVolume = previousTicker && Object.prototype.hasOwnProperty.call(previousTicker, 'volume');
 
-    // The first ticker snapshot supplies volume. Subsequent all-market WebSocket
-    // messages keep that value stable while still updating lastPrice and change.
+    // A snapshot and the WebSocket start together. Ignore a late snapshot row
+    // when a newer live event for the same symbol has already arrived.
+    if (previousTicker?.lastUpdate && data.lastUpdate && data.lastUpdate < previousTicker.lastUpdate) {
+        return;
+    }
+
     tickerUpdateBuffer[key] = {
         ...previousTicker,
-        ...data,
-        ...(hasInitialVolume ? {
-            volume: previousTicker.volume,
-            quoteVolume: previousTicker.quoteVolume
-        } : {})
+        ...data
     };
     if (!tickerUpdateTimer) {
         tickerUpdateTimer = setTimeout(() => {
@@ -349,107 +352,220 @@ function queueTickerUpdate(key, data) {
     }
 }
 
-// !bookTicker is the reliable Binance Futures all-market stream in this
-// environment. Load the 24h snapshot once to seed volume and the initial change.
-function loadBinanceFuturesSnapshot() {
-    if (binanceFuturesSnapshotPromise) return binanceFuturesSnapshotPromise;
+function clearTickerUpdateQueue() {
+    if (tickerUpdateTimer) {
+        clearTimeout(tickerUpdateTimer);
+        tickerUpdateTimer = null;
+    }
+    tickerUpdateBuffer = {};
+}
 
-    binanceFuturesSnapshotPromise = fetch('https://fapi.binance.com/fapi/v1/ticker/24hr')
+function parseFiniteNumber(value) {
+    const number = Number.parseFloat(value);
+    return Number.isFinite(number) ? number : null;
+}
+
+function normalizeBinanceSnapshotTicker(ticker) {
+    const symbol = ticker?.symbol;
+    const lastPrice = parseFiniteNumber(ticker?.lastPrice);
+    if (!symbol || lastPrice === null) return null;
+
+    return {
+        symbol,
+        exchange: 'BINANCE',
+        price: lastPrice,
+        lastPrice,
+        priceChange: parseFiniteNumber(ticker.priceChange),
+        priceChangePercent: parseFiniteNumber(ticker.priceChangePercent),
+        openPrice: parseFiniteNumber(ticker.openPrice),
+        high: parseFiniteNumber(ticker.highPrice),
+        low: parseFiniteNumber(ticker.lowPrice),
+        volume: parseFiniteNumber(ticker.volume),
+        quoteVolume: parseFiniteNumber(ticker.quoteVolume),
+        lastUpdate: Number(ticker.closeTime) || Date.now()
+    };
+}
+
+function normalizeBinanceStreamTicker(ticker) {
+    // The current all-market stream contains both USD-M (1) and COIN-M (2).
+    if (ticker?.st != null && Number(ticker.st) !== 1) return null;
+
+    const symbol = ticker?.s;
+    const lastPrice = parseFiniteNumber(ticker?.c);
+    if (!symbol || lastPrice === null) return null;
+
+    return {
+        symbol,
+        exchange: 'BINANCE',
+        price: lastPrice,
+        lastPrice,
+        priceChange: parseFiniteNumber(ticker.p),
+        priceChangePercent: parseFiniteNumber(ticker.P),
+        openPrice: parseFiniteNumber(ticker.o),
+        high: parseFiniteNumber(ticker.h),
+        low: parseFiniteNumber(ticker.l),
+        volume: parseFiniteNumber(ticker.v),
+        quoteVolume: parseFiniteNumber(ticker.q),
+        lastUpdate: Number(ticker.C) || Number(ticker.E) || Date.now()
+    };
+}
+
+function isCurrentMarket(generation, exchangeId) {
+    return generation === marketGeneration && activeMarketExchange === exchangeId;
+}
+
+// One request returns the complete USD-M 24h status table. It starts as soon as
+// Binance is selected instead of waiting for the WebSocket handshake.
+function loadBinanceFuturesSnapshot(generation) {
+    if (binanceFuturesSnapshotPromise) return binanceFuturesSnapshotPromise;
+    if (snapshotRetryTimeout) {
+        clearTimeout(snapshotRetryTimeout);
+        snapshotRetryTimeout = null;
+    }
+
+    const controller = new AbortController();
+    snapshotAbortController = controller;
+
+    const request = fetch('https://fapi.binance.com/fapi/v1/ticker/24hr', {
+        signal: controller.signal
+    })
         .then((response) => {
             if (!response.ok) throw new Error(`Binance Futures snapshot failed: ${response.status}`);
             return response.json();
         })
         .then((tickers) => {
-            tickers.forEach((ticker) => {
-                const lastPrice = parseFloat(ticker.lastPrice);
-                const openPrice = parseFloat(ticker.openPrice);
-                const symbol = ticker.symbol;
+            if (!isCurrentMarket(generation, 'BINANCE_FUTURES')) return;
+            if (!Array.isArray(tickers)) throw new Error('Binance Futures snapshot returned an invalid payload');
+            snapshotRetryAttempt = 0;
 
-                queueTickerUpdate(`BINANCE:${symbol}`, {
-                    symbol,
-                    exchange: 'BINANCE',
-                    price: lastPrice,
-                    lastPrice,
-                    priceChange: parseFloat(ticker.priceChange),
-                    priceChangePercent: parseFloat(ticker.priceChangePercent),
-                    high: parseFloat(ticker.highPrice),
-                    low: parseFloat(ticker.lowPrice),
-                    volume: parseFloat(ticker.volume),
-                    quoteVolume: parseFloat(ticker.quoteVolume),
-                    lastUpdate: Date.now(),
-                    openPrice
-                });
+            tickers.forEach((ticker) => {
+                const normalized = normalizeBinanceSnapshotTicker(ticker);
+                if (normalized) queueTickerUpdate(`BINANCE:${normalized.symbol}`, normalized);
             });
         })
         .catch((error) => {
-            binanceFuturesSnapshotPromise = null;
+            if (error.name === 'AbortError') return;
+            if (binanceFuturesSnapshotPromise === request) {
+                binanceFuturesSnapshotPromise = null;
+            }
             console.error('[Binance Futures] Unable to load the initial ticker snapshot:', error);
+
+            if (isCurrentMarket(generation, 'BINANCE_FUTURES')) {
+                const retryDelay = Math.min(5000 * (2 ** snapshotRetryAttempt), 60000);
+                snapshotRetryAttempt += 1;
+                snapshotRetryTimeout = setTimeout(() => {
+                    snapshotRetryTimeout = null;
+                    loadBinanceFuturesSnapshot(generation);
+                }, retryDelay);
+            }
+        })
+        .finally(() => {
+            if (snapshotAbortController === controller) {
+                snapshotAbortController = null;
+            }
         });
 
+    binanceFuturesSnapshotPromise = request;
     return binanceFuturesSnapshotPromise;
 }
 
-
-// Keep the legacy public function for callers that need every market stream.
-export function subscribeToTickers() {
-    subscribeToBinance();
-    subscribeToOANDA();
-}
-
-// Start a market stream only after its exchange has been selected in the UI.
-export function subscribeToExchange(exchangeId) {
+function normalizeMarketExchange(exchangeId) {
     switch (exchangeId) {
         case 'BINANCE':
         case 'BINANCE_FUTURES':
-            subscribeToBinance();
-            break;
+            return 'BINANCE_FUTURES';
         case 'OANDA':
         case 'OANDA_FOREX':
-            subscribeToOANDA();
-            break;
+            return 'OANDA_FOREX';
+        case 'all':
+        case 'favorites':
+        case null:
+        case undefined:
+            return 'BINANCE_FUTURES';
         default:
-            break;
+            // A custom list made entirely from OANDA symbols follows OANDA.
+            // Mixed/empty lists use the application default, Binance Futures.
+            const category = categories.value.find((item) => item.id === exchangeId);
+            const symbols = category?.symbols || [];
+            return symbols.length > 0 && symbols.every((symbol) => symbol.toUpperCase().startsWith('OANDA:'))
+                ? 'OANDA_FOREX'
+                : 'BINANCE_FUTURES';
     }
 }
 
+// Legacy entry point now follows the single-active-exchange contract.
+export function subscribeToTickers() {
+    return subscribeToExchange('BINANCE_FUTURES');
+}
 
-function subscribeToBinance() {
+export function subscribeToExchange(exchangeId) {
+    const targetExchange = normalizeMarketExchange(exchangeId);
+
+    if (targetExchange === activeMarketExchange) {
+        if (targetExchange === 'BINANCE_FUTURES') {
+            const snapshot = loadBinanceFuturesSnapshot(marketGeneration);
+            if (!ws || (ws.readyState !== WebSocket.OPEN && ws.readyState !== WebSocket.CONNECTING)) {
+                subscribeToBinance(marketGeneration);
+            }
+            return snapshot;
+        }
+        if (oandaAbortController) return Promise.resolve();
+    }
+
+    stopActiveMarketConnection();
+    activeMarketExchange = targetExchange;
+    const generation = ++marketGeneration;
+
+    if (targetExchange === 'BINANCE_FUTURES') {
+        setExchangeConnectionStatus(targetExchange, 'connecting');
+        const snapshot = loadBinanceFuturesSnapshot(generation);
+        subscribeToBinance(generation);
+        return snapshot;
+    }
+
+    setExchangeConnectionStatus(targetExchange, 'connecting');
+    subscribeToOANDA(generation);
+    return Promise.resolve();
+}
+
+function subscribeToBinance(generation) {
+    if (!isCurrentMarket(generation, 'BINANCE_FUTURES')) return;
     if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
         return;
     }
+    if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
+        reconnectTimeout = null;
+    }
 
     const connect = () => {
+        if (!isCurrentMarket(generation, 'BINANCE_FUTURES')) return;
+
         console.log('[WebSocket] Connecting to Binance Futures ticker stream...');
         setExchangeConnectionStatus('BINANCE_FUTURES', 'connecting');
-        const socket = new WebSocket('wss://fstream.binance.com/ws/!bookTicker');
+        const socket = new WebSocket('wss://fstream.binance.com/market/ws/!ticker@arr');
         ws = socket;
 
         socket.onopen = () => {
+            if (!isCurrentMarket(generation, 'BINANCE_FUTURES') || ws !== socket) {
+                socket.close();
+                return;
+            }
             console.log('[WebSocket] Connected to ticker stream');
             setExchangeConnectionStatus('BINANCE_FUTURES', 'connected');
-            loadBinanceFuturesSnapshot();
         };
 
         socket.onmessage = (event) => {
+            if (!isCurrentMarket(generation, 'BINANCE_FUTURES') || ws !== socket) return;
+
             try {
-                const ticker = JSON.parse(event.data);
-                if (!ticker.s) return;
+                const payload = JSON.parse(event.data);
+                const rows = Array.isArray(payload) ? payload : payload?.data;
+                if (!Array.isArray(rows)) return;
 
-                const currentTicker = tickerData.value[`BINANCE:${ticker.s}`] || {};
-                const bid = parseFloat(ticker.b);
-                const ask = parseFloat(ticker.a);
-                const lastPrice = (bid + ask) / 2;
-                const openPrice = currentTicker.openPrice || lastPrice;
-
-                queueTickerUpdate(`BINANCE:${ticker.s}`, {
-                    ...currentTicker,
-                    symbol: ticker.s,
-                    exchange: 'BINANCE',
-                    price: lastPrice,
-                    lastPrice,
-                    priceChange: lastPrice - openPrice,
-                    priceChangePercent: openPrice ? ((lastPrice - openPrice) / openPrice) * 100 : 0,
-                    lastUpdate: Date.now(),
+                rows.forEach((ticker) => {
+                    const normalized = normalizeBinanceStreamTicker(ticker);
+                    if (normalized) queueTickerUpdate(`BINANCE:${normalized.symbol}`, normalized);
                 });
             } catch (error) {
                 console.error('[WebSocket] Parse error:', error);
@@ -461,29 +577,39 @@ function subscribeToBinance() {
         };
 
         socket.onclose = () => {
-            if (ws !== socket) return;
+            if (!isCurrentMarket(generation, 'BINANCE_FUTURES') || ws !== socket) return;
+            ws = null;
             console.log('[WebSocket] Disconnected, reconnecting in 3s...');
             setExchangeConnectionStatus('BINANCE_FUTURES', 'disconnected');
-            reconnectTimeout = setTimeout(connect, 3000);
+            reconnectTimeout = setTimeout(() => {
+                reconnectTimeout = null;
+                connect();
+            }, 3000);
         };
     };
 
     connect();
 }
 
-async function subscribeToOANDA() {
-    if (oandaAbortController) return;
+let oandaSymbolsUnsubscribe = null;
 
+function subscribeToOANDA(generation) {
     let lastInstruments = '';
 
     const startStream = async () => {
-        if (oandaAbortController) {
-            oandaAbortController.abort();
-        }
-        oandaAbortController = new AbortController();
+        if (!isCurrentMarket(generation, 'OANDA_FOREX')) return;
+        let controller = null;
 
         try {
-            const allSymbols = activeCategorySymbols.value;
+            const oandaCategory = categories.value.find((category) => category.id === 'OANDA_FOREX');
+            const searchableOandaSymbols = typeof window !== 'undefined'
+                ? (window.allSearchableSymbols || [])
+                    .filter((symbol) => symbol.datasource === 'OANDA')
+                    .map((symbol) => symbol.full_name || `OANDA:${symbol.symbol}`)
+                : [];
+            const allSymbols = oandaCategory?.symbols?.length
+                ? oandaCategory.symbols
+                : searchableOandaSymbols;
             const forexSymbols = allSymbols.filter(s => {
                 const upper = s.toUpperCase();
                 // Explicitly check for OANDA prefix
@@ -501,12 +627,13 @@ async function subscribeToOANDA() {
             });
 
             if (forexSymbols.length === 0) {
-                if (lastInstruments !== '') {
+                if (oandaAbortController) {
                     console.log('[OANDA] No OANDA symbols to stream, stopping stream.');
-                    if (oandaAbortController) oandaAbortController.abort();
+                    oandaAbortController.abort();
                     oandaAbortController = null;
-                    lastInstruments = '';
                 }
+                lastInstruments = '';
+                setExchangeConnectionStatus('OANDA_FOREX', 'disconnected');
                 return;
             }
 
@@ -521,7 +648,14 @@ async function subscribeToOANDA() {
                 return clean;
             }).join(',');
 
-            if (!instruments || instruments === lastInstruments) return;
+            if (!instruments) return;
+            if (instruments === lastInstruments && oandaAbortController && !oandaAbortController.signal.aborted) {
+                return;
+            }
+
+            if (oandaAbortController) oandaAbortController.abort();
+            controller = new AbortController();
+            oandaAbortController = controller;
             lastInstruments = instruments;
 
             console.log(`[OANDA] Starting stream for: ${instruments}`);
@@ -530,8 +664,15 @@ async function subscribeToOANDA() {
                 headers: {
                     'Authorization': `Bearer ${OANDA_API_KEY}`
                 },
-                signal: oandaAbortController.signal
+                signal: controller.signal
             });
+            if (!response.ok) throw new Error(`OANDA pricing stream failed: ${response.status}`);
+            if (!isCurrentMarket(generation, 'OANDA_FOREX') || oandaAbortController !== controller) {
+                controller.abort();
+                return;
+            }
+
+            setExchangeConnectionStatus('OANDA_FOREX', 'connected');
 
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
@@ -550,6 +691,7 @@ async function subscribeToOANDA() {
                         try {
                             const data = JSON.parse(line);
                             if (data.type === 'PRICE') {
+                                if (!isCurrentMarket(generation, 'OANDA_FOREX') || oandaAbortController !== controller) return;
                                 const symbol = data.instrument.replace('_', '');
                                 const bid = parseFloat(data.bids[0].price);
                                 const ask = parseFloat(data.asks[0].price);
@@ -561,12 +703,13 @@ async function subscribeToOANDA() {
                                     symbol: symbol,
                                     exchange: 'OANDA',
                                     price: currentPrice,
-                                    priceChange: 0,
-                                    priceChangePercent: 0,
+                                    lastPrice: currentPrice,
+                                    priceChange: null,
+                                    priceChangePercent: null,
                                     high: currentPrice,
                                     low: currentPrice,
-                                    volume: 0,
-                                    quoteVolume: 0,
+                                    volume: null,
+                                    quoteVolume: null,
                                     lastUpdate: Date.now(),
                                 });
                             }
@@ -577,39 +720,85 @@ async function subscribeToOANDA() {
                     }
                 }
             }
+
+            if (oandaAbortController === controller && isCurrentMarket(generation, 'OANDA_FOREX')) {
+                oandaAbortController = null;
+                lastInstruments = '';
+                setExchangeConnectionStatus('OANDA_FOREX', 'disconnected');
+                reconnectTimeout = setTimeout(() => {
+                    reconnectTimeout = null;
+                    startStream();
+                }, 5000);
+            }
         } catch (error) {
-            if (error.name !== 'AbortError') {
+            if (error.name !== 'AbortError' &&
+                isCurrentMarket(generation, 'OANDA_FOREX') &&
+                oandaAbortController === controller) {
                 console.warn('[OANDA] Stream error, reconnecting in 5s...', error);
-                setTimeout(startStream, 5000);
+                if (oandaAbortController === controller) oandaAbortController = null;
+                lastInstruments = '';
+                setExchangeConnectionStatus('OANDA_FOREX', 'disconnected');
+                reconnectTimeout = setTimeout(() => {
+                    reconnectTimeout = null;
+                    startStream();
+                }, 5000);
             }
         }
     };
 
-    // Watch for symbol changes to restart stream if needed
-    activeCategorySymbols.subscribe(() => {
+    oandaSymbolsUnsubscribe = categories.subscribe(() => {
         startStream();
     });
-
-    startStream();
 }
 
-// Unsubscribe from tickers
-export function unsubscribeFromTickers() {
-    // Binance
+function stopActiveMarketConnection() {
+    const previousExchange = activeMarketExchange;
+    activeMarketExchange = null;
+    marketGeneration += 1;
+
     if (reconnectTimeout) {
         clearTimeout(reconnectTimeout);
         reconnectTimeout = null;
     }
+
+    if (snapshotAbortController) {
+        snapshotAbortController.abort();
+        snapshotAbortController = null;
+    }
+    if (snapshotRetryTimeout) {
+        clearTimeout(snapshotRetryTimeout);
+        snapshotRetryTimeout = null;
+    }
+    binanceFuturesSnapshotPromise = null;
+    snapshotRetryAttempt = 0;
+
     if (ws) {
-        ws.close();
+        const socket = ws;
         ws = null;
+        socket.onopen = null;
+        socket.onmessage = null;
+        socket.onerror = null;
+        socket.onclose = null;
+        socket.close();
     }
 
-    // OANDA
     if (oandaAbortController) {
         oandaAbortController.abort();
         oandaAbortController = null;
     }
+
+    if (oandaSymbolsUnsubscribe) {
+        oandaSymbolsUnsubscribe();
+        oandaSymbolsUnsubscribe = null;
+    }
+
+    clearTickerUpdateQueue();
+    if (previousExchange) setExchangeConnectionStatus(previousExchange, 'disconnected');
+}
+
+// Unsubscribe from the single active exchange feed.
+export function unsubscribeFromTickers() {
+    stopActiveMarketConnection();
 }
 
 
@@ -775,7 +964,6 @@ export function formatVolume(volume) {
 // Set active category
 export function setActiveCategory(categoryId) {
     activeCategory.value = categoryId;
-    subscribeToExchange(categoryId);
     saveCategoriesToStorage();
 }
 

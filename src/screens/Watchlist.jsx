@@ -10,6 +10,7 @@ import {
     tickerData,
     exchangeConnectionStatus,
     setActiveCategory,
+    subscribeToExchange,
     getTicker,
     getCoinLogoUrl,
     getBaseAsset,
@@ -41,6 +42,13 @@ export function Watchlist() {
     const tickers = tickerData.value;
     const connectionStatuses = exchangeConnectionStatus.value;
     const isDesktop = deviceMode.value === 'desktop';
+
+    const searchExchange = activeCat === 'OANDA_FOREX' ? 'OANDA_FOREX' : 'BINANCE_FUTURES';
+
+    const handleCloseSearch = () => {
+        subscribeToExchange(activeCat);
+        setShowSearch(false);
+    };
 
     const handleSymbolClick = (symbol) => {
         if (isDesktop) {
@@ -205,7 +213,7 @@ export function Watchlist() {
                                 onClick={() => setActiveCategory(cat.id)}
                                 title={cat.label}
                             >
-                                {cat.id !== 'OANDA_FOREX' && connectionStatuses[cat.id] === 'connected' && <span className="exchange-connection-dot" aria-label={`${cat.label} market stream connected`} />}
+                                {connectionStatuses[cat.id] === 'connected' && <span className="exchange-connection-dot" aria-label={`${cat.label} market stream connected`} />}
                                 <span className="cat-label">{cat.label}</span>
                             </button>
                         ))}
@@ -215,9 +223,10 @@ export function Watchlist() {
                 {/* Modals */}
                 {showSearch && (
                     <SearchPanel
-                        onClose={() => setShowSearch(false)}
+                        onClose={handleCloseSearch}
                         onSelectSymbol={handleSearchSelect}
                         currentSymbols={symbols}
+                        initialExchange={searchExchange}
                     />
                 )}
                 {showCategoryModal && (
@@ -268,7 +277,7 @@ export function Watchlist() {
                                 className={`tab-item ${activeCat === cat.id ? 'tab-item--active' : ''}`}
                                 onClick={() => setActiveCategory(cat.id)}
                             >
-                                {cat.id !== 'OANDA_FOREX' && connectionStatuses[cat.id] === 'connected' && <span className="exchange-connection-dot" aria-label={`${cat.label} market stream connected`} />}
+                                {connectionStatuses[cat.id] === 'connected' && <span className="exchange-connection-dot" aria-label={`${cat.label} market stream connected`} />}
                                 {cat.label}
                                 {activeCat === cat.id && <div className="tab-indicator" style={{ background: cat.color || '#2979FF' }} />}
                             </button>
@@ -287,6 +296,9 @@ export function Watchlist() {
                     <button className="col-symbol sortable" onClick={() => toggleSort('symbol')}>Pair</button>
                     <button className="col-price text-right sortable" onClick={() => toggleSort('price')}>
                         Last {sortConfig.key === 'price' && <Icon name={sortConfig.direction === 1 ? 'arrow-up' : 'arrow-down'} size={10} />}
+                    </button>
+                    <button className="col-change text-right sortable" onClick={() => toggleSort('change')}>
+                        Chg% {sortConfig.key === 'change' && <Icon name={sortConfig.direction === 1 ? 'arrow-up' : 'arrow-down'} size={10} />}
                     </button>
                     <button className="col-volume text-right sortable" onClick={() => toggleSort('volume')}>
                         Vol {sortConfig.key === 'volume' && <Icon name={sortConfig.direction === 1 ? 'arrow-up' : 'arrow-down'} size={10} />}
@@ -331,9 +343,10 @@ export function Watchlist() {
             {/* Modals & Panels */}
             {showSearch && (
                 <SearchPanel
-                    onClose={() => setShowSearch(false)}
+                    onClose={handleCloseSearch}
                     onSelectSymbol={handleSearchSelect}
                     currentSymbols={symbols}
+                    initialExchange={searchExchange}
                 />
             )}
 
@@ -368,10 +381,14 @@ function DesktopWatchlistRow({ symbol, isActive, ticker, onClick }) {
     displaySymbol = displaySymbol.replace(/USDT$|USDC$|USD$|BUSD$/i, '');
 
     const logoUrl = getCoinLogoUrl(symbol);
-    const price = ticker?.lastPrice ?? ticker?.price ?? 0;
-    const volume = ticker?.quoteVolume ?? ticker?.volume ?? 0;
-    const changePercent = ticker?.priceChangePercent || 0;
-    const isPositive = changePercent >= 0;
+    const rawPrice = ticker?.lastPrice ?? ticker?.price;
+    const rawVolume = ticker?.quoteVolume ?? ticker?.volume;
+    const changePercent = ticker?.priceChangePercent;
+    const hasPrice = Number.isFinite(rawPrice);
+    const hasVolume = Number.isFinite(rawVolume);
+    const hasChange = Number.isFinite(changePercent);
+    const price = hasPrice ? rawPrice : 0;
+    const isPositive = hasChange && changePercent >= 0;
 
     // Lấy chữ cái đầu tiên để làm logo fallback
     const firstLetter = displaySymbol.charAt(0).toUpperCase();
@@ -450,12 +467,12 @@ function DesktopWatchlistRow({ symbol, isActive, ticker, onClick }) {
                 color: priceTextColor,
                 transition: 'color 0.3s ease'
             }}>
-                {formatPrice(price)}
+                {hasPrice ? formatPrice(price) : '—'}
             </td>
-            <td className={`text-right change-cell ${isPositive ? 'positive' : 'negative'}`}>
-                {formatPercent(changePercent)}
+            <td className={`text-right change-cell ${hasChange ? (isPositive ? 'positive' : 'negative') : 'neutral'}`}>
+                {hasChange ? formatPercent(changePercent) : '—'}
             </td>
-            <td className="text-right volume-cell">{formatVolume(volume)}</td>
+            <td className="text-right volume-cell">{hasVolume ? formatVolume(rawVolume) : '—'}</td>
         </tr>
     );
 }
@@ -470,8 +487,14 @@ function SymbolListItem({ symbol, isActive, ticker, onClick }) {
     const logoUrl = getCoinLogoUrl(symbol);
     const fallbackLetter = getBaseAsset(symbol).charAt(0) || rawSymbol.charAt(0);
 
-    const price = ticker?.lastPrice ?? ticker?.price ?? 0;
-    const volume = ticker?.quoteVolume ?? ticker?.volume ?? 0;
+    const rawPrice = ticker?.lastPrice ?? ticker?.price;
+    const rawVolume = ticker?.quoteVolume ?? ticker?.volume;
+    const changePercent = ticker?.priceChangePercent;
+    const hasPrice = Number.isFinite(rawPrice);
+    const hasVolume = Number.isFinite(rawVolume);
+    const hasChange = Number.isFinite(changePercent);
+    const price = hasPrice ? rawPrice : 0;
+    const isPositive = hasChange && changePercent >= 0;
 
     useEffect(() => {
         if (price !== 0) {
@@ -505,10 +528,14 @@ function SymbolListItem({ symbol, isActive, ticker, onClick }) {
             </div>
 
             <div className={`col-price text-right ${priceColor}`}>
-                {formatPrice(price)}
+                {hasPrice ? formatPrice(price) : '—'}
             </div>
 
-            <div className="col-volume text-right">{formatVolume(volume)}</div>
+            <div className={`col-change text-right ${hasChange ? (isPositive ? 'positive' : 'negative') : 'neutral'}`}>
+                {hasChange ? formatPercent(changePercent) : '—'}
+            </div>
+
+            <div className="col-volume text-right">{hasVolume ? formatVolume(rawVolume) : '—'}</div>
         </div>
     );
 }

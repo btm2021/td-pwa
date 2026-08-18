@@ -11,11 +11,11 @@ const EXCHANGES = [
 
 const SUPPORTED_DATASOURCES = new Set(['BINANCE_FUTURES', 'OANDA']);
 
-export function SearchPanel({ onClose, onSelectSymbol, currentSymbols = [] }) {
+export function SearchPanel({ onClose, onSelectSymbol, currentSymbols = [], initialExchange = 'BINANCE_FUTURES' }) {
     const [query, setQuery] = useState('');
     const [results, setResults] = useState([]);
     const [loading, setLoading] = useState(false);
-    const [activeExchange, setActiveExchange] = useState('all');
+    const [activeExchange, setActiveExchange] = useState(initialExchange);
     const [symbolsVersion, setSymbolsVersion] = useState(0);
     const inputRef = useRef(null);
 
@@ -312,8 +312,8 @@ function SearchResultItem({ symbol, ticker, isAdded, onClick }) {
             {ticker && (
                 <div className="search-result__data">
                     <div className="search-result__price">{formatPrice(ticker.price)}</div>
-                    <div className={`search-result__change ${ticker.priceChangePercent >= 0 ? 'positive' : 'negative'}`}>
-                        {formatPercent(ticker.priceChangePercent)}
+                    <div className={`search-result__change ${Number.isFinite(ticker.priceChangePercent) ? (ticker.priceChangePercent >= 0 ? 'positive' : 'negative') : ''}`}>
+                        {Number.isFinite(ticker.priceChangePercent) ? formatPercent(ticker.priceChangePercent) : '—'}
                     </div>
                 </div>
             )}

@@ -347,7 +347,7 @@
 
 .watchlist-list-header {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 116px 76px;
+    grid-template-columns: minmax(0, 1fr) 96px 66px 72px;
     padding: 13px 20px 12px;
     background: #0b0e14;
     border-bottom: 1px solid #202834;
@@ -363,7 +363,7 @@
 
 .watchlist-item {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 116px 76px;
+    grid-template-columns: minmax(0, 1fr) 96px 66px 72px;
     align-items: center;
     min-height: 72px;
     padding: 8px 20px;
@@ -484,7 +484,28 @@
     letter-spacing: -0.02em;
 }
 
-@media (max-width: 360px) {
+.col-change {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 650;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+}
+
+.col-change.positive {
+    color: var(--accent-green);
+}
+
+.col-change.negative {
+    color: var(--accent-red);
+}
+
+.col-change.neutral,
+.change-cell.neutral {
+    color: #667384;
+}
+
+@media (max-width: 420px) {
     .watchlist-mobile-header__top,
     .watchlist-list-header,
     .watchlist-item {
@@ -494,7 +515,7 @@
 
     .watchlist-list-header,
     .watchlist-item {
-        grid-template-columns: minmax(0, 1fr) 102px 66px;
+        grid-template-columns: minmax(0, 1fr) 78px 56px 64px;
     }
 
     .watchlist-pair {
