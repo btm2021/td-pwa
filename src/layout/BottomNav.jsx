@@ -7,6 +7,7 @@ const navItems = [
     { id: 'futures', icon: 'futures', label: 'Trade' },
     { id: 'scanner', icon: 'scanner', label: 'Scanner' },
     { id: 'account', icon: 'menu', label: 'Menu' },
+    { id: 'notebook', icon: 'portfolio', label: 'Notebook' },
 ];
 
 export function BottomNav() {

@@ -12,10 +12,11 @@ import { Account } from '../screens/Account';
 import { Scanner } from '../screens/Scanner';
 import { Calendar } from '../screens/Calendar';
 import { Futures } from '../screens/Futures';
+import { Notebook } from '../screens/Notebook';
 
 
 // Screens that have their own header (no TopBar needed)
-const screensWithOwnHeader = ['watchlist', 'chart', 'futures', 'account', 'calendar'];
+const screensWithOwnHeader = ['watchlist', 'chart', 'futures', 'account', 'calendar', 'notebook'];
 
 const topBarConfig = {
     chart: { type: 'chart' },
@@ -33,6 +34,7 @@ const screens = {
     account: Account,
     scanner: Scanner,
     calendar: Calendar,
+    notebook: Notebook,
 };
 
 export function AppShell() {
@@ -46,7 +48,7 @@ export function AppShell() {
     return (
         <div className={`app-shell ${fullscreen ? 'app-shell--fullscreen' : ''}`}>
             {showTopBar && <TopBar {...topBarProps} />}
-            <main className={`main-content ${currentTab === 'chart' ? 'main-content--no-scroll' : ''}`}>
+            <main className={`main-content ${['chart', 'notebook'].includes(currentTab) ? 'main-content--no-scroll' : ''}`}>
                 <Screen />
             </main>
             <BottomNav />

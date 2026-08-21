@@ -9,6 +9,7 @@ const navItems = [
     { id: 'scanner', icon: 'scanner', label: 'Scanner', shortcut: 'S' },
     { id: 'calendar', icon: 'calendar', label: 'Calendar', shortcut: 'L' },
     { id: 'account', icon: 'wallet', label: 'Account', shortcut: 'A' },
+    { id: 'notebook', icon: 'portfolio', label: 'Notebook', shortcut: 'N' },
 ];
 
 const bottomItems = [

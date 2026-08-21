@@ -80,12 +80,26 @@ function copyChartAssetsOnBuild() {
   }
 }
 
+function copyNotebookOnBuild() {
+  return {
+    name: 'copy-notebook-on-build',
+    apply: 'build',
+    closeBundle() {
+      const sourcePath = resolve(process.cwd(), 'nb.html')
+      const targetPath = resolve(process.cwd(), 'dist', 'nb.html')
+      if (!existsSync(sourcePath)) throw new Error(`Notebook file not found: ${sourcePath}`)
+      cpSync(sourcePath, targetPath)
+    },
+  }
+}
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
     preact(),
     serveChartPlugin(),
     copyChartAssetsOnBuild(),
+    copyNotebookOnBuild(),
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'icon.png'],

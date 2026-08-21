@@ -12,6 +12,7 @@ import { Account } from '../../screens/Account';
 import { Scanner } from '../../screens/Scanner';
 import { Calendar } from '../../screens/Calendar';
 import { Futures } from '../../screens/Futures';
+import { Notebook } from '../../screens/Notebook';
 
 
 // Desktop-specific components
@@ -27,6 +28,7 @@ const screens = {
     account: Account,
     scanner: Scanner,
     calendar: Calendar,
+    notebook: Notebook,
 };
 
 export function DesktopShell() {
@@ -54,7 +56,7 @@ export function DesktopShell() {
                 {!fullscreen && <SideNav />}
 
                 {/* Main Content Area */}
-                <main className={`desktop-content ${currentTab === 'chart' ? 'desktop-content--chart' : ''}`}>
+                <main className={`desktop-content ${['chart', 'notebook'].includes(currentTab) ? 'desktop-content--chart' : ''}`}>
                     {currentTab === 'watchlist' ? (
                         <div className="desktop-split-view">
                             <div className="desktop-split-view__side" style={{ width: '350px', minWidth: '350px', maxWidth: '400px' }}>
