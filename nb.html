@@ -1,0 +1,537 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Trading Strategy Notebook</title>
+  <style>
+    :root{
+      color-scheme: dark;
+      --bg:#0b0d12;
+      --panel:#121722;
+      --panel2:#171d29;
+      --border:#283044;
+      --text:#edf2f7;
+      --muted:#99a4b5;
+      --accent:#8b5cf6;
+      --accent2:#22c55e;
+      --danger:#ef4444;
+      --input:#0e131d;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      background:var(--bg);
+      color:var(--text);
+    }
+    button,input,textarea,select{font:inherit}
+    .app{max-width:1000px;margin:0 auto;padding:20px}
+    .topbar{
+      position:sticky;top:0;z-index:10;
+      background:rgba(11,13,18,.94);
+      backdrop-filter:blur(12px);
+      border-bottom:1px solid var(--border);
+      margin:0 -20px 22px;
+      padding:14px 20px;
+    }
+    .toprow{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+    h1{font-size:20px;margin:0}
+    .subtitle{color:var(--muted);font-size:13px;margin-top:5px}
+    .actions{display:flex;gap:8px;flex-wrap:wrap}
+    button,.file-btn{
+      border:1px solid var(--border);
+      background:var(--panel2);
+      color:var(--text);
+      padding:9px 12px;border-radius:10px;
+      cursor:pointer;text-decoration:none;
+    }
+    button:hover,.file-btn:hover{border-color:#46516b}
+    button.danger{color:#fecaca;border-color:#5b2529}
+    .progress-wrap{margin-top:14px;display:flex;align-items:center;gap:10px}
+    .progress{height:8px;flex:1;background:#1c2230;border-radius:999px;overflow:hidden}
+    .progress > div{height:100%;background:var(--accent);width:0%;transition:.2s}
+    .progress-text{font-size:12px;color:var(--muted);min-width:86px;text-align:right}
+
+    .nav{
+      display:flex;gap:8px;overflow:auto;padding-bottom:8px;margin-bottom:14px;
+      scrollbar-width:thin;
+    }
+    .nav button{white-space:nowrap;padding:8px 11px}
+    .nav button.active{background:var(--accent);border-color:var(--accent);color:white}
+
+    .section{display:none}
+    .section.active{display:block}
+    .section-head{
+      display:flex;align-items:flex-start;justify-content:space-between;gap:15px;
+      margin-bottom:14px;
+    }
+    .section h2{font-size:18px;margin:0 0 5px}
+    .section-desc{margin:0;color:var(--muted);font-size:14px}
+    .question{
+      background:var(--panel);
+      border:1px solid var(--border);
+      border-radius:16px;
+      padding:18px;
+      margin:12px 0;
+    }
+    .qtop{display:flex;gap:10px;align-items:flex-start}
+    .qnum{
+      min-width:28px;height:28px;border-radius:8px;
+      display:grid;place-items:center;
+      background:#26213d;color:#c4b5fd;
+      font-size:12px;font-weight:700;
+    }
+    .qbody{flex:1}
+    .qtitle{font-weight:650;line-height:1.45}
+    .hint{color:var(--muted);font-size:13px;margin-top:6px;line-height:1.45}
+    textarea,input[type=text],select{
+      width:100%;margin-top:12px;
+      background:var(--input);color:var(--text);
+      border:1px solid var(--border);
+      border-radius:11px;padding:11px 12px;
+      outline:none;
+    }
+    textarea{min-height:120px;resize:vertical;line-height:1.5}
+    textarea:focus,input:focus,select:focus{border-color:var(--accent)}
+    .choice-list{display:grid;gap:8px;margin-top:12px}
+    .choice{
+      display:flex;align-items:flex-start;gap:9px;
+      padding:10px 12px;background:var(--input);
+      border:1px solid var(--border);border-radius:10px;
+    }
+    .choice input{margin-top:3px}
+    .saved{
+      font-size:12px;color:var(--muted);margin-top:8px;min-height:16px;
+    }
+    .saved.flash{color:#86efac}
+    .footer-nav{display:flex;justify-content:space-between;gap:10px;margin:20px 0 40px}
+    .primary{background:var(--accent);border-color:var(--accent);color:white}
+    .hidden{display:none!important}
+    .status-pill{
+      font-size:12px;padding:5px 8px;border-radius:999px;
+      background:#14301d;color:#86efac;border:1px solid #245c35;
+      white-space:nowrap;
+    }
+    .note{
+      border-left:3px solid var(--accent);
+      background:#151326;
+      padding:12px 14px;border-radius:0 10px 10px 0;
+      color:#d8d4ea;font-size:13px;line-height:1.55;margin:12px 0;
+    }
+    @media(max-width:640px){
+      .app{padding:14px}.topbar{margin:0 -14px 18px;padding:12px 14px}
+      .question{padding:14px}.actions{width:100%}.actions>*{flex:1;text-align:center}
+      .status-pill{display:none}
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <div class="toprow">
+      <div>
+        <h1>Trading Strategy Notebook</h1>
+        <div class="subtitle">Biến hiểu biết giao dịch thành rule rõ ràng, từng câu một.</div>
+      </div>
+      <div class="actions">
+        <button id="exportBtn">Xuất JSON</button>
+        <label class="file-btn" for="importFile">Nhập JSON</label>
+        <input id="importFile" class="hidden" type="file" accept="application/json,.json" />
+        <button id="resetBtn" class="danger">Xóa dữ liệu</button>
+      </div>
+    </div>
+    <div class="progress-wrap">
+      <div class="progress"><div id="progressBar"></div></div>
+      <div id="progressText" class="progress-text">0 / 0</div>
+    </div>
+  </div>
+
+  <div class="nav" id="nav"></div>
+  <main id="sections"></main>
+
+  <div class="footer-nav">
+    <button id="prevBtn">← Phần trước</button>
+    <button id="nextBtn" class="primary">Phần tiếp →</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  const STORAGE_KEY = "trading_strategy_notebook_v1";
+
+  const schema = [
+    {
+      id:"features",
+      title:"1. Features",
+      desc:"Định nghĩa chính xác những gì đang tồn tại trên chart.",
+      questions:[
+        {id:"atr1_params", title:"ATR 1 dùng thông số nào?", hint:"Ví dụ: ATRBot 200, VIDYA 200, multiplier 5...", type:"text"},
+        {id:"atr1_tf", title:"ATR 1 đại diện timeframe hoặc tầng xu hướng nào?", type:"text"},
+        {id:"atr1_role", title:"Vai trò chính của ATR 1 trong chiến lược là gì?", hint:"Bias lớn, xác định trend, support/resistance động, hay một vai trò khác?", type:"textarea"},
+        {id:"atr1_up", title:"Khi ATR 1 = UP, bạn hiểu điều đó chính xác là gì?", type:"textarea"},
+        {id:"atr1_down", title:"Khi ATR 1 = DOWN, bạn hiểu điều đó chính xác là gì?", type:"textarea"},
+
+        {id:"atr2_params", title:"ATR 2 dùng thông số nào?", type:"text"},
+        {id:"atr2_tf", title:"ATR 2 đại diện timeframe hoặc tầng xu hướng nào?", type:"text"},
+        {id:"atr2_role", title:"Vai trò chính của ATR 2 trong chiến lược là gì?", type:"textarea"},
+        {id:"atr2_up", title:"Khi ATR 2 = UP, bạn hiểu điều đó chính xác là gì?", type:"textarea"},
+        {id:"atr2_down", title:"Khi ATR 2 = DOWN, bạn hiểu điều đó chính xác là gì?", type:"textarea"},
+
+        {id:"vsr1_params", title:"VSR 1 dùng thông số/cycle nào?", type:"text"},
+        {id:"vsr1_role", title:"VSR 1 đại diện điều gì đối với bạn?", hint:"Support/resistance, volume regime, vùng reversal, target...", type:"textarea"},
+        {id:"vsr1_above", title:"Giá ở TRÊN VSR 1 có ý nghĩa gì?", type:"textarea"},
+        {id:"vsr1_below", title:"Giá ở DƯỚI VSR 1 có ý nghĩa gì?", type:"textarea"},
+        {id:"vsr1_touch", title:"Giá CHẠM VSR 1 có ý nghĩa gì?", type:"textarea"},
+        {id:"vsr1_new", title:"Một VSR 1 mới xuất hiện có ý nghĩa gì?", type:"textarea"},
+
+        {id:"vsr2_params", title:"VSR 2 dùng thông số/cycle nào?", type:"text"},
+        {id:"vsr2_role", title:"VSR 2 đại diện điều gì đối với bạn?", type:"textarea"},
+        {id:"vsr2_above", title:"Giá ở TRÊN VSR 2 có ý nghĩa gì?", type:"textarea"},
+        {id:"vsr2_below", title:"Giá ở DƯỚI VSR 2 có ý nghĩa gì?", type:"textarea"},
+        {id:"vsr2_touch", title:"Giá CHẠM VSR 2 có ý nghĩa gì?", type:"textarea"},
+        {id:"vsr2_new", title:"Một VSR 2 mới xuất hiện có ý nghĩa gì?", type:"textarea"},
+
+        {id:"other_indicators", title:"Ngoài 2 ATR + 2 VSR, chart còn indicator/feature nào cần đưa vào chiến lược?", hint:"Liệt kê từng cái và vai trò hiện tại của nó.", type:"textarea"}
+      ]
+    },
+    {
+      id:"event",
+      title:"2. Event Trigger",
+      desc:"Event chỉ có nhiệm vụ báo rằng thị trường vừa xảy ra điều đáng quan tâm.",
+      questions:[
+        {
+          id:"small_atr_flip_down",
+          title:"ATR lớn = UP, ATR nhỏ đang UP rồi chuyển DOWN. Bạn hiểu Event này là gì?",
+          type:"radio",
+          options:[
+            ["short","Chuẩn bị tìm SHORT"],
+            ["pullback","Có thể là pullback, bắt đầu tìm LONG"],
+            ["neutral","Chưa biết LONG/SHORT, chỉ ghi nhận state thay đổi"],
+            ["context","Phải phụ thuộc VSR / cấu trúc / indicator khác"]
+          ]
+        },
+        {id:"small_atr_flip_down_rules", title:"Trong trường hợp trên, điều gì khiến bạn kết luận đó chỉ là pullback?", type:"textarea"},
+        {id:"trend_break_rules", title:"Điều gì khiến bạn nghĩ trend lớn có khả năng bị phá?", type:"textarea"},
+        {id:"no_trade_rules", title:"Điều gì khiến bạn quyết định KHÔNG giao dịch sau Event đó?", type:"textarea"},
+        {id:"events_list", title:"Liệt kê tất cả Event mà bạn muốn hệ thống nhận biết.", hint:"Ví dụ: ATR đảo chiều, tạo VSR mới, chạm VSR, phá VSR, BOS, volume spike...", type:"textarea"},
+        {id:"event_priority", title:"Event nào quan trọng nhất? Nếu nhiều Event cùng xuất hiện, ưu tiên thế nào?", type:"textarea"},
+        {id:"event_expiry", title:"Một Event có hiệu lực trong bao lâu hoặc đến khi điều kiện nào khiến nó hết hiệu lực?", type:"textarea"}
+      ]
+    },
+    {
+      id:"wait",
+      title:"3. Wait Trigger",
+      desc:"Sau Event, thị trường phải chứng minh thêm điều gì trước khi setup được nâng cấp.",
+      questions:[
+        {id:"wait_after_atr_flip", title:"Sau khi ATR nhỏ đảo chiều, bạn thường chờ điều gì tiếp theo?", type:"textarea"},
+        {id:"wait_vsr", title:"VSR tham gia vào giai đoạn WAIT như thế nào?", type:"textarea"},
+        {id:"wait_structure", title:"Bạn có cần chờ cấu trúc thị trường thay đổi không? Nếu có, cụ thể là gì?", type:"textarea"},
+        {id:"wait_volume", title:"Bạn có cần xác nhận volume/động lượng trong WAIT không?", type:"textarea"},
+        {id:"wait_cancel", title:"Điều kiện nào hủy WAIT và reset setup về trạng thái ban đầu?", type:"textarea"},
+        {id:"wait_timeout", title:"WAIT có timeout không? Ví dụ quá X nến thì setup mất hiệu lực?", type:"textarea"}
+      ]
+    },
+    {
+      id:"alert",
+      title:"4. Alert Trigger",
+      desc:"Alert xuất hiện khi setup đã gần hoàn thành nhưng chưa đủ để Entry.",
+      questions:[
+        {id:"alert_definition", title:"Theo bạn, khi nào setup đã đủ tốt để phát ALERT?", type:"textarea"},
+        {id:"alert_long", title:"Điều kiện ALERT LONG gồm những gì?", type:"textarea"},
+        {id:"alert_short", title:"Điều kiện ALERT SHORT gồm những gì?", type:"textarea"},
+        {id:"alert_cancel", title:"Sau khi alert xuất hiện, điều gì khiến alert bị hủy?", type:"textarea"},
+        {id:"alert_repeat", title:"Một setup có được phát alert nhiều lần không?", type:"textarea"}
+      ]
+    },
+    {
+      id:"entry",
+      title:"5. Entry",
+      desc:"Entry phải biến toàn bộ setup thành điều kiện TRUE/FALSE rõ ràng.",
+      questions:[
+        {id:"entry_long", title:"Điều kiện chính xác để vào LONG là gì?", hint:"Hãy viết dạng AND: A đúng AND B đúng AND C đúng...", type:"textarea"},
+        {id:"entry_short", title:"Điều kiện chính xác để vào SHORT là gì?", type:"textarea"},
+        {id:"entry_price", title:"Bạn vào tại market, limit, retest hay close của nến xác nhận?", type:"textarea"},
+        {id:"entry_confirm_candle", title:"Có cần loại nến xác nhận cụ thể không?", type:"textarea"},
+        {id:"entry_missed", title:"Nếu giá chạy mất sau Alert mà không cho Entry đẹp, bạn xử lý thế nào?", type:"textarea"},
+        {id:"entry_reentry", title:"Có cho phép re-entry cùng một setup không? Điều kiện là gì?", type:"textarea"}
+      ]
+    },
+    {
+      id:"risk",
+      title:"6. Stop Loss & Risk",
+      desc:"Xác định khi nào luận điểm sai trước, sau đó mới tính khoảng cách SL.",
+      questions:[
+        {id:"sl_invalid_long", title:"Điều gì xảy ra thì luận điểm LONG được xem là sai?", type:"textarea"},
+        {id:"sl_invalid_short", title:"Điều gì xảy ra thì luận điểm SHORT được xem là sai?", type:"textarea"},
+        {id:"sl_location", title:"SL nên đặt dựa trên cấu trúc, VSR, ATR hay kết hợp?", type:"textarea"},
+        {id:"sl_buffer", title:"Có cần buffer ngoài vùng invalidation không? Tính thế nào?", type:"textarea"},
+        {id:"risk_trade", title:"Bạn muốn risk tối đa bao nhiêu % vốn cho mỗi lệnh?", type:"text"},
+        {id:"risk_daily", title:"Có giới hạn thua tối đa theo ngày / số lệnh liên tiếp không?", type:"textarea"}
+      ]
+    },
+    {
+      id:"tp",
+      title:"7. Take Profit & Management",
+      desc:"Tách target logic khỏi cách quản lý vị thế.",
+      questions:[
+        {id:"tp_primary", title:"Target chính của bạn dựa trên gì?", hint:"VSR đối diện, swing, liquidity, RR cố định, ATR extension...", type:"textarea"},
+        {id:"tp1", title:"TP1 được xác định thế nào?", type:"textarea"},
+        {id:"tp2", title:"TP2 được xác định thế nào?", type:"textarea"},
+        {id:"tp3", title:"Có TP3 / runner không? Nếu có, trailing bằng gì?", type:"textarea"},
+        {id:"breakeven", title:"Khi nào chuyển Stop Loss về hòa vốn?", type:"textarea"},
+        {id:"partial", title:"Có chốt từng phần không? Tỷ lệ bao nhiêu?", type:"textarea"},
+        {id:"early_exit", title:"Điều gì khiến bạn thoát lệnh sớm trước TP/SL?", type:"textarea"}
+      ]
+    },
+    {
+      id:"report",
+      title:"8. Report",
+      desc:"Xác định dữ liệu phải lưu để sau này kiểm chứng chiến lược.",
+      questions:[
+        {id:"report_setup_type", title:"Bạn muốn phân loại những loại setup nào trong report?", type:"textarea"},
+        {id:"report_features", title:"State của ATR/VSR/indicator nào phải lưu tại thời điểm Entry?", type:"textarea"},
+        {id:"report_prices", title:"Những giá nào cần lưu?", hint:"Entry, SL, TP, high/low sau entry, MFE, MAE...", type:"textarea"},
+        {id:"report_time", title:"Những mốc thời gian nào cần lưu?", hint:"Event time, Alert time, Entry time, Exit time...", type:"textarea"},
+        {id:"report_result", title:"Bạn muốn đánh giá kết quả theo metric nào?", hint:"R, PnL %, win/loss, MFE/MAE...", type:"textarea"},
+        {id:"report_screenshot", title:"Có cần screenshot chart trước Entry và sau Exit không?", type:"textarea"},
+        {id:"report_review", title:"Sau mỗi lệnh, bạn muốn tự trả lời những câu review nào?", type:"textarea"}
+      ]
+    },
+    {
+      id:"summary",
+      title:"9. Strategy Summary",
+      desc:"Sau khi trả lời các phần trên, viết lại chiến lược bằng ngôn ngữ ngắn gọn.",
+      questions:[
+        {id:"strategy_name", title:"Tên chiến lược là gì?", type:"text"},
+        {id:"strategy_one_sentence", title:"Mô tả chiến lược trong đúng 1–3 câu.", type:"textarea"},
+        {id:"strategy_flow", title:"Viết flow hoàn chỉnh: MARKET → EVENT → WAIT → ALERT → ENTRY → SL → TP → REPORT.", type:"textarea"},
+        {id:"strategy_unknowns", title:"Những phần nào bạn vẫn chưa chắc chắn và cần backtest/nghiên cứu thêm?", type:"textarea"}
+      ]
+    }
+  ];
+
+  let state = load();
+  let currentSection = Number(state.__currentSection || 0);
+
+  function load(){
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; }
+    catch(e){ return {}; }
+  }
+
+  function save(){
+    state.__currentSection = currentSection;
+    state.__updatedAt = new Date().toISOString();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    updateProgress();
+  }
+
+  const nav = document.getElementById("nav");
+  const sectionsEl = document.getElementById("sections");
+
+  schema.forEach((section, sIndex) => {
+    const navBtn = document.createElement("button");
+    navBtn.type = "button";
+    navBtn.textContent = section.title;
+    navBtn.dataset.index = sIndex;
+    navBtn.addEventListener("click", () => showSection(sIndex));
+    nav.appendChild(navBtn);
+
+    const sectionEl = document.createElement("section");
+    sectionEl.className = "section";
+    sectionEl.dataset.index = sIndex;
+
+    const head = document.createElement("div");
+    head.className = "section-head";
+    head.innerHTML = `
+      <div>
+        <h2>${section.title}</h2>
+        <p class="section-desc">${section.desc}</p>
+      </div>
+      <span class="status-pill">Tự động lưu</span>
+    `;
+    sectionEl.appendChild(head);
+
+    if(section.id === "event"){
+      const note = document.createElement("div");
+      note.className = "note";
+      note.textContent = "Nguyên tắc: Event không đồng nghĩa với Entry. Nó chỉ chuyển hệ thống từ trạng thái quan sát sang trạng thái cần theo dõi.";
+      sectionEl.appendChild(note);
+    }
+
+    section.questions.forEach((q, qIndex) => {
+      const card = document.createElement("div");
+      card.className = "question";
+
+      const top = document.createElement("div");
+      top.className = "qtop";
+
+      const num = document.createElement("div");
+      num.className = "qnum";
+      num.textContent = qIndex + 1;
+
+      const body = document.createElement("div");
+      body.className = "qbody";
+
+      const title = document.createElement("div");
+      title.className = "qtitle";
+      title.textContent = q.title;
+      body.appendChild(title);
+
+      if(q.hint){
+        const hint = document.createElement("div");
+        hint.className = "hint";
+        hint.textContent = q.hint;
+        body.appendChild(hint);
+      }
+
+      let input;
+      if(q.type === "textarea"){
+        input = document.createElement("textarea");
+        input.placeholder = "Ghi câu trả lời của bạn...";
+        input.value = state[q.id] || "";
+        input.addEventListener("input", () => {
+          state[q.id] = input.value;
+          save();
+          flashSaved(saved);
+        });
+        body.appendChild(input);
+      } else if(q.type === "text"){
+        input = document.createElement("input");
+        input.type = "text";
+        input.placeholder = "Nhập câu trả lời...";
+        input.value = state[q.id] || "";
+        input.addEventListener("input", () => {
+          state[q.id] = input.value;
+          save();
+          flashSaved(saved);
+        });
+        body.appendChild(input);
+      } else if(q.type === "radio"){
+        const list = document.createElement("div");
+        list.className = "choice-list";
+        q.options.forEach(([value,label]) => {
+          const row = document.createElement("label");
+          row.className = "choice";
+          const radio = document.createElement("input");
+          radio.type = "radio";
+          radio.name = q.id;
+          radio.value = value;
+          radio.checked = state[q.id] === value;
+          radio.addEventListener("change", () => {
+            if(radio.checked){
+              state[q.id] = value;
+              save();
+              flashSaved(saved);
+            }
+          });
+          const span = document.createElement("span");
+          span.textContent = label;
+          row.append(radio, span);
+          list.appendChild(row);
+        });
+        body.appendChild(list);
+      }
+
+      const saved = document.createElement("div");
+      saved.className = "saved";
+      saved.textContent = state[q.id] ? "Đã có câu trả lời" : "";
+      body.appendChild(saved);
+
+      top.append(num, body);
+      card.appendChild(top);
+      sectionEl.appendChild(card);
+    });
+
+    sectionsEl.appendChild(sectionEl);
+  });
+
+  function flashSaved(el){
+    el.textContent = "Đã lưu vào localStorage";
+    el.classList.add("flash");
+    clearTimeout(el._t);
+    el._t = setTimeout(() => {
+      el.textContent = "Đã có câu trả lời";
+      el.classList.remove("flash");
+    }, 900);
+  }
+
+  function showSection(index){
+    currentSection = Math.max(0, Math.min(schema.length - 1, index));
+    [...document.querySelectorAll(".section")].forEach((el,i) => el.classList.toggle("active", i === currentSection));
+    [...nav.children].forEach((el,i) => el.classList.toggle("active", i === currentSection));
+    document.getElementById("prevBtn").disabled = currentSection === 0;
+    document.getElementById("nextBtn").textContent = currentSection === schema.length - 1 ? "Hoàn tất ✓" : "Phần tiếp →";
+    save();
+    nav.children[currentSection]?.scrollIntoView({behavior:"smooth", inline:"center", block:"nearest"});
+    window.scrollTo({top:0, behavior:"smooth"});
+  }
+
+  function allQuestions(){
+    return schema.flatMap(s => s.questions);
+  }
+
+  function isAnswered(q){
+    const v = state[q.id];
+    return typeof v === "string" && v.trim().length > 0;
+  }
+
+  function updateProgress(){
+    const qs = allQuestions();
+    const answered = qs.filter(isAnswered).length;
+    const pct = qs.length ? answered / qs.length * 100 : 0;
+    document.getElementById("progressBar").style.width = pct + "%";
+    document.getElementById("progressText").textContent = `${answered} / ${qs.length}`;
+  }
+
+  document.getElementById("prevBtn").addEventListener("click", () => showSection(currentSection - 1));
+  document.getElementById("nextBtn").addEventListener("click", () => {
+    if(currentSection < schema.length - 1) showSection(currentSection + 1);
+    else alert("Notebook đã hoàn tất. Bạn có thể Xuất JSON để sao lưu hoặc gửi dữ liệu cho AI phân tích.");
+  });
+
+  document.getElementById("exportBtn").addEventListener("click", () => {
+    const payload = {
+      notebook: "Trading Strategy Notebook",
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      answers: Object.fromEntries(allQuestions().map(q => [q.id, state[q.id] || ""]))
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {type:"application/json"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `trading-strategy-notebook-${new Date().toISOString().slice(0,10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  document.getElementById("importFile").addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    if(!file) return;
+    try{
+      const imported = JSON.parse(await file.text());
+      const answers = imported.answers || imported;
+      allQuestions().forEach(q => {
+        if(typeof answers[q.id] === "string") state[q.id] = answers[q.id];
+      });
+      save();
+      location.reload();
+    }catch(err){
+      alert("File JSON không hợp lệ.");
+    }
+  });
+
+  document.getElementById("resetBtn").addEventListener("click", () => {
+    if(confirm("Xóa toàn bộ câu trả lời đã lưu trên trình duyệt này?")){
+      localStorage.removeItem(STORAGE_KEY);
+      location.reload();
+    }
+  });
+
+  showSection(currentSection);
+  updateProgress();
+})();
+</script>
+</body>
+</html>
