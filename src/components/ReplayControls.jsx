@@ -320,6 +320,7 @@ export function useReplayEngine(tvWidgetRef, datafeedRef) {
             if (typeof createSwingPoints !== 'undefined') customStudies.push(createSwingPoints);
             if (typeof createKAMA !== 'undefined') customStudies.push(createKAMA);
             if (typeof createSMC !== 'undefined') customStudies.push(createSMC);
+            if (typeof createSR_1 !== 'undefined') customStudies.push(createSR_1);
             if (typeof createFVG !== 'undefined') customStudies.push(createFVG);
             if (typeof createForexFlowSupplyDemand !== 'undefined') customStudies.push(createForexFlowSupplyDemand);
             if (typeof createForexFlowTrend !== 'undefined') customStudies.push(createForexFlowTrend);
