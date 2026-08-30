@@ -110,6 +110,7 @@ async function initTradingView() {
                 createKAMA(PineJS),
                 createSMC(PineJS),
                 createSR_1(PineJS),
+                createMarketStructure(PineJS),
                 createFVG(PineJS),
                 createForexFlowSupplyDemand(PineJS),
                 createForexFlowTrend(PineJS)
