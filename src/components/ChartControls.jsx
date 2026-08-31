@@ -139,6 +139,7 @@ export function IndicatorsPicker({ tvWidget, onClose }) {
         { id: 'VIDYA', name: 'VIDYA', description: 'Variable Index Dynamic Average' },
         { id: 'Session VP', name: 'Session VP', description: 'Session Volume Profile' },
         { id: 'Swing Points', name: 'Swing Points', description: 'Swing High/Low Points' },
+        { id: 'Adaptive ZigZag', name: 'Adaptive ZigZag', description: 'State-Space & ATR Normalized ZigZag' },
         { id: 'KAMA', name: 'KAMA', description: "Kaufman's Adaptive MA" },
         { id: 'SMC', name: 'SMC', description: 'Smart Money Concepts' },
         { id: 'FVG', name: 'FVG', description: 'Fair Value Gaps' },

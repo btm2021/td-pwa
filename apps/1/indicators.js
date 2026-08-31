@@ -96,3 +96,204 @@ export const calcZigZag = (data, botatr) => {
 
     return pivots;
 };
+
+/**
+ * calcAdaptiveZigZag - Adaptive Robust ZigZag using State-Space & ATR Normalization
+ * @param {Array} data - Array of OHLCV candles [{ time, open, high, low, close, volume }]
+ * @param {Object} options - { atrPeriod: 14, atrMultiplier: 2.0, modelPeriod: 20 }
+ * @returns {Object} { pivots: Array, zigzagSeries: Array, levels: { swingHigh, swingLow } }
+ */
+export const calcAdaptiveZigZag = (data, options = {}) => {
+    const atrPeriod = options.atrPeriod || 14;
+    const atrMultiplier = options.atrMultiplier || 2.0;
+    const modelPeriod = options.modelPeriod || 20;
+
+    const alpha = 2 / (modelPeriod + 1);
+    const beta = 0.5 * alpha;
+
+    let prevClose = NaN;
+    let prevAtr = NaN;
+    let prevLevel = NaN;
+    let prevVelocity = 0;
+    let prevUncertainty = 0;
+    let prevEvidence = 0;
+    let prevTrail = NaN;
+    let prevDirection = 0;
+    let prevBias = 0;
+
+    let legExtremumPrice = NaN;
+    let legExtremumIdx = -1;
+    let lastConfirmedHigh = NaN;
+    let lastConfirmedLow = NaN;
+
+    const pivots = [];
+    const zigzagSeries = new Array(data.length).fill(null);
+
+    for (let i = 0; i < data.length; i++) {
+        const d = data[i];
+        const high = d.high;
+        const low = d.low;
+        const close = d.close;
+
+        // 1. ATR
+        const tr = isNaN(prevClose) ? high - low : Math.max(high - low, Math.abs(high - prevClose), Math.abs(low - prevClose));
+        const atr = isNaN(prevAtr) ? tr : (prevAtr * (atrPeriod - 1) + tr) / atrPeriod;
+
+        // 2. State-Space
+        const predictedLevel = isNaN(prevLevel) ? close : prevLevel + prevVelocity;
+        const innovation = close - predictedLevel;
+        const scale = Math.max(atr, prevUncertainty, Math.abs(close) * 1e-9, 1e-12);
+        const robustInnovation = scale * Math.tanh(innovation / scale);
+
+        const level = predictedLevel + alpha * robustInnovation;
+        const velocity = (1 - 0.25 * alpha) * prevVelocity + beta * robustInnovation;
+        const uncertainty = (1 - alpha) * prevUncertainty + alpha * Math.abs(innovation);
+
+        // 3. Evidence
+        const safeAtr = Math.max(atr, Math.abs(close) * 1e-9, 1e-12);
+        const velocityEvidence = Math.tanh(3 * velocity / safeAtr);
+        const evidence = (1 - alpha) * prevEvidence + alpha * velocityEvidence;
+
+        // 4. Direction & Hysteresis
+        let direction = prevDirection;
+        if (direction === 0) {
+            if (evidence >= 0.28) direction = 1;
+            else if (evidence <= -0.28) direction = -1;
+        } else if (direction === 1) {
+            if (evidence <= -0.28) direction = -1;
+            else if (evidence < 0.08) direction = 0;
+        } else {
+            if (evidence >= 0.28) direction = 1;
+            else if (evidence > -0.08) direction = 0;
+        }
+
+        let bias = direction !== 0 ? direction : prevBias;
+        if (bias === 0) bias = evidence < 0 ? -1 : 1;
+        if (direction === 0) {
+            if (evidence >= 0.08) bias = 1;
+            else if (evidence <= -0.08) bias = -1;
+        }
+
+        // 5. Adaptive Trail Distance
+        const trail1 = level + velocity;
+        const uncertaintyRatio = uncertainty / (safeAtr + uncertainty);
+        const adaptiveDistance = atr * atrMultiplier * (1 + 0.6 * uncertaintyRatio);
+
+        let trail2;
+        if (bias === 1) {
+            const candidate = Math.min(trail1 - adaptiveDistance, close - 0.25 * atr);
+            const canRatchet = prevBias === 1 && !isNaN(prevTrail) && prevTrail < close;
+            trail2 = canRatchet ? Math.max(prevTrail, candidate) : candidate;
+        } else {
+            const candidate = Math.max(trail1 + adaptiveDistance, close + 0.25 * atr);
+            const canRatchet = prevBias === -1 && !isNaN(prevTrail) && prevTrail > close;
+            trail2 = canRatchet ? Math.min(prevTrail, candidate) : candidate;
+        }
+
+        // 6. Swing Pivot Locking & Level Rays
+        if (isNaN(legExtremumPrice)) {
+            legExtremumPrice = bias === 1 ? high : low;
+            legExtremumIdx = i;
+        }
+
+        if (bias === 1 && prevBias === -1) {
+            // Flipped to Bull -> Confirmed Swing Low!
+            const swingLowPrice = legExtremumPrice;
+            const swingLowIdx = legExtremumIdx;
+            const label = isNaN(lastConfirmedLow) || swingLowPrice >= lastConfirmedLow ? 'HL' : 'LL';
+
+            pivots.push({
+                index: swingLowIdx,
+                time: data[swingLowIdx].time,
+                price: swingLowPrice,
+                type: 'low',
+                label
+            });
+            zigzagSeries[swingLowIdx] = swingLowPrice;
+
+            lastConfirmedLow = swingLowPrice;
+            legExtremumPrice = high;
+            legExtremumIdx = i;
+        } else if (bias === -1 && prevBias === 1) {
+            // Flipped to Bear -> Confirmed Swing High!
+            const swingHighPrice = legExtremumPrice;
+            const swingHighIdx = legExtremumIdx;
+            const label = isNaN(lastConfirmedHigh) || swingHighPrice >= lastConfirmedHigh ? 'HH' : 'LH';
+
+            pivots.push({
+                index: swingHighIdx,
+                time: data[swingHighIdx].time,
+                price: swingHighPrice,
+                type: 'high',
+                label
+            });
+            zigzagSeries[swingHighIdx] = swingHighPrice;
+
+            lastConfirmedHigh = swingHighPrice;
+            legExtremumPrice = low;
+            legExtremumIdx = i;
+        } else {
+            if (bias === 1) {
+                if (high >= legExtremumPrice) {
+                    legExtremumPrice = high;
+                    legExtremumIdx = i;
+                }
+            } else {
+                if (low <= legExtremumPrice) {
+                    legExtremumPrice = low;
+                    legExtremumIdx = i;
+                }
+            }
+        }
+
+        prevClose = close;
+        prevAtr = atr;
+        prevLevel = level;
+        prevVelocity = velocity;
+        prevUncertainty = uncertainty;
+        prevEvidence = evidence;
+        prevTrail = trail2;
+        prevDirection = direction;
+        prevBias = bias;
+    }
+
+    // Compute Ray Extension from each pivot until touched/mitigated
+    const levelRays = pivots.map((p, idx) => {
+        let endIndex = data.length - 1;
+        let touched = false;
+
+        for (let j = p.index + 1; j < data.length; j++) {
+            if (p.type === 'high' && data[j].high >= p.price) {
+                endIndex = j;
+                touched = true;
+                break;
+            } else if (p.type === 'low' && data[j].low <= p.price) {
+                endIndex = j;
+                touched = true;
+                break;
+            }
+        }
+
+        return {
+            pivotIndex: p.index,
+            startIndex: p.index,
+            endIndex: endIndex,
+            startTime: p.time,
+            endTime: data[endIndex] ? data[endIndex].time : p.time,
+            price: p.price,
+            type: p.type,
+            label: p.label,
+            touched
+        };
+    });
+
+    return {
+        pivots,
+        zigzagSeries,
+        levelRays,
+        lastConfirmedHigh,
+        lastConfirmedLow
+    };
+};
+
+

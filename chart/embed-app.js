@@ -111,6 +111,7 @@ async function initTradingView() {
                 createSMC(PineJS),
                 createSR_1(PineJS),
                 createMarketStructure(PineJS),
+                createAdaptiveZigZag(PineJS),
                 createFVG(PineJS),
                 createForexFlowSupplyDemand(PineJS),
                 createForexFlowTrend(PineJS)

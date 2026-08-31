@@ -26,6 +26,7 @@ function getCustomStudies() {
     if (typeof createSMC !== 'undefined') studies.push(createSMC);
     if (typeof createSR_1 !== 'undefined') studies.push(createSR_1);
     if (typeof createMarketStructure !== 'undefined') studies.push(createMarketStructure);
+    if (typeof createAdaptiveZigZag !== 'undefined') studies.push(createAdaptiveZigZag);
     if (typeof createFVG !== 'undefined') studies.push(createFVG);
     if (typeof createForexFlowSupplyDemand !== 'undefined') studies.push(createForexFlowSupplyDemand);
     if (typeof createForexFlowTrend !== 'undefined') studies.push(createForexFlowTrend);
