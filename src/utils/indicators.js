@@ -61,67 +61,114 @@ export const calcVSR = (data, l, t) => {
 };
 
 // ============================================
-// ATRBOT ER-ADAPTIVE (VERSION 2)
+// ATRBOT ER-ADAPTIVE (VERSION 2 - DUAL BIAS & ENTRY)
 // ============================================
 
-export const DEFAULT_ATRBOT_ER_PARAMS = {
-    source: 'close',
-    maLen: 30,
-    maType: 'EMA', // 'EMA' | 'VWMA' | 'VIDYA'
-    vidyaCmoLen: 9,
-    atrLen: 14,
-    multBase: 2.0,
-    multMin: 1.0,
-    multMax: 3.5,
-    erLen: 20,
-    erSmooth: 5,
-    erPower: 2.0,
-    erSlopeGuard: true,
-    erSlopeLen: 3
+export const DEFAULT_BIAS_ATRBOT_ER = {
+    params: {
+        source: 'close',
+        maLen: 55,
+        maType: 'VIDYA',
+        vidyaCmoLen: 9,
+        atrLen: 14,
+        multBase: 2.0,
+        multMin: 1.0,
+        multMax: 3.5,
+        erLen: 20,
+        erSmooth: 5,
+        erPower: 2.0,
+        erSlopeGuard: true,
+        erSlopeLen: 3
+    },
+    style: {
+        showTrail1: false, // Ẩn 2 trail
+        showTrail2: false,
+        trail1Color: '#00ff88',
+        trail1Width: 2,
+        trail2Color: '#ff4444',
+        trail2Width: 2,
+        showFill: true, // Chỉ hiện fill
+        fillBullColor: 'rgba(0, 255, 136, 0.12)',
+        fillBearColor: 'rgba(255, 68, 68, 0.12)'
+    }
 };
 
-export const DEFAULT_ATRBOT_ER_STYLE = {
-    showTrail1: true,
-    trail1Color: '#00ff88',
-    trail1Width: 2,
-    showTrail2: true,
-    trail2Color: '#ff4444',
-    trail2Width: 2,
-    showFill: true,
-    fillBullColor: 'rgba(0, 255, 136, 0.12)',
-    fillBearColor: 'rgba(255, 68, 68, 0.12)'
+export const DEFAULT_ENTRY_ATRBOT_ER = {
+    params: {
+        source: 'close',
+        maLen: 21,
+        maType: 'VIDYA',
+        vidyaCmoLen: 9,
+        atrLen: 14,
+        multBase: 2.0,
+        multMin: 1.0,
+        multMax: 3.5,
+        erLen: 20,
+        erSmooth: 5,
+        erPower: 2.0,
+        erSlopeGuard: true,
+        erSlopeLen: 3
+    },
+    style: {
+        showTrail1: true, // Hiện trail xanh
+        showTrail2: true, // Hiện trail đỏ
+        trail1Color: '#00ff88',
+        trail1Width: 2,
+        trail2Color: '#ff4444',
+        trail2Width: 2,
+        showFill: false, // Ẩn fill
+        fillBullColor: 'rgba(0, 255, 136, 0.12)',
+        fillBearColor: 'rgba(255, 68, 68, 0.12)'
+    }
 };
 
-const ATRBOT_STORAGE_KEY = 'td_lightweight_atrbot_er_config';
+export const DEFAULT_DUAL_ATRBOT_CONFIG = {
+    bias: DEFAULT_BIAS_ATRBOT_ER,
+    entry: DEFAULT_ENTRY_ATRBOT_ER
+};
 
-export function getStoredATRBotConfig() {
+const DUAL_ATRBOT_STORAGE_KEY = 'td_lightweight_atrbot_dual_config';
+
+export function getStoredDualATRBotConfig() {
     try {
-        const raw = typeof window !== 'undefined' ? localStorage.getItem(ATRBOT_STORAGE_KEY) : null;
+        const raw = typeof window !== 'undefined' ? localStorage.getItem(DUAL_ATRBOT_STORAGE_KEY) : null;
         if (raw) {
             const parsed = JSON.parse(raw);
             return {
-                params: { ...DEFAULT_ATRBOT_ER_PARAMS, ...(parsed.params || {}) },
-                style: { ...DEFAULT_ATRBOT_ER_STYLE, ...(parsed.style || {}) }
+                bias: {
+                    params: { ...DEFAULT_BIAS_ATRBOT_ER.params, ...(parsed.bias?.params || {}) },
+                    style: { ...DEFAULT_BIAS_ATRBOT_ER.style, ...(parsed.bias?.style || {}) }
+                },
+                entry: {
+                    params: { ...DEFAULT_ENTRY_ATRBOT_ER.params, ...(parsed.entry?.params || {}) },
+                    style: { ...DEFAULT_ENTRY_ATRBOT_ER.style, ...(parsed.entry?.style || {}) }
+                }
             };
         }
     } catch (e) {
-        console.warn('Error reading stored ATRBot ER config', e);
+        console.warn('Error reading stored Dual ATRBot config', e);
     }
     return {
-        params: { ...DEFAULT_ATRBOT_ER_PARAMS },
-        style: { ...DEFAULT_ATRBOT_ER_STYLE }
+        bias: JSON.parse(JSON.stringify(DEFAULT_BIAS_ATRBOT_ER)),
+        entry: JSON.parse(JSON.stringify(DEFAULT_ENTRY_ATRBOT_ER))
     };
 }
 
-export function saveStoredATRBotConfig(config) {
+export function saveStoredDualATRBotConfig(config) {
     try {
         if (typeof window !== 'undefined') {
-            localStorage.setItem(ATRBOT_STORAGE_KEY, JSON.stringify(config));
+            localStorage.setItem(DUAL_ATRBOT_STORAGE_KEY, JSON.stringify(config));
         }
     } catch (e) {
-        console.warn('Error saving ATRBot ER config to localStorage', e);
+        console.warn('Error saving Dual ATRBot config to localStorage', e);
     }
 }
+
+// Backward compatibility exports
+export const DEFAULT_ATRBOT_ER_PARAMS = DEFAULT_ENTRY_ATRBOT_ER.params;
+export const DEFAULT_ATRBOT_ER_STYLE = DEFAULT_ENTRY_ATRBOT_ER.style;
+export const getStoredATRBotConfig = getStoredDualATRBotConfig;
+export const saveStoredATRBotConfig = saveStoredDualATRBotConfig;
 
 export function hexToRgba(hex, alpha = 0.12) {
     if (!hex) return `rgba(0, 255, 136, ${alpha})`;

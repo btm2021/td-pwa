@@ -7,8 +7,10 @@ import { fetchOHLCV } from '../utils/data';
 import {
     calcATRBotER,
     calcVSR,
-    getStoredATRBotConfig,
-    saveStoredATRBotConfig
+    getStoredDualATRBotConfig,
+    saveStoredDualATRBotConfig,
+    DEFAULT_BIAS_ATRBOT_ER,
+    DEFAULT_ENTRY_ATRBOT_ER
 } from '../utils/indicators';
 import { ATRBotSettingsModal } from './ATRBotSettingsModal';
 import { createChart, CandlestickSeries, LineSeries, createSeriesMarkers } from 'lightweight-charts';
@@ -18,13 +20,13 @@ export function SymbolInfoPanel() {
     const ticker = getTicker(symbol);
     const [imgError, setImgError] = useState(false);
 
-    // ATRBot ER Config State (persisted in localStorage)
-    const [atrConfig, setAtrConfig] = useState(() => getStoredATRBotConfig());
+    // Dual ATRBot ER Config State (persisted in localStorage)
+    const [atrConfig, setAtrConfig] = useState(() => getStoredDualATRBotConfig());
     const [showSettings, setShowSettings] = useState(false);
 
     const handleSaveConfig = (newConfig) => {
         setAtrConfig(newConfig);
-        saveStoredATRBotConfig(newConfig);
+        saveStoredDualATRBotConfig(newConfig);
     };
 
     // PnL Mode Global State (to be passed down)
@@ -62,8 +64,12 @@ export function SymbolInfoPanel() {
                 if (history && history.length > 50) {
                     setData(history);
 
-                    // ATRBot ER-Adaptive (Version 2)
-                    const atrBotER = calcATRBotER(history, atrConfig.params);
+                    // Dual ATRBot ER (Bias & Entry)
+                    const biasParams = atrConfig?.bias?.params || DEFAULT_BIAS_ATRBOT_ER.params;
+                    const entryParams = atrConfig?.entry?.params || DEFAULT_ENTRY_ATRBOT_ER.params;
+
+                    const biasRes = calcATRBotER(history, biasParams);
+                    const entryRes = calcATRBotER(history, entryParams);
                     const vsr = calcVSR(history, 10, 5);
 
                     const lastIdx = history.length - 1;
@@ -71,11 +77,12 @@ export function SymbolInfoPanel() {
                     const seriesData = history.map((d, i) => {
                         return {
                             time: d.time,
-                            trail1: atrBotER.trail1[i],
-                            trail2: atrBotER.trail2[i],
-                            er: atrBotER.er[i],
-                            mult: atrBotER.mult[i],
-                            trend: atrBotER.trend[i],
+                            biasTrail1: biasRes.trail1[i],
+                            biasTrail2: biasRes.trail2[i],
+                            biasTrend: biasRes.trend[i],
+                            entryTrail1: entryRes.trail1[i],
+                            entryTrail2: entryRes.trail2[i],
+                            entryTrend: entryRes.trend[i],
                             vsrUp: vsr.up[i],
                             vsrLo: vsr.lo[i]
                         };
@@ -83,13 +90,12 @@ export function SymbolInfoPanel() {
 
                     setIndicators({
                         bot: {
-                            trailing: atrBotER.trail2[lastIdx],
-                            ma: atrBotER.trail1[lastIdx],
-                            er: atrBotER.er[lastIdx],
-                            mult: atrBotER.mult[lastIdx],
-                            trend: atrBotER.trend[lastIdx],
-                            trail1: seriesData.map(d => ({ time: d.time, value: d.trail1 })).filter(d => Number.isFinite(d.value)),
-                            trail2: seriesData.map(d => ({ time: d.time, value: d.trail2 })).filter(d => Number.isFinite(d.value)),
+                            biasTrailing: biasRes.trail2[lastIdx],
+                            biasMa: biasRes.trail1[lastIdx],
+                            biasTrend: biasRes.trend[lastIdx],
+                            entryTrailing: entryRes.trail2[lastIdx],
+                            entryMa: entryRes.trail1[lastIdx],
+                            entryTrend: entryRes.trend[lastIdx],
                         },
                         vsr: {
                             up: vsr.up[lastIdx],
@@ -97,8 +103,10 @@ export function SymbolInfoPanel() {
                             isSpike: vsr.beg[lastIdx]
                         },
                         series: {
-                            trail1: seriesData.map(d => ({ time: d.time, value: d.trail1 })).filter(d => Number.isFinite(d.value)),
-                            trail2: seriesData.map(d => ({ time: d.time, value: d.trail2 })).filter(d => Number.isFinite(d.value)),
+                            biasTrail1: seriesData.map(d => ({ time: d.time, value: d.biasTrail1 })).filter(d => Number.isFinite(d.value)),
+                            biasTrail2: seriesData.map(d => ({ time: d.time, value: d.biasTrail2 })).filter(d => Number.isFinite(d.value)),
+                            entryTrail1: seriesData.map(d => ({ time: d.time, value: d.entryTrail1 })).filter(d => Number.isFinite(d.value)),
+                            entryTrail2: seriesData.map(d => ({ time: d.time, value: d.entryTrail2 })).filter(d => Number.isFinite(d.value)),
                         },
                         history: history,
                         vsrRes: vsr,
@@ -115,7 +123,7 @@ export function SymbolInfoPanel() {
         }
         loadData();
         return () => { isMounted = false; };
-    }, [symbol, interval, atrConfig.params]);
+    }, [symbol, interval, atrConfig?.bias?.params, atrConfig?.entry?.params]);
 
     // Derived State for Header Meta
     let bias = 'NEUTRAL';
@@ -128,7 +136,8 @@ export function SymbolInfoPanel() {
         const bot = indicators.bot;
         const vsr = indicators.vsr;
 
-        const isBullish = bot.trend === 1 || currentPrice > bot.trailing;
+        // Header Bias determined by Bias ATRBot ER
+        const isBullish = bot.biasTrend === 1 || currentPrice > bot.biasTrailing;
         isInVsrZone = vsr.up && currentPrice <= vsr.up && currentPrice >= vsr.lo;
 
         bias = isBullish ? 'BULLISH' : 'BEARISH';
@@ -268,7 +277,7 @@ export function SymbolInfoPanel() {
                         symbol={symbol}
                         pnlMode={pnlMode}
                         setPnlMode={setPnlMode}
-                        style={atrConfig.style}
+                        atrConfig={atrConfig}
                     />
                 </div>
             </div>
@@ -286,7 +295,7 @@ export function SymbolInfoPanel() {
     );
 }
 
-function IndicatorChart({ data, indicators, loading, error, symbol, pnlMode, setPnlMode, style }) {
+function IndicatorChart({ data, indicators, loading, error, symbol, pnlMode, setPnlMode, atrConfig }) {
     if (loading) {
         return (
             <div className="premium-loading-overlay">
@@ -329,20 +338,20 @@ function IndicatorChart({ data, indicators, loading, error, symbol, pnlMode, set
                 symbol={symbol}
                 pnlModeExternal={pnlMode}
                 setPnlModeExternal={setPnlMode}
-                style={style}
+                atrConfig={atrConfig}
             />
         </div>
     );
 }
 
-
-
-function MiniChart({ data, indicators, history, vsrRes, symbol, pnlModeExternal, setPnlModeExternal, style }) {
+function MiniChart({ data, indicators, history, vsrRes, symbol, pnlModeExternal, setPnlModeExternal, atrConfig }) {
     const chartContainerRef = useRef();
     const chartRef = useRef(null);
     const candleSeriesRef = useRef(null);
-    const trail1SeriesRef = useRef(null);
-    const trail2SeriesRef = useRef(null);
+    const entryTrail1SeriesRef = useRef(null);
+    const entryTrail2SeriesRef = useRef(null);
+    const biasTrail1SeriesRef = useRef(null);
+    const biasTrail2SeriesRef = useRef(null);
     const markersPluginRef = useRef(null); // LC v5: Series markers plugin
     const [pnlPoints, setPnlPoints] = useState([]);
     const [livePnl, setLivePnl] = useState(null);
@@ -376,21 +385,44 @@ function MiniChart({ data, indicators, history, vsrRes, symbol, pnlModeExternal,
             wickUpColor: '#00ff88', wickDownColor: '#ff4444',
         });
 
-        // ATRBot ER Trail 1 (MA line)
-        const trail1Series = chart.addSeries(LineSeries, {
-            color: style?.trail1Color || '#00ff88',
-            lineWidth: style?.trail1Width || 2,
-            visible: style?.showTrail1 !== false,
+        const biasStyle = atrConfig?.bias?.style || DEFAULT_BIAS_ATRBOT_ER.style;
+        const entryStyle = atrConfig?.entry?.style || DEFAULT_ENTRY_ATRBOT_ER.style;
+
+        // Entry Trail 1 (MA line - green)
+        const entryTrail1 = chart.addSeries(LineSeries, {
+            color: entryStyle?.trail1Color || '#00ff88',
+            lineWidth: entryStyle?.trail1Width || 2,
+            visible: entryStyle?.showTrail1 !== false,
             crosshairMarkerVisible: false,
             lastValueVisible: false,
             priceLineVisible: false
         });
 
-        // ATRBot ER Trail 2 (ATR Trailing Stop)
-        const trail2Series = chart.addSeries(LineSeries, {
-            color: style?.trail2Color || '#ff4444',
-            lineWidth: style?.trail2Width || 2,
-            visible: style?.showTrail2 !== false,
+        // Entry Trail 2 (ATR Trailing Stop - red)
+        const entryTrail2 = chart.addSeries(LineSeries, {
+            color: entryStyle?.trail2Color || '#ff4444',
+            lineWidth: entryStyle?.trail2Width || 2,
+            visible: entryStyle?.showTrail2 !== false,
+            crosshairMarkerVisible: false,
+            lastValueVisible: false,
+            priceLineVisible: false
+        });
+
+        // Bias Trail 1 (MA line - default hidden)
+        const biasTrail1 = chart.addSeries(LineSeries, {
+            color: biasStyle?.trail1Color || '#00ff88',
+            lineWidth: biasStyle?.trail1Width || 2,
+            visible: !!biasStyle?.showTrail1,
+            crosshairMarkerVisible: false,
+            lastValueVisible: false,
+            priceLineVisible: false
+        });
+
+        // Bias Trail 2 (ATR Trailing Stop - default hidden)
+        const biasTrail2 = chart.addSeries(LineSeries, {
+            color: biasStyle?.trail2Color || '#ff4444',
+            lineWidth: biasStyle?.trail2Width || 2,
+            visible: !!biasStyle?.showTrail2,
             crosshairMarkerVisible: false,
             lastValueVisible: false,
             priceLineVisible: false
@@ -398,8 +430,10 @@ function MiniChart({ data, indicators, history, vsrRes, symbol, pnlModeExternal,
 
         chartRef.current = chart;
         candleSeriesRef.current = candleSeries;
-        trail1SeriesRef.current = trail1Series;
-        trail2SeriesRef.current = trail2Series;
+        entryTrail1SeriesRef.current = entryTrail1;
+        entryTrail2SeriesRef.current = entryTrail2;
+        biasTrail1SeriesRef.current = biasTrail1;
+        biasTrail2SeriesRef.current = biasTrail2;
 
         // Overlay Canvas
         const canvas = document.createElement('canvas');
@@ -417,33 +451,73 @@ function MiniChart({ data, indicators, history, vsrRes, symbol, pnlModeExternal,
 
             const timeScale = chart.timeScale();
             const series = candleSeriesRef.current;
-
-            // Trend Cloud Fill (ATRBot ER: Trail 1 vs Trail 2)
-            const showFill = style?.showFill !== false;
             const aligned = indicators?.aligned;
-            if (showFill && aligned && aligned.length > 0) {
+
+            // 1. Bias Cloud Fill (Default Active: Cloud between biasTrail1 & biasTrail2)
+            const showBiasFill = biasStyle?.showFill !== false;
+            if (showBiasFill && aligned && aligned.length > 0) {
                 let path = [];
                 let lastBias = null;
                 const flushPath = (p, bias) => {
                     if (p.length < 2) return;
                     ctx.beginPath();
                     ctx.fillStyle = bias === 'up'
-                        ? (style?.fillBullColor || 'rgba(0, 255, 136, 0.12)')
-                        : (style?.fillBearColor || 'rgba(255, 68, 68, 0.12)');
+                        ? (biasStyle?.fillBullColor || 'rgba(0, 255, 136, 0.12)')
+                        : (biasStyle?.fillBearColor || 'rgba(255, 68, 68, 0.12)');
                     ctx.moveTo(p[0].x, p[0].y1);
                     for (let j = 1; j < p.length; j++) ctx.lineTo(p[j].x, p[j].y1);
                     for (let j = p.length - 1; j >= 0; j--) ctx.lineTo(p[j].x, p[j].y2);
-                    ctx.closePath(); ctx.fill();
+                    ctx.closePath();
+                    ctx.fill();
                 };
                 for (let i = 0; i < aligned.length; i++) {
                     const row = aligned[i];
                     const x = timeScale.timeToCoordinate(row.time);
                     if (x === null) continue;
-                    const y1 = series.priceToCoordinate(row.trail1);
-                    const y2 = series.priceToCoordinate(row.trail2);
+                    const y1 = series.priceToCoordinate(row.biasTrail1);
+                    const y2 = series.priceToCoordinate(row.biasTrail2);
                     if (y1 === null || y2 === null) continue;
-                    const bias = row.trail1 > row.trail2 ? 'up' : 'down';
-                    if (bias !== lastBias) { if (path.length > 0) flushPath(path, lastBias); path = []; lastBias = bias; }
+                    const bias = row.biasTrail1 > row.biasTrail2 ? 'up' : 'down';
+                    if (bias !== lastBias) {
+                        if (path.length > 0) flushPath(path, lastBias);
+                        path = [];
+                        lastBias = bias;
+                    }
+                    path.push({ x, y1, y2 });
+                }
+                if (path.length > 0) flushPath(path, lastBias);
+            }
+
+            // 2. Entry Cloud Fill (if enabled)
+            const showEntryFill = !!entryStyle?.showFill;
+            if (showEntryFill && aligned && aligned.length > 0) {
+                let path = [];
+                let lastBias = null;
+                const flushPath = (p, bias) => {
+                    if (p.length < 2) return;
+                    ctx.beginPath();
+                    ctx.fillStyle = bias === 'up'
+                        ? (entryStyle?.fillBullColor || 'rgba(0, 255, 136, 0.12)')
+                        : (entryStyle?.fillBearColor || 'rgba(255, 68, 68, 0.12)');
+                    ctx.moveTo(p[0].x, p[0].y1);
+                    for (let j = 1; j < p.length; j++) ctx.lineTo(p[j].x, p[j].y1);
+                    for (let j = p.length - 1; j >= 0; j--) ctx.lineTo(p[j].x, p[j].y2);
+                    ctx.closePath();
+                    ctx.fill();
+                };
+                for (let i = 0; i < aligned.length; i++) {
+                    const row = aligned[i];
+                    const x = timeScale.timeToCoordinate(row.time);
+                    if (x === null) continue;
+                    const y1 = series.priceToCoordinate(row.entryTrail1);
+                    const y2 = series.priceToCoordinate(row.entryTrail2);
+                    if (y1 === null || y2 === null) continue;
+                    const bias = row.entryTrail1 > row.entryTrail2 ? 'up' : 'down';
+                    if (bias !== lastBias) {
+                        if (path.length > 0) flushPath(path, lastBias);
+                        path = [];
+                        lastBias = bias;
+                    }
                     path.push({ x, y1, y2 });
                 }
                 if (path.length > 0) flushPath(path, lastBias);
@@ -517,28 +591,47 @@ function MiniChart({ data, indicators, history, vsrRes, symbol, pnlModeExternal,
             if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
             chartRef.current = null;
             candleSeriesRef.current = null;
-            trail1SeriesRef.current = null;
-            trail2SeriesRef.current = null;
+            entryTrail1SeriesRef.current = null;
+            entryTrail2SeriesRef.current = null;
+            biasTrail1SeriesRef.current = null;
+            biasTrail2SeriesRef.current = null;
         };
     }, [symbol]); // Recreate on symbol change
 
     // 2. Apply Style updates to existing series
     useEffect(() => {
-        if (trail1SeriesRef.current) {
-            trail1SeriesRef.current.applyOptions({
-                color: style?.trail1Color || '#00ff88',
-                lineWidth: style?.trail1Width || 2,
-                visible: style?.showTrail1 !== false
+        const biasStyle = atrConfig?.bias?.style || DEFAULT_BIAS_ATRBOT_ER.style;
+        const entryStyle = atrConfig?.entry?.style || DEFAULT_ENTRY_ATRBOT_ER.style;
+
+        if (entryTrail1SeriesRef.current) {
+            entryTrail1SeriesRef.current.applyOptions({
+                color: entryStyle?.trail1Color || '#00ff88',
+                lineWidth: entryStyle?.trail1Width || 2,
+                visible: entryStyle?.showTrail1 !== false
             });
         }
-        if (trail2SeriesRef.current) {
-            trail2SeriesRef.current.applyOptions({
-                color: style?.trail2Color || '#ff4444',
-                lineWidth: style?.trail2Width || 2,
-                visible: style?.showTrail2 !== false
+        if (entryTrail2SeriesRef.current) {
+            entryTrail2SeriesRef.current.applyOptions({
+                color: entryStyle?.trail2Color || '#ff4444',
+                lineWidth: entryStyle?.trail2Width || 2,
+                visible: entryStyle?.showTrail2 !== false
             });
         }
-    }, [style]);
+        if (biasTrail1SeriesRef.current) {
+            biasTrail1SeriesRef.current.applyOptions({
+                color: biasStyle?.trail1Color || '#00ff88',
+                lineWidth: biasStyle?.trail1Width || 2,
+                visible: !!biasStyle?.showTrail1
+            });
+        }
+        if (biasTrail2SeriesRef.current) {
+            biasTrail2SeriesRef.current.applyOptions({
+                color: biasStyle?.trail2Color || '#ff4444',
+                lineWidth: biasStyle?.trail2Width || 2,
+                visible: !!biasStyle?.showTrail2
+            });
+        }
+    }, [atrConfig?.bias?.style, atrConfig?.entry?.style]);
 
     // 3. Clear PnL on reactivation or deactivation
     useEffect(() => {
@@ -576,18 +669,26 @@ function MiniChart({ data, indicators, history, vsrRes, symbol, pnlModeExternal,
 
         // Apply to all series to keep price scale consistent
         candleSeriesRef.current.applyOptions({ priceFormat });
-        if (trail1SeriesRef.current) trail1SeriesRef.current.applyOptions({ priceFormat });
-        if (trail2SeriesRef.current) trail2SeriesRef.current.applyOptions({ priceFormat });
+        if (entryTrail1SeriesRef.current) entryTrail1SeriesRef.current.applyOptions({ priceFormat });
+        if (entryTrail2SeriesRef.current) entryTrail2SeriesRef.current.applyOptions({ priceFormat });
+        if (biasTrail1SeriesRef.current) biasTrail1SeriesRef.current.applyOptions({ priceFormat });
+        if (biasTrail2SeriesRef.current) biasTrail2SeriesRef.current.applyOptions({ priceFormat });
 
         if (typeof candleSeriesRef.current.setData === 'function') {
             candleSeriesRef.current.setData(data);
         }
 
-        if (indicators.series.trail1 && trail1SeriesRef.current && typeof trail1SeriesRef.current.setData === 'function') {
-            trail1SeriesRef.current.setData(indicators.series.trail1);
+        if (indicators.series.entryTrail1 && entryTrail1SeriesRef.current && typeof entryTrail1SeriesRef.current.setData === 'function') {
+            entryTrail1SeriesRef.current.setData(indicators.series.entryTrail1);
         }
-        if (indicators.series.trail2 && trail2SeriesRef.current && typeof trail2SeriesRef.current.setData === 'function') {
-            trail2SeriesRef.current.setData(indicators.series.trail2);
+        if (indicators.series.entryTrail2 && entryTrail2SeriesRef.current && typeof entryTrail2SeriesRef.current.setData === 'function') {
+            entryTrail2SeriesRef.current.setData(indicators.series.entryTrail2);
+        }
+        if (indicators.series.biasTrail1 && biasTrail1SeriesRef.current && typeof biasTrail1SeriesRef.current.setData === 'function') {
+            biasTrail1SeriesRef.current.setData(indicators.series.biasTrail1);
+        }
+        if (indicators.series.biasTrail2 && biasTrail2SeriesRef.current && typeof biasTrail2SeriesRef.current.setData === 'function') {
+            biasTrail2SeriesRef.current.setData(indicators.series.biasTrail2);
         }
     }, [data, indicators]);
 

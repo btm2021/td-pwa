@@ -1,47 +1,73 @@
 import { useState } from 'preact/hooks';
 import { Icon } from './Icon';
 import {
-    DEFAULT_ATRBOT_ER_PARAMS,
-    DEFAULT_ATRBOT_ER_STYLE,
+    DEFAULT_BIAS_ATRBOT_ER,
+    DEFAULT_ENTRY_ATRBOT_ER,
     hexToRgba
 } from '../utils/indicators';
 
 export function ATRBotSettingsModal({ isOpen, onClose, config, onSave }) {
     if (!isOpen) return null;
 
-    const [activeTab, setActiveTab] = useState('params'); // 'params' | 'style'
-    const [params, setParams] = useState({ ...DEFAULT_ATRBOT_ER_PARAMS, ...(config?.params || {}) });
-    const [style, setStyle] = useState({ ...DEFAULT_ATRBOT_ER_STYLE, ...(config?.style || {}) });
+    const [activeTarget, setActiveTarget] = useState('bias'); // 'bias' | 'entry'
+    const [activeSubTab, setActiveSubTab] = useState('params'); // 'params' | 'style'
+
+    const [biasConfig, setBiasConfig] = useState({
+        params: { ...DEFAULT_BIAS_ATRBOT_ER.params, ...(config?.bias?.params || {}) },
+        style: { ...DEFAULT_BIAS_ATRBOT_ER.style, ...(config?.bias?.style || {}) }
+    });
+
+    const [entryConfig, setEntryConfig] = useState({
+        params: { ...DEFAULT_ENTRY_ATRBOT_ER.params, ...(config?.entry?.params || {}) },
+        style: { ...DEFAULT_ENTRY_ATRBOT_ER.style, ...(config?.entry?.style || {}) }
+    });
+
+    const currentConfig = activeTarget === 'bias' ? biasConfig : entryConfig;
+    const setCurrentConfig = activeTarget === 'bias' ? setBiasConfig : setEntryConfig;
 
     const handleParamChange = (key, value) => {
-        setParams(prev => ({ ...prev, [key]: value }));
+        setCurrentConfig(prev => ({
+            ...prev,
+            params: { ...prev.params, [key]: value }
+        }));
     };
 
     const handleStyleChange = (key, value) => {
-        setStyle(prev => ({ ...prev, [key]: value }));
+        setCurrentConfig(prev => ({
+            ...prev,
+            style: { ...prev.style, [key]: value }
+        }));
     };
 
     const handleReset = () => {
-        setParams({ ...DEFAULT_ATRBOT_ER_PARAMS });
-        setStyle({ ...DEFAULT_ATRBOT_ER_STYLE });
+        setBiasConfig({
+            params: { ...DEFAULT_BIAS_ATRBOT_ER.params },
+            style: { ...DEFAULT_BIAS_ATRBOT_ER.style }
+        });
+        setEntryConfig({
+            params: { ...DEFAULT_ENTRY_ATRBOT_ER.params },
+            style: { ...DEFAULT_ENTRY_ATRBOT_ER.style }
+        });
     };
 
     const handleSave = () => {
-        onSave({ params, style });
+        onSave({ bias: biasConfig, entry: entryConfig });
         onClose();
     };
+
+    const { params, style } = currentConfig;
 
     return (
         <>
             <div className="modal__backdrop" onClick={onClose} />
-            <div className="modal atrbot-settings-modal" style={{ maxWidth: '480px', width: '92%' }}>
+            <div className="modal atrbot-settings-modal" style={{ maxWidth: '520px', width: '94%' }}>
                 {/* Header */}
                 <div className="modal__header" style={{ padding: '14px 18px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <Icon name="settings" size={20} />
                         <div>
                             <h2 style={{ fontSize: '15px', fontWeight: 600, margin: 0 }}>ATRBot ER Settings</h2>
-                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>Adaptive Trail with Efficiency Ratio</span>
+                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>Dual Configuration (Bias & Entry)</span>
                         </div>
                     </div>
                     <button className="modal__close" onClick={onClose}>
@@ -49,7 +75,83 @@ export function ATRBotSettingsModal({ isOpen, onClose, config, onSave }) {
                     </button>
                 </div>
 
-                {/* Tabs */}
+                {/* Target Selector (Bias vs Entry) */}
+                <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr',
+                    padding: '8px 18px',
+                    gap: '8px',
+                    background: 'rgba(0, 0, 0, 0.25)',
+                    borderBottom: '1px solid rgba(255, 255, 255, 0.08)'
+                }}>
+                    <button
+                        type="button"
+                        onClick={() => setActiveTarget('bias')}
+                        style={{
+                            padding: '8px 12px',
+                            borderRadius: '8px',
+                            border: activeTarget === 'bias' ? '1px solid #2979FF' : '1px solid rgba(255, 255, 255, 0.08)',
+                            background: activeTarget === 'bias' ? 'rgba(41, 121, 255, 0.15)' : 'transparent',
+                            color: activeTarget === 'bias' ? '#fff' : 'var(--text-secondary)',
+                            cursor: 'pointer',
+                            fontSize: '12px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'flex-start',
+                            gap: '2px',
+                            transition: 'all 0.2s'
+                        }}
+                    >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600 }}>
+                            <span>1. Bias (Trend)</span>
+                            <span style={{
+                                fontSize: '10px',
+                                padding: '1px 5px',
+                                borderRadius: '4px',
+                                background: 'rgba(255,255,255,0.1)',
+                                color: '#aaa'
+                            }}>
+                                {biasConfig.params.maType} {biasConfig.params.atrLen}-{biasConfig.params.multBase}-{biasConfig.params.maLen}
+                            </span>
+                        </div>
+                        <span style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>Chỉ hiện vùng mây (Cloud Fill)</span>
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => setActiveTarget('entry')}
+                        style={{
+                            padding: '8px 12px',
+                            borderRadius: '8px',
+                            border: activeTarget === 'entry' ? '1px solid #00ff88' : '1px solid rgba(255, 255, 255, 0.08)',
+                            background: activeTarget === 'entry' ? 'rgba(0, 255, 136, 0.12)' : 'transparent',
+                            color: activeTarget === 'entry' ? '#fff' : 'var(--text-secondary)',
+                            cursor: 'pointer',
+                            fontSize: '12px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'flex-start',
+                            gap: '2px',
+                            transition: 'all 0.2s'
+                        }}
+                    >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600 }}>
+                            <span>2. Entry (Signal)</span>
+                            <span style={{
+                                fontSize: '10px',
+                                padding: '1px 5px',
+                                borderRadius: '4px',
+                                background: 'rgba(255,255,255,0.1)',
+                                color: '#aaa'
+                            }}>
+                                {entryConfig.params.maType} {entryConfig.params.atrLen}-{entryConfig.params.multBase}-{entryConfig.params.maLen}
+                            </span>
+                        </div>
+                        <span style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>Hiện Trail Xanh / Đỏ</span>
+                    </button>
+                </div>
+
+                {/* Sub Tabs (Parameters vs Draw Style) */}
                 <div style={{
                     display: 'flex',
                     borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
@@ -59,13 +161,13 @@ export function ATRBotSettingsModal({ isOpen, onClose, config, onSave }) {
                 }}>
                     <button
                         type="button"
-                        onClick={() => setActiveTab('params')}
+                        onClick={() => setActiveSubTab('params')}
                         style={{
                             background: 'transparent',
                             border: 'none',
-                            borderBottom: activeTab === 'params' ? '2px solid #2979FF' : '2px solid transparent',
-                            color: activeTab === 'params' ? '#fff' : 'var(--text-secondary)',
-                            fontWeight: activeTab === 'params' ? 600 : 400,
+                            borderBottom: activeSubTab === 'params' ? '2px solid #2979FF' : '2px solid transparent',
+                            color: activeSubTab === 'params' ? '#fff' : 'var(--text-secondary)',
+                            fontWeight: activeSubTab === 'params' ? 600 : 400,
                             padding: '10px 4px',
                             cursor: 'pointer',
                             fontSize: '13px',
@@ -76,13 +178,13 @@ export function ATRBotSettingsModal({ isOpen, onClose, config, onSave }) {
                     </button>
                     <button
                         type="button"
-                        onClick={() => setActiveTab('style')}
+                        onClick={() => setActiveSubTab('style')}
                         style={{
                             background: 'transparent',
                             border: 'none',
-                            borderBottom: activeTab === 'style' ? '2px solid #2979FF' : '2px solid transparent',
-                            color: activeTab === 'style' ? '#fff' : 'var(--text-secondary)',
-                            fontWeight: activeTab === 'style' ? 600 : 400,
+                            borderBottom: activeSubTab === 'style' ? '2px solid #2979FF' : '2px solid transparent',
+                            color: activeSubTab === 'style' ? '#fff' : 'var(--text-secondary)',
+                            fontWeight: activeSubTab === 'style' ? 600 : 400,
                             padding: '10px 4px',
                             cursor: 'pointer',
                             fontSize: '13px',
@@ -94,8 +196,8 @@ export function ATRBotSettingsModal({ isOpen, onClose, config, onSave }) {
                 </div>
 
                 {/* Content */}
-                <div className="modal__content" style={{ padding: '16px 18px', maxHeight: '60vh', overflowY: 'auto' }}>
-                    {activeTab === 'params' ? (
+                <div className="modal__content" style={{ padding: '16px 18px', maxHeight: '55vh', overflowY: 'auto' }}>
+                    {activeSubTab === 'params' ? (
                         <div className="atrbot-params-section">
                             {/* Group 1: Source & MA */}
                             <div style={{ marginBottom: '18px' }}>
@@ -143,14 +245,16 @@ export function ATRBotSettingsModal({ isOpen, onClose, config, onSave }) {
                                                 fontSize: '12px'
                                             }}
                                         >
+                                            <option value="VIDYA">VIDYA (Recommended)</option>
                                             <option value="EMA">EMA</option>
                                             <option value="VWMA">VWMA</option>
-                                            <option value="VIDYA">VIDYA</option>
                                         </select>
                                     </div>
 
                                     <div className="form-group" style={{ marginBottom: 0 }}>
-                                        <label style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>MA Length</label>
+                                        <label style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>
+                                            MA Length ({activeTarget === 'bias' ? 'Default 55' : 'Default 21'})
+                                        </label>
                                         <input
                                             type="number"
                                             min="1"
@@ -200,7 +304,7 @@ export function ATRBotSettingsModal({ isOpen, onClose, config, onSave }) {
                                 </div>
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                                     <div className="form-group" style={{ marginBottom: 0 }}>
-                                        <label style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>ATR Length</label>
+                                        <label style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>ATR Length (Default 14)</label>
                                         <input
                                             type="number"
                                             min="1"
@@ -220,7 +324,7 @@ export function ATRBotSettingsModal({ isOpen, onClose, config, onSave }) {
                                     </div>
 
                                     <div className="form-group" style={{ marginBottom: 0 }}>
-                                        <label style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>Base Multiplier</label>
+                                        <label style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>Multiplier (Default 2.0)</label>
                                         <input
                                             type="number"
                                             step="0.1"
@@ -406,7 +510,7 @@ export function ATRBotSettingsModal({ isOpen, onClose, config, onSave }) {
                                             style={{ accentColor: '#2979FF', cursor: 'pointer' }}
                                         />
                                         <label htmlFor="showTrail1" style={{ fontSize: '13px', fontWeight: 600, color: '#fff', cursor: 'pointer' }}>
-                                            Trail 1 (Moving Average)
+                                            Trail 1 (Đường MA)
                                         </label>
                                     </div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -465,7 +569,7 @@ export function ATRBotSettingsModal({ isOpen, onClose, config, onSave }) {
                                             style={{ accentColor: '#2979FF', cursor: 'pointer' }}
                                         />
                                         <label htmlFor="showTrail2" style={{ fontSize: '13px', fontWeight: 600, color: '#fff', cursor: 'pointer' }}>
-                                            Trail 2 (ATR Trailing Stop)
+                                            Trail 2 (Đường ATR Trailing Stop)
                                         </label>
                                     </div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -522,13 +626,13 @@ export function ATRBotSettingsModal({ isOpen, onClose, config, onSave }) {
                                         style={{ accentColor: '#2979FF', cursor: 'pointer' }}
                                     />
                                     <label htmlFor="showFill" style={{ fontSize: '13px', fontWeight: 600, color: '#fff', cursor: 'pointer' }}>
-                                        Trend Cloud Fill
+                                        Trend Cloud Fill (Vùng mây xu hướng)
                                     </label>
                                 </div>
 
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                                     <div>
-                                        <span style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>Bull Cloud</span>
+                                        <span style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>Mây Tăng (Bullish)</span>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                             <input
                                                 type="color"
@@ -541,7 +645,7 @@ export function ATRBotSettingsModal({ isOpen, onClose, config, onSave }) {
                                     </div>
 
                                     <div>
-                                        <span style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>Bear Cloud</span>
+                                        <span style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>Mây Giảm (Bearish)</span>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                             <input
                                                 type="color"
