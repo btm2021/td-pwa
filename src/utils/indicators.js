@@ -59,3 +59,260 @@ export const calcVSR = (data, l, t) => {
     }
     return { up, lo, beg: bg };
 };
+
+// ============================================
+// ATRBOT ER-ADAPTIVE (VERSION 2)
+// ============================================
+
+export const DEFAULT_ATRBOT_ER_PARAMS = {
+    source: 'close',
+    maLen: 30,
+    maType: 'EMA', // 'EMA' | 'VWMA' | 'VIDYA'
+    vidyaCmoLen: 9,
+    atrLen: 14,
+    multBase: 2.0,
+    multMin: 1.0,
+    multMax: 3.5,
+    erLen: 20,
+    erSmooth: 5,
+    erPower: 2.0,
+    erSlopeGuard: true,
+    erSlopeLen: 3
+};
+
+export const DEFAULT_ATRBOT_ER_STYLE = {
+    showTrail1: true,
+    trail1Color: '#00ff88',
+    trail1Width: 2,
+    showTrail2: true,
+    trail2Color: '#ff4444',
+    trail2Width: 2,
+    showFill: true,
+    fillBullColor: 'rgba(0, 255, 136, 0.12)',
+    fillBearColor: 'rgba(255, 68, 68, 0.12)'
+};
+
+const ATRBOT_STORAGE_KEY = 'td_lightweight_atrbot_er_config';
+
+export function getStoredATRBotConfig() {
+    try {
+        const raw = typeof window !== 'undefined' ? localStorage.getItem(ATRBOT_STORAGE_KEY) : null;
+        if (raw) {
+            const parsed = JSON.parse(raw);
+            return {
+                params: { ...DEFAULT_ATRBOT_ER_PARAMS, ...(parsed.params || {}) },
+                style: { ...DEFAULT_ATRBOT_ER_STYLE, ...(parsed.style || {}) }
+            };
+        }
+    } catch (e) {
+        console.warn('Error reading stored ATRBot ER config', e);
+    }
+    return {
+        params: { ...DEFAULT_ATRBOT_ER_PARAMS },
+        style: { ...DEFAULT_ATRBOT_ER_STYLE }
+    };
+}
+
+export function saveStoredATRBotConfig(config) {
+    try {
+        if (typeof window !== 'undefined') {
+            localStorage.setItem(ATRBOT_STORAGE_KEY, JSON.stringify(config));
+        }
+    } catch (e) {
+        console.warn('Error saving ATRBot ER config to localStorage', e);
+    }
+}
+
+export function hexToRgba(hex, alpha = 0.12) {
+    if (!hex) return `rgba(0, 255, 136, ${alpha})`;
+    if (hex.startsWith('rgba') || hex.startsWith('hsla')) return hex;
+    let c = hex.replace('#', '');
+    if (c.length === 3) c = c.split('').map(x => x + x).join('');
+    const num = parseInt(c, 16);
+    if (isNaN(num)) return hex;
+    const r = (num >> 16) & 255;
+    const g = (num >> 8) & 255;
+    const b = num & 255;
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+/**
+ * Calculates ATRBot ER-Adaptive (Version 2)
+ * Matches PineScript v5 indicator "ATRBot ER-Adaptive"
+ */
+export function calcATRBotER(data, params = {}) {
+    const config = { ...DEFAULT_ATRBOT_ER_PARAMS, ...params };
+    const n = data?.length || 0;
+    if (n === 0) return { trail1: [], trail2: [], er: [], mult: [], trend: [] };
+
+    const {
+        source,
+        maLen,
+        maType,
+        vidyaCmoLen,
+        atrLen,
+        multBase,
+        multMin,
+        multMax,
+        erLen,
+        erSmooth,
+        erPower,
+        erSlopeGuard,
+        erSlopeLen
+    } = config;
+
+    // 1. Resolve source series
+    const src = new Float64Array(n);
+    const vol = new Float64Array(n);
+    for (let i = 0; i < n; i++) {
+        const d = data[i];
+        const h = d.high ?? d.close;
+        const l = d.low ?? d.close;
+        const c = d.close;
+        const o = d.open ?? d.close;
+        vol[i] = d.volume || 0;
+
+        switch (source) {
+            case 'open': src[i] = o; break;
+            case 'high': src[i] = h; break;
+            case 'low': src[i] = l; break;
+            case 'hl2': src[i] = (h + l) / 2; break;
+            case 'hlc3': src[i] = (h + l + c) / 3; break;
+            case 'ohlc4': src[i] = (o + h + l + c) / 4; break;
+            default: src[i] = c; break;
+        }
+    }
+
+    // 2. MA calculations (Trail1)
+    const trail1 = new Float64Array(n);
+    const emaAlpha = 2.0 / (maLen + 1);
+
+    if (maType === 'VWMA') {
+        let sumPv = 0, sumV = 0;
+        for (let i = 0; i < n; i++) {
+            sumPv += src[i] * vol[i];
+            sumV += vol[i];
+            if (i >= maLen) {
+                sumPv -= src[i - maLen] * vol[i - maLen];
+                sumV -= vol[i - maLen];
+            }
+            trail1[i] = sumV > 0 ? sumPv / sumV : src[i];
+        }
+    } else if (maType === 'VIDYA') {
+        const alphaBase = 2.0 / (maLen + 1);
+        let prevVidya = src[0];
+        trail1[0] = prevVidya;
+
+        for (let i = 1; i < n; i++) {
+            let sumUp = 0, sumDown = 0;
+            const start = Math.max(1, i - vidyaCmoLen + 1);
+            for (let j = start; j <= i; j++) {
+                const diff = src[j] - src[j - 1];
+                if (diff > 0) sumUp += diff;
+                else if (diff < 0) sumDown -= diff;
+            }
+            const totalDiff = sumUp + sumDown;
+            const cmoRaw = totalDiff > 0 ? 100.0 * (sumUp - sumDown) / totalDiff : 0.0;
+            const cmoNorm = Math.abs(cmoRaw) / 100.0;
+            const currVidya = prevVidya + alphaBase * cmoNorm * (src[i] - prevVidya);
+            trail1[i] = currVidya;
+            prevVidya = currVidya;
+        }
+    } else {
+        // Default EMA
+        let prevEma = src[0];
+        trail1[0] = prevEma;
+        for (let i = 1; i < n; i++) {
+            const currEma = prevEma + emaAlpha * (src[i] - prevEma);
+            trail1[i] = currEma;
+            prevEma = currEma;
+        }
+    }
+
+    // 3. ATR calculation (Wilder RMA)
+    const atr = new Float64Array(n);
+    atr[0] = (data[0].high ?? data[0].close) - (data[0].low ?? data[0].close);
+    for (let i = 1; i < n; i++) {
+        const h = data[i].high ?? data[i].close;
+        const l = data[i].low ?? data[i].close;
+        const prevC = data[i - 1].close;
+        const tr = Math.max(h - l, Math.abs(h - prevC), Math.abs(l - prevC));
+        atr[i] = (atr[i - 1] * (atrLen - 1) + tr) / atrLen;
+    }
+
+    // 4. Efficiency Ratio (Kaufman ER) & Smoothed ER
+    const erSmoothArr = new Float64Array(n);
+    const erAlpha = 2.0 / (erSmooth + 1);
+    let prevErSmooth = 0;
+
+    for (let i = 0; i < n; i++) {
+        let netChange = 0;
+        let pathLen = 0;
+        if (i > 0) {
+            const lookback = Math.min(i, erLen);
+            netChange = Math.abs(src[i] - src[i - lookback]);
+            for (let j = i - lookback + 1; j <= i; j++) {
+                pathLen += Math.abs(src[j] - src[j - 1]);
+            }
+        }
+        const erRaw = pathLen > 1e-10 ? netChange / pathLen : 0.0;
+        const currErSmooth = i === 0 ? erRaw : prevErSmooth + erAlpha * (erRaw - prevErSmooth);
+        erSmoothArr[i] = currErSmooth;
+        prevErSmooth = currErSmooth;
+    }
+
+    // 5. ER Slope Guard & Adaptive Multiplier & Trail 2
+    const trail2 = new Float64Array(n);
+    const multArr = new Float64Array(n);
+    const trend = new Int8Array(n);
+
+    let prevTrail2 = 0;
+    let prevTrail1 = trail1[0];
+
+    for (let i = 0; i < n; i++) {
+        const currErSmooth = erSmoothArr[i];
+        const lookbackIdx = Math.max(0, i - erSlopeLen);
+        const erSlope = currErSmooth - erSmoothArr[lookbackIdx];
+
+        const guardActive = erSlopeGuard && (currErSmooth > 0.55) && (erSlope < -0.08);
+        const noiseFactor = Math.pow(Math.max(0, 1.0 - currErSmooth), erPower);
+        const multEr = multMin + (multMax - multMin) * noiseFactor;
+        const multActive = guardActive ? Math.max(multEr, multBase) : multEr;
+        multArr[i] = multActive;
+
+        const sl2 = atr[i] * multActive;
+        const t1 = trail1[i];
+
+        let t2;
+        if (i === 0) {
+            t2 = t1 - sl2;
+        } else {
+            if (t1 > prevTrail2) {
+                if (prevTrail1 > prevTrail2 && prevTrail2 > 0) {
+                    t2 = Math.max(prevTrail2, t1 - sl2);
+                } else {
+                    t2 = t1 - sl2;
+                }
+            } else {
+                if (t1 < prevTrail2 && prevTrail1 < prevTrail2 && prevTrail2 > 0) {
+                    t2 = Math.min(prevTrail2, t1 + sl2);
+                } else {
+                    t2 = t1 + sl2;
+                }
+            }
+        }
+
+        trail2[i] = t2;
+        trend[i] = t1 > t2 ? 1 : -1;
+        prevTrail2 = t2;
+        prevTrail1 = t1;
+    }
+
+    return {
+        trail1: Array.from(trail1),
+        trail2: Array.from(trail2),
+        er: Array.from(erSmoothArr),
+        mult: Array.from(multArr),
+        trend: Array.from(trend)
+    };
+}

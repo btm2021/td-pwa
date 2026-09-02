@@ -174,8 +174,16 @@ async function loadCategoriesFromFirebase() {
             const data = doc.data();
 
             if (data.categories && Array.isArray(data.categories)) {
-                // We only load user categories from Firebase
-                const userCategories = data.categories.filter(c => c.type === 'user' || c.id === 'favorites');
+                // We only load user categories from Firebase and clean out digits/meme symbols
+                const userCategories = data.categories
+                    .filter(c => c.type === 'user' || c.id === 'favorites')
+                    .map(c => ({
+                        ...c,
+                        symbols: (c.symbols || []).filter(s => {
+                            const raw = s.includes(':') ? s.split(':')[1] : s;
+                            return !/^\d/.test(raw);
+                        })
+                    }));
 
                 // Merge with current categories (which include exchange ones)
                 const currentCats = categories.value;
@@ -225,9 +233,13 @@ function loadCategoriesFromLocalStorage() {
         if (saved) {
             const parsed = JSON.parse(saved);
             if (Array.isArray(parsed)) {
-                // Ensure they are marked as user/favorites
+                // Ensure they are marked as user/favorites and clean out digits/meme symbols
                 const userCats = parsed.map(c => ({
                     ...c,
+                    symbols: (c.symbols || []).filter(s => {
+                        const raw = s.includes(':') ? s.split(':')[1] : s;
+                        return !/^\d/.test(raw);
+                    }),
                     type: (c.id === 'favorites' || c.type === 'user') ? 'user' : 'system'
                 }));
 
@@ -368,7 +380,7 @@ function parseFiniteNumber(value) {
 function normalizeBinanceSnapshotTicker(ticker) {
     const symbol = ticker?.symbol;
     const lastPrice = parseFiniteNumber(ticker?.lastPrice);
-    if (!symbol || lastPrice === null) return null;
+    if (!symbol || lastPrice === null || /^\d/.test(symbol)) return null;
 
     return {
         symbol,
@@ -392,7 +404,7 @@ function normalizeBinanceStreamTicker(ticker) {
 
     const symbol = ticker?.s;
     const lastPrice = parseFiniteNumber(ticker?.c);
-    if (!symbol || lastPrice === null) return null;
+    if (!symbol || lastPrice === null || /^\d/.test(symbol)) return null;
 
     return {
         symbol,
@@ -1057,7 +1069,11 @@ export function syncDatafeedWatchlists(allSymbols) {
     const removedExchangeSymbol = /^(?:BINANCE_SPOT|BYBIT(?:_FUTURES)?|OKX(?:_FUTURES)?):/i;
     const categoriesWithoutRemovedExchanges = categories.value.map((category) => ({
         ...category,
-        symbols: (category.symbols || []).filter((symbol) => !removedExchangeSymbol.test(symbol))
+        symbols: (category.symbols || []).filter((symbol) => {
+            if (removedExchangeSymbol.test(symbol)) return false;
+            const raw = symbol.includes(':') ? symbol.split(':')[1] : symbol;
+            return !/^\d/.test(raw);
+        })
     }));
     const currentCats = categoriesWithoutRemovedExchanges.filter((category) =>
         category.type !== 'system' || supportedSystemCategoryIds.has(category.id)
@@ -1070,7 +1086,10 @@ export function syncDatafeedWatchlists(allSymbols) {
         let exchangeSymbols = allSymbols.filter(config.filter);
 
         if (!config.skipUsdtFilter) {
-            exchangeSymbols = exchangeSymbols.filter(s => (s.symbol || '').toUpperCase().endsWith('USDT'));
+            exchangeSymbols = exchangeSymbols.filter(s => {
+                const sym = (s.symbol || '').toUpperCase();
+                return sym.endsWith('USDT') && !/^\d/.test(sym);
+            });
         }
 
         // Normalize symbol names với short prefix

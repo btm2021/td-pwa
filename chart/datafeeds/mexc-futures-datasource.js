@@ -50,6 +50,7 @@ class MEXCFuturesDatasource extends BaseDatasource {
             return data.data
                 .filter(s => {
                     if (!s.symbol.endsWith('_USDT')) return false;
+                    if (/^\d/.test(s.symbol)) return false;
 
                     for (const pattern of MEXC_FUTURES_CONFIG.blacklistPatterns) {
                         if (s.symbol.includes(pattern)) return false;

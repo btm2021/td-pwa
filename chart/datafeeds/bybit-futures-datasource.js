@@ -53,6 +53,7 @@ class BybitFuturesDatasource extends BaseDatasource {
                 .filter(s => {
                     if (s.status !== 'Trading') return false;
                     if (!s.symbol.endsWith('USDT')) return false;
+                    if (/^\d/.test(s.symbol)) return false;
 
                     for (const pattern of BYBIT_FUTURES_CONFIG.blacklistPatterns) {
                         if (s.symbol.includes(pattern)) return false;

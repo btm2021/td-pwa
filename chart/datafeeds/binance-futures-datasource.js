@@ -51,9 +51,12 @@ class BinanceFuturesDatasource extends BaseDatasource {
             const response = await fetch(`${this.baseUrl}/exchangeInfo`);
             const data = await response.json();
 
-            // Filter TRADING symbols và loại bỏ blacklist
+            // Filter TRADING symbols, loại bỏ blacklist và các symbol meme bắt đầu bằng số (1000, 10000...)
             return data.symbols.filter(s => {
                 if (s.status !== 'TRADING') return false;
+
+                // Bỏ các symbol bắt đầu bằng số (1000, 10000, meme multiplier coins không thanh khoản)
+                if (/^\d/.test(s.symbol)) return false;
 
                 // Check blacklist patterns
                 for (const pattern of BINANCE_FUTURES_CONFIG.blacklistPatterns) {

@@ -164,19 +164,19 @@ export function Watchlist() {
                                         {sortConfig.key === 'symbol' && <Icon name={sortConfig.direction === 1 ? 'arrow-up' : 'arrow-down'} size={10} />}
                                     </div>
                                 </th>
-                                <th className="text-right sortable" style={{ width: '100px' }} onClick={() => toggleSort('price')}>
+                                <th className="text-right sortable" style={{ width: '85px' }} onClick={() => toggleSort('price')}>
                                     <div className="th-content justify-end">
                                         Last
                                         {sortConfig.key === 'price' && <Icon name={sortConfig.direction === 1 ? 'arrow-up' : 'arrow-down'} size={10} />}
                                     </div>
                                 </th>
-                                <th className="text-right sortable" style={{ width: '90px' }} onClick={() => toggleSort('change')}>
+                                <th className="text-right sortable" style={{ width: '75px' }} onClick={() => toggleSort('change')}>
                                     <div className="th-content justify-end">
                                         Chg%
                                         {sortConfig.key === 'change' && <Icon name={sortConfig.direction === 1 ? 'arrow-up' : 'arrow-down'} size={10} />}
                                     </div>
                                 </th>
-                                <th className="text-right sortable" style={{ width: '100px' }} onClick={() => toggleSort('volume')}>
+                                <th className="text-right sortable" style={{ width: '80px' }} onClick={() => toggleSort('volume')}>
                                     <div className="th-content justify-end">
                                         Volume
                                         {sortConfig.key === 'volume' && <Icon name={sortConfig.direction === 1 ? 'arrow-up' : 'arrow-down'} size={10} />}
@@ -415,12 +415,13 @@ function DesktopWatchlistRow({ symbol, isActive, ticker, onClick }) {
             className={`watchlist-table-row ${isActive ? 'active' : ''}`}
             onClick={onClick}
         >
-            <td>
+            <td style={{ minWidth: 0, overflow: 'hidden' }}>
                 <div style={{
                     display: 'flex',
                     alignItems: 'center',
                     gap: '8px',
-                    flexDirection: 'row'
+                    flexDirection: 'row',
+                    minWidth: 0
                 }}>
                     {logoUrl && !imgError ? (
                         <img
@@ -457,7 +458,9 @@ function DesktopWatchlistRow({ symbol, isActive, ticker, onClick }) {
                     <span style={{
                         fontWeight: 500,
                         fontSize: '12px',
-                        whiteSpace: 'nowrap'
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis'
                     }}>
                         {displaySymbol}
                     </span>

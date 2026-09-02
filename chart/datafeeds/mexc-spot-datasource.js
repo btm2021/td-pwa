@@ -51,6 +51,7 @@ class MEXCSpotDatasource extends BaseDatasource {
                 .filter(s => {
                     if (s.status !== 'ENABLED') return false;
                     if (!s.symbol.endsWith('USDT')) return false;
+                    if (/^\d/.test(s.symbol)) return false;
 
                     for (const pattern of MEXC_SPOT_CONFIG.blacklistPatterns) {
                         if (s.symbol.includes(pattern)) return false;

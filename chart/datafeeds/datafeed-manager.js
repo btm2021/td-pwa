@@ -72,7 +72,12 @@ class DatafeedManager {
                 const ds = this.datasources.find(d => d.getInfo().id === result.datasource);
                 const info = ds ? ds.getInfo() : {};
 
-                const mapped = result.symbols.map(s => {
+                const mapped = result.symbols
+                    .filter(s => {
+                        const raw = s.symbol || s.name || s.instId || '';
+                        return !/^\d/.test(raw);
+                    })
+                    .map(s => {
                     // Keep legacy short prefixes for futures, but use explicit
                     // prefixes for markets where the same venue has spot too.
                     const prefixMap = {

@@ -62,9 +62,9 @@ html.desktop-mode #app {
 }
 
 .desktop-split-view__side {
-    width: 320px;
-    min-width: 320px;
-    max-width: 380px;
+    width: 380px;
+    min-width: 340px;
+    max-width: 440px;
     height: 100%;
     border-right: 1px solid rgba(255, 255, 255, 0.05);
     background: #0B0B0E;
@@ -1585,11 +1585,13 @@ html.desktop-mode #app {
     padding: 0;
     flex: 1;
     overflow-y: auto;
+    overflow-x: hidden;
     background: #0B0B0E;
 }
 
 .watchlist-table {
     width: 100%;
+    table-layout: fixed;
     border-collapse: collapse;
 }
 

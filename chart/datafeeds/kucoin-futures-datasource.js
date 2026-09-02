@@ -51,6 +51,7 @@ class KuCoinFuturesDatasource extends BaseDatasource {
                 .filter(s => {
                     if (s.status !== 'Open') return false;
                     if (!s.symbol.endsWith('USDTM')) return false;
+                    if (/^\d/.test(s.symbol)) return false;
 
                     for (const pattern of KUCOIN_FUTURES_CONFIG.blacklistPatterns) {
                         if (s.symbol.includes(pattern)) return false;

@@ -51,6 +51,7 @@ class KuCoinSpotDatasource extends BaseDatasource {
                 .filter(s => {
                     if (!s.enableTrading) return false;
                     if (s.quoteCurrency !== 'USDT') return false;
+                    if (/^\d/.test(s.symbol)) return false;
 
                     for (const pattern of KUCOIN_SPOT_CONFIG.blacklistPatterns) {
                         if (s.symbol.includes(pattern)) return false;

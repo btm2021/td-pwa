@@ -54,6 +54,7 @@ class OKXFuturesDatasource extends BaseDatasource {
                 .filter(s => {
                     if (s.state !== 'live') return false;
                     if (!s.instId.endsWith('-USDT-SWAP')) return false;
+                    if (/^\d/.test(s.instId)) return false;
 
                     // Check blacklist patterns
                     for (const pattern of OKX_FUTURES_CONFIG.blacklistPatterns) {

@@ -4,13 +4,28 @@ import { formatPrice, formatPercent, formatVolume, getCoinLogoUrl, getBaseAsset,
 import { selectedSymbolName, selectedTimeframe, navigateToChart, navigateToFutures } from '../state/store';
 import { deviceMode } from '../hooks/useDeviceMode';
 import { fetchOHLCV } from '../utils/data';
-import { calcEMA, calcATR, calcATRBot, calcVSR } from '../utils/indicators';
+import {
+    calcATRBotER,
+    calcVSR,
+    getStoredATRBotConfig,
+    saveStoredATRBotConfig
+} from '../utils/indicators';
+import { ATRBotSettingsModal } from './ATRBotSettingsModal';
 import { createChart, CandlestickSeries, LineSeries, createSeriesMarkers } from 'lightweight-charts';
 
 export function SymbolInfoPanel() {
     const symbol = selectedSymbolName.value;
     const ticker = getTicker(symbol);
     const [imgError, setImgError] = useState(false);
+
+    // ATRBot ER Config State (persisted in localStorage)
+    const [atrConfig, setAtrConfig] = useState(() => getStoredATRBotConfig());
+    const [showSettings, setShowSettings] = useState(false);
+
+    const handleSaveConfig = (newConfig) => {
+        setAtrConfig(newConfig);
+        saveStoredATRBotConfig(newConfig);
+    };
 
     // PnL Mode Global State (to be passed down)
     const [pnlMode, setPnlMode] = useState(false);
@@ -44,42 +59,23 @@ export function SymbolInfoPanel() {
                 const history = await fetchOHLCV(symbol, interval, 1500);
                 if (!isMounted) return;
 
-                if (history && history.length > 100) {
+                if (history && history.length > 50) {
                     setData(history);
 
-                    // Standardized ATRBot Configuration (10, 1, 14)
-                    const ATR_LENGTH = 10;
-                    const BOT_MULTI = 1.618;
-                    const EMA_LENGTH = 21;
-
-                    const ema = calcEMA(history, EMA_LENGTH);
-                    const atr = calcATR(history, ATR_LENGTH);
-                    const bot = calcATRBot(history, ema, atr, BOT_MULTI);
-
+                    // ATRBot ER-Adaptive (Version 2)
+                    const atrBotER = calcATRBotER(history, atrConfig.params);
                     const vsr = calcVSR(history, 10, 5);
-
-                    // Bot 2 (10, 1, 14) - Lines Only
-                    const BOT_MULTI_2 = 1;
-                    const EMA_LENGTH_2 = 14;
-                    const ema2 = calcEMA(history, EMA_LENGTH_2);
-                    const bot2 = calcATRBot(history, ema2, atr, BOT_MULTI_2);
 
                     const lastIdx = history.length - 1;
 
                     const seriesData = history.map((d, i) => {
-                        const botVal = bot[i];
-                        const emaVal = ema[i];
-                        const bot2Val = bot2[i];
-                        const ema2Val = ema2[i];
-
-                        // Trail 1/2 = Bot 1 (Fill)
-                        // Trail 3/4 = Bot 2 (Lines)
                         return {
                             time: d.time,
-                            trail1: emaVal,
-                            trail2: botVal,
-                            trail3: ema2Val,
-                            trail4: bot2Val,
+                            trail1: atrBotER.trail1[i],
+                            trail2: atrBotER.trail2[i],
+                            er: atrBotER.er[i],
+                            mult: atrBotER.mult[i],
+                            trend: atrBotER.trend[i],
                             vsrUp: vsr.up[i],
                             vsrLo: vsr.lo[i]
                         };
@@ -87,12 +83,13 @@ export function SymbolInfoPanel() {
 
                     setIndicators({
                         bot: {
-                            trailing: bot[lastIdx],
-                            ema: ema[lastIdx],
-                            trail1: seriesData.map(d => ({ time: d.time, value: d.trail1 })).filter(d => d.value !== null),
-                            trail2: seriesData.map(d => ({ time: d.time, value: d.trail2 })).filter(d => d.value !== null),
-                            trail3: seriesData.map(d => ({ time: d.time, value: d.trail3 })).filter(d => d.value !== null),
-                            trail4: seriesData.map(d => ({ time: d.time, value: d.trail4 })).filter(d => d.value !== null)
+                            trailing: atrBotER.trail2[lastIdx],
+                            ma: atrBotER.trail1[lastIdx],
+                            er: atrBotER.er[lastIdx],
+                            mult: atrBotER.mult[lastIdx],
+                            trend: atrBotER.trend[lastIdx],
+                            trail1: seriesData.map(d => ({ time: d.time, value: d.trail1 })).filter(d => Number.isFinite(d.value)),
+                            trail2: seriesData.map(d => ({ time: d.time, value: d.trail2 })).filter(d => Number.isFinite(d.value)),
                         },
                         vsr: {
                             up: vsr.up[lastIdx],
@@ -100,10 +97,8 @@ export function SymbolInfoPanel() {
                             isSpike: vsr.beg[lastIdx]
                         },
                         series: {
-                            trail1: seriesData.map(d => ({ time: d.time, value: d.trail1 })).filter(d => d.value !== null),
-                            trail2: seriesData.map(d => ({ time: d.time, value: d.trail2 })).filter(d => d.value !== null),
-                            trail3: seriesData.map(d => ({ time: d.time, value: d.trail3 })).filter(d => d.value !== null),
-                            trail4: seriesData.map(d => ({ time: d.time, value: d.trail4 })).filter(d => d.value !== null),
+                            trail1: seriesData.map(d => ({ time: d.time, value: d.trail1 })).filter(d => Number.isFinite(d.value)),
+                            trail2: seriesData.map(d => ({ time: d.time, value: d.trail2 })).filter(d => Number.isFinite(d.value)),
                         },
                         history: history,
                         vsrRes: vsr,
@@ -120,7 +115,7 @@ export function SymbolInfoPanel() {
         }
         loadData();
         return () => { isMounted = false; };
-    }, [symbol, interval]);
+    }, [symbol, interval, atrConfig.params]);
 
     // Derived State for Header Meta
     let bias = 'NEUTRAL';
@@ -133,7 +128,7 @@ export function SymbolInfoPanel() {
         const bot = indicators.bot;
         const vsr = indicators.vsr;
 
-        const isBullish = currentPrice > bot.trailing;
+        const isBullish = bot.trend === 1 || currentPrice > bot.trailing;
         isInVsrZone = vsr.up && currentPrice <= vsr.up && currentPrice >= vsr.lo;
 
         bias = isBullish ? 'BULLISH' : 'BEARISH';
@@ -232,6 +227,15 @@ export function SymbolInfoPanel() {
                             </button>
 
                             <button
+                                className="pnl-tool-btn"
+                                onClick={() => setShowSettings(true)}
+                                title="ATRBot ER Settings"
+                            >
+                                <Icon name="settings" size={16} />
+                                <span>ATRBot</span>
+                            </button>
+
+                            <button
                                 className="open-chart-btn"
                                 onClick={() => navigateToChart(symbol, interval)}
                                 title="Open in Terminal View"
@@ -264,14 +268,25 @@ export function SymbolInfoPanel() {
                         symbol={symbol}
                         pnlMode={pnlMode}
                         setPnlMode={setPnlMode}
+                        style={atrConfig.style}
                     />
                 </div>
             </div>
+
+            {/* ATRBot ER Settings Modal */}
+            {showSettings && (
+                <ATRBotSettingsModal
+                    isOpen={showSettings}
+                    onClose={() => setShowSettings(false)}
+                    config={atrConfig}
+                    onSave={handleSaveConfig}
+                />
+            )}
         </div>
     );
 }
 
-function IndicatorChart({ data, indicators, loading, error, symbol, pnlMode, setPnlMode }) {
+function IndicatorChart({ data, indicators, loading, error, symbol, pnlMode, setPnlMode, style }) {
     if (loading) {
         return (
             <div className="premium-loading-overlay">
@@ -314,6 +329,7 @@ function IndicatorChart({ data, indicators, loading, error, symbol, pnlMode, set
                 symbol={symbol}
                 pnlModeExternal={pnlMode}
                 setPnlModeExternal={setPnlMode}
+                style={style}
             />
         </div>
     );
@@ -321,12 +337,12 @@ function IndicatorChart({ data, indicators, loading, error, symbol, pnlMode, set
 
 
 
-function MiniChart({ data, indicators, history, vsrRes, symbol, pnlModeExternal, setPnlModeExternal }) {
+function MiniChart({ data, indicators, history, vsrRes, symbol, pnlModeExternal, setPnlModeExternal, style }) {
     const chartContainerRef = useRef();
     const chartRef = useRef(null);
     const candleSeriesRef = useRef(null);
-    const t3SeriesRef = useRef(null);
-    const t4SeriesRef = useRef(null);
+    const trail1SeriesRef = useRef(null);
+    const trail2SeriesRef = useRef(null);
     const markersPluginRef = useRef(null); // LC v5: Series markers plugin
     const [pnlPoints, setPnlPoints] = useState([]);
     const [livePnl, setLivePnl] = useState(null);
@@ -360,18 +376,30 @@ function MiniChart({ data, indicators, history, vsrRes, symbol, pnlModeExternal,
             wickUpColor: '#00ff88', wickDownColor: '#ff4444',
         });
 
-        const t3Series = chart.addSeries(LineSeries, {
-            color: '#00ff88', lineWidth: 2, crosshairMarkerVisible: false, lastValueVisible: false, priceLineVisible: false
+        // ATRBot ER Trail 1 (MA line)
+        const trail1Series = chart.addSeries(LineSeries, {
+            color: style?.trail1Color || '#00ff88',
+            lineWidth: style?.trail1Width || 2,
+            visible: style?.showTrail1 !== false,
+            crosshairMarkerVisible: false,
+            lastValueVisible: false,
+            priceLineVisible: false
         });
 
-        const t4Series = chart.addSeries(LineSeries, {
-            color: '#ff4444', lineWidth: 2, crosshairMarkerVisible: false, lastValueVisible: false, priceLineVisible: false
+        // ATRBot ER Trail 2 (ATR Trailing Stop)
+        const trail2Series = chart.addSeries(LineSeries, {
+            color: style?.trail2Color || '#ff4444',
+            lineWidth: style?.trail2Width || 2,
+            visible: style?.showTrail2 !== false,
+            crosshairMarkerVisible: false,
+            lastValueVisible: false,
+            priceLineVisible: false
         });
 
         chartRef.current = chart;
         candleSeriesRef.current = candleSeries;
-        t3SeriesRef.current = t3Series;
-        t4SeriesRef.current = t4Series;
+        trail1SeriesRef.current = trail1Series;
+        trail2SeriesRef.current = trail2Series;
 
         // Overlay Canvas
         const canvas = document.createElement('canvas');
@@ -390,15 +418,18 @@ function MiniChart({ data, indicators, history, vsrRes, symbol, pnlModeExternal,
             const timeScale = chart.timeScale();
             const series = candleSeriesRef.current;
 
-            // Cloud Fill (Bot 1)
-            const aligned = indicators.aligned;
-            if (aligned && aligned.length > 0) {
+            // Trend Cloud Fill (ATRBot ER: Trail 1 vs Trail 2)
+            const showFill = style?.showFill !== false;
+            const aligned = indicators?.aligned;
+            if (showFill && aligned && aligned.length > 0) {
                 let path = [];
                 let lastBias = null;
                 const flushPath = (p, bias) => {
                     if (p.length < 2) return;
                     ctx.beginPath();
-                    ctx.fillStyle = bias === 'up' ? 'rgba(0, 255, 136, 0.12)' : 'rgba(255, 68, 68, 0.12)';
+                    ctx.fillStyle = bias === 'up'
+                        ? (style?.fillBullColor || 'rgba(0, 255, 136, 0.12)')
+                        : (style?.fillBearColor || 'rgba(255, 68, 68, 0.12)');
                     ctx.moveTo(p[0].x, p[0].y1);
                     for (let j = 1; j < p.length; j++) ctx.lineTo(p[j].x, p[j].y1);
                     for (let j = p.length - 1; j >= 0; j--) ctx.lineTo(p[j].x, p[j].y2);
@@ -486,10 +517,30 @@ function MiniChart({ data, indicators, history, vsrRes, symbol, pnlModeExternal,
             if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
             chartRef.current = null;
             candleSeriesRef.current = null;
+            trail1SeriesRef.current = null;
+            trail2SeriesRef.current = null;
         };
     }, [symbol]); // Recreate on symbol change
 
-    // 2. Clear PnL on reactivation or deactivation
+    // 2. Apply Style updates to existing series
+    useEffect(() => {
+        if (trail1SeriesRef.current) {
+            trail1SeriesRef.current.applyOptions({
+                color: style?.trail1Color || '#00ff88',
+                lineWidth: style?.trail1Width || 2,
+                visible: style?.showTrail1 !== false
+            });
+        }
+        if (trail2SeriesRef.current) {
+            trail2SeriesRef.current.applyOptions({
+                color: style?.trail2Color || '#ff4444',
+                lineWidth: style?.trail2Width || 2,
+                visible: style?.showTrail2 !== false
+            });
+        }
+    }, [style]);
+
+    // 3. Clear PnL on reactivation or deactivation
     useEffect(() => {
         if (pnlModeExternal) {
             setPnlPoints([]);
@@ -502,7 +553,7 @@ function MiniChart({ data, indicators, history, vsrRes, symbol, pnlModeExternal,
         }
     }, [pnlModeExternal]);
 
-    // 3. Update Data & Dynamic Price Scale
+    // 4. Update Data & Dynamic Price Scale
     useEffect(() => {
         if (!chartRef.current || !data || data.length === 0 || !indicators || !candleSeriesRef.current) return;
 
@@ -525,18 +576,18 @@ function MiniChart({ data, indicators, history, vsrRes, symbol, pnlModeExternal,
 
         // Apply to all series to keep price scale consistent
         candleSeriesRef.current.applyOptions({ priceFormat });
-        if (t3SeriesRef.current) t3SeriesRef.current.applyOptions({ priceFormat });
-        if (t4SeriesRef.current) t4SeriesRef.current.applyOptions({ priceFormat });
+        if (trail1SeriesRef.current) trail1SeriesRef.current.applyOptions({ priceFormat });
+        if (trail2SeriesRef.current) trail2SeriesRef.current.applyOptions({ priceFormat });
 
         if (typeof candleSeriesRef.current.setData === 'function') {
             candleSeriesRef.current.setData(data);
         }
 
-        if (indicators.series.trail3 && t3SeriesRef.current && typeof t3SeriesRef.current.setData === 'function') {
-            t3SeriesRef.current.setData(indicators.series.trail3);
+        if (indicators.series.trail1 && trail1SeriesRef.current && typeof trail1SeriesRef.current.setData === 'function') {
+            trail1SeriesRef.current.setData(indicators.series.trail1);
         }
-        if (indicators.series.trail4 && t4SeriesRef.current && typeof t4SeriesRef.current.setData === 'function') {
-            t4SeriesRef.current.setData(indicators.series.trail4);
+        if (indicators.series.trail2 && trail2SeriesRef.current && typeof trail2SeriesRef.current.setData === 'function') {
+            trail2SeriesRef.current.setData(indicators.series.trail2);
         }
     }, [data, indicators]);
 
