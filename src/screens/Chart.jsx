@@ -16,13 +16,14 @@ import {
     getTicker,
     formatPrice,
     formatPercent,
+    tickerData,
 } from '../state/watchlist';
 
 // Get custom studies creators
 function getCustomStudies() {
     const studies = [];
     const names = [
-        'createATRBot', 'createATRMoving', 'createATRVector', 'createATRHMM', 'createVSR', 'createVSRDual', 'createVSR_1', 'createVSRBeta', 'createVIDYA',
+        'createATRBot', 'createATRBotVP', 'createATRBotER', 'createATRMoving', 'createATRVector', 'createATRHMM', 'createVSR', 'createVSRDual', 'createVSR_1', 'createVSRBeta', 'createVIDYA',
         'createSessionVP', 'createSwingPoints', 'createKAMA',
         'createSMC', 'createSR_1', 'createMarketStructure', 'createAdaptiveZigZag', 'createFVG', 'createForexFlowSupplyDemand', 'createForexFlowTrend'
     ];

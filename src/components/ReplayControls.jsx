@@ -306,25 +306,24 @@ export function useReplayEngine(tvWidgetRef, datafeedRef) {
             const replayDatafeed = createReplayDatafeed(bars, visibleCount, originalSymbolInfo);
 
             // Get custom studies creators (same as original chart)
+            const studyNames = [
+                'createATRBot', 'createATRBotVP', 'createATRBotER', 'createATRMoving', 'createATRVector', 'createATRHMM',
+                'createVSR', 'createVSRDual', 'createVSR_1', 'createVSROriginal', 'createVSRBeta', 'createVIDYA',
+                'createSessionVP', 'createSwingPoints', 'createKAMA',
+                'createSMC', 'createSR_1', 'createMarketStructure', 'createAdaptiveZigZag', 'createFVG',
+                'createForexFlowSupplyDemand', 'createForexFlowTrend'
+            ];
             const customStudies = [];
-            if (typeof createATRBot !== 'undefined') customStudies.push(createATRBot);
-            if (typeof createATRMoving !== 'undefined') customStudies.push(createATRMoving);
-            if (typeof createATRVector !== 'undefined') customStudies.push(createATRVector);
-            if (typeof createATRHMM !== 'undefined') customStudies.push(createATRHMM);
-            if (typeof createVSR !== 'undefined') customStudies.push(createVSR);
-            if (typeof createVSRDual !== 'undefined') customStudies.push(createVSRDual);
-            if (typeof createVSR_1 !== 'undefined') customStudies.push(createVSR_1);
-            if (typeof createVSRBeta !== 'undefined') customStudies.push(createVSRBeta);
-            if (typeof createVIDYA !== 'undefined') customStudies.push(createVIDYA);
-            if (typeof createSessionVP !== 'undefined') customStudies.push(createSessionVP);
-            if (typeof createSwingPoints !== 'undefined') customStudies.push(createSwingPoints);
-            if (typeof createKAMA !== 'undefined') customStudies.push(createKAMA);
-            if (typeof createSMC !== 'undefined') customStudies.push(createSMC);
-            if (typeof createSR_1 !== 'undefined') customStudies.push(createSR_1);
-            if (typeof createMarketStructure !== 'undefined') customStudies.push(createMarketStructure);
-            if (typeof createFVG !== 'undefined') customStudies.push(createFVG);
-            if (typeof createForexFlowSupplyDemand !== 'undefined') customStudies.push(createForexFlowSupplyDemand);
-            if (typeof createForexFlowTrend !== 'undefined') customStudies.push(createForexFlowTrend);
+            studyNames.forEach(name => {
+                const fn = (typeof window !== 'undefined' && typeof window[name] === 'function')
+                    ? window[name]
+                    : (typeof globalThis !== 'undefined' && typeof globalThis[name] === 'function')
+                        ? globalThis[name]
+                        : null;
+                if (fn) {
+                    customStudies.push(fn);
+                }
+            });
 
             // Get save load adapter (same as original chart)
 

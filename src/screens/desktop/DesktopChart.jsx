@@ -12,6 +12,7 @@ function getCustomStudies() {
     const studies = [];
     if (typeof createATRBot !== 'undefined') studies.push(createATRBot);
     if (typeof createATRBotVP !== 'undefined') studies.push(createATRBotVP);
+    if (typeof createATRBotER !== 'undefined') studies.push(createATRBotER);
     if (typeof createATRMoving !== 'undefined') studies.push(createATRMoving);
     if (typeof createATRVector !== 'undefined') studies.push(createATRVector);
     if (typeof createATRHMM !== 'undefined') studies.push(createATRHMM);

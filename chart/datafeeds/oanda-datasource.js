@@ -39,7 +39,8 @@ class OANDADatasource extends BaseDatasource {
         this.streamUrl = OANDA_CONFIG.streamUrl;
         this.accountId = `101-004-27015242-001`; // Demo account
         this.apiKey = `7a53c4eeff879ba6118ddc416c2d2085-4a766a7d07af7bd629c07b451fe92984`; // API key nếu có
-        this.barsCache = {}; // Cache để lưu 15000 bars
+        this.barsCache = {}; // Cache để lưu bars
+        this.inFlightRequests = new Map();
     }
 
     getInfo() {
@@ -208,65 +209,11 @@ class OANDADatasource extends BaseDatasource {
 
 
     /**
-     * Check if timestamp is in weekend (Saturday or Sunday)
+     * Fetch up to 5000 bars from OANDA API ending at toTimeSec
      */
-    isWeekend(timestamp) {
-        const date = new Date(timestamp);
-        const day = date.getUTCDay();
-        return day === 0 || day === 6; // Sunday = 0, Saturday = 6
-    }
-
-    /**
-     * Fill gaps in bars data (weekends, holidays)
-     * Sử dụng giá close của bar cuối cùng trước gap
-     */
-    fillGaps(bars) {
-        if (bars.length === 0) return bars;
-
-        const filledBars = [];
-        const barInterval = bars.length > 1 ? bars[1].time - bars[0].time : 86400000; // Default 1 day
-
-        for (let i = 0; i < bars.length; i++) {
-            filledBars.push(bars[i]);
-
-            // Check gap với bar tiếp theo
-            if (i < bars.length - 1) {
-                const currentTime = bars[i].time;
-                const nextTime = bars[i + 1].time;
-                const gap = nextTime - currentTime;
-
-                // Nếu gap > 2x interval, fill với flat bars
-                if (gap > barInterval * 2) {
-                    const lastClose = bars[i].close;
-                    let fillTime = currentTime + barInterval;
-
-                    while (fillTime < nextTime) {
-                        // Chỉ fill nếu không phải weekend
-                        if (!this.isWeekend(fillTime)) {
-                            filledBars.push({
-                                time: fillTime,
-                                open: lastClose,
-                                high: lastClose,
-                                low: lastClose,
-                                close: lastClose,
-                                volume: 0
-                            });
-                        }
-                        fillTime += barInterval;
-                    }
-                }
-            }
-        }
-
-        return filledBars;
-    }
-
-    /**
-     * Fetch 5000 bars từ OANDA API
-     */
-    async fetchBatch(oandaSymbol, granularity, toTime) {
-        const toISO = new Date(toTime * 1000).toISOString();
-        const url = `${this.baseUrl}/instruments/${oandaSymbol}/candles?granularity=${granularity}&to=${toISO}&count=5000&price=M`;
+    async fetchBatch(oandaSymbol, granularity, toTimeSec) {
+        const toISO = new Date(toTimeSec * 1000).toISOString();
+        const url = `${this.baseUrl}/instruments/${oandaSymbol}/candles?granularity=${granularity}&to=${encodeURIComponent(toISO)}&count=5000&price=M`;
 
         const headers = {};
         if (this.apiKey) {
@@ -274,10 +221,16 @@ class OANDADatasource extends BaseDatasource {
         }
 
         const response = await fetch(url, { headers });
+        if (!response.ok) {
+            console.warn(`${OANDA_CONFIG.logPrefix} HTTP error ${response.status} fetching historical batch`);
+            return [];
+        }
+
         const data = await response.json();
 
         if (data.errorMessage) {
-            throw new Error(data.errorMessage);
+            console.warn(`${OANDA_CONFIG.logPrefix} API error:`, data.errorMessage);
+            return [];
         }
 
         if (!data.candles || data.candles.length === 0) {
@@ -292,21 +245,20 @@ class OANDADatasource extends BaseDatasource {
                 low: parseFloat(candle.mid.l),
                 close: parseFloat(candle.mid.c),
                 volume: candle.volume || 0
-            }));
+            }))
+            .filter(b => [b.time, b.open, b.high, b.low, b.close].every(Number.isFinite))
+            .sort((a, b) => a.time - b.time);
     }
 
-    /**
-     * Lấy 5000 bars và cache lại
-     */
-    async fetch5000Bars(symbol, oandaSymbol, resolution) {
-        const cacheKey = `${symbol}_${resolution}`;
+    async getBars(symbolInfo, resolution, periodParams) {
+        const { from, to, firstDataRequest } = periodParams;
+        const symbol = symbolInfo.name;
 
-        // Kiểm tra cache (cache 5 phút)
-        const cached = this.barsCache[cacheKey];
-        if (cached && Date.now() - cached.timestamp < 300000) {
-            console.log(`${OANDA_CONFIG.logPrefix} Using cached data for ${symbol} (${resolution})`);
-            return cached.bars;
-        }
+        // Map symbol to OANDA format (e.g. EURUSD -> EUR_USD)
+        const cleanSymbol = symbol.toUpperCase().replace('OANDA:', '').replace('OA:', '');
+        const allInstruments = [...OANDA_CONFIG.forexPairs, ...OANDA_CONFIG.indexInstruments];
+        const match = allInstruments.find(s => s.replace('_', '') === cleanSymbol || s === cleanSymbol);
+        const oandaSymbol = match || (cleanSymbol.includes('_') ? cleanSymbol : (cleanSymbol.length === 6 ? cleanSymbol.substring(0, 3) + '_' + cleanSymbol.substring(3) : cleanSymbol));
 
         const intervalMap = {
             '1': 'M1',
@@ -316,95 +268,131 @@ class OANDADatasource extends BaseDatasource {
             '60': 'H1',
             '240': 'H4',
             '1D': 'D',
+            'D': 'D',
             '1W': 'W',
-            '1M': 'M'
+            'W': 'W',
+            '1M': 'M',
+            'M': 'M'
         };
-        const granularity = intervalMap[resolution] || 'H1';
+        const granularity = intervalMap[resolution] || (resolution.endsWith('D') ? 'D' : resolution.endsWith('W') ? 'W' : resolution.endsWith('M') ? 'M' : 'H1');
+        const cacheKey = `${cleanSymbol}_${resolution}`;
 
-        console.log(`${OANDA_CONFIG.logPrefix} Fetching 5000 bars for ${symbol} (${resolution})...`);
+        const nowSec = Math.floor(Date.now() / 1000);
+        const adjustedToSec = Math.min(to, nowSec);
+        const fromMs = from * 1000;
+        const toMs = adjustedToSec * 1000;
 
-        try {
-            const now = Math.floor(Date.now() / 1000);
-
-            // Lấy 5000 bars gần nhất
-            const bars = await this.fetchBatch(oandaSymbol, granularity, now);
-
-            console.log(`${OANDA_CONFIG.logPrefix} Fetched: ${bars.length} bars`);
-
-            // Cache lại
-            this.barsCache[cacheKey] = {
-                bars: bars,
-                timestamp: Date.now()
-            };
-
-            return bars;
-        } catch (error) {
-            console.error(`${OANDA_CONFIG.logPrefix} Error fetching 5000 bars:`, error);
-            return [];
+        if (from > adjustedToSec) {
+            return { bars: [], meta: { noData: true } };
         }
-    }
 
-    async getBars(symbolInfo, resolution, periodParams) {
-        const { from, to } = periodParams;
-        const symbol = symbolInfo.name;
-
-        // Map symbol to OANDA format (e.g. EURUSD -> EUR_USD)
-        const allInstruments = [...OANDA_CONFIG.forexPairs, ...OANDA_CONFIG.indexInstruments];
-        const match = allInstruments.find(s => s.replace('_', '') === symbol);
-        const oandaSymbol = match || symbol;
+        // Support up to 30,000 bars for deep historical analysis (matching Crypto)
+        const MAX_BARS = 30000;
 
         try {
-            // Đảm bảo 'to' không vượt quá thời gian hiện tại
-            const now = Math.floor(Date.now() / 1000);
-            const adjustedTo = Math.min(to, now - 5);
+            let cache = this.barsCache[cacheKey];
 
-            if (from > adjustedTo) {
-                return { bars: [], meta: { noData: true } };
-            }
-
-            // Lấy 5000 bars từ cache hoặc API
-            const allBars = await this.fetch5000Bars(symbol, oandaSymbol, resolution);
-
-            if (allBars.length === 0) {
-                console.log(`${OANDA_CONFIG.logPrefix} No bars available for ${symbol}`);
-                return { bars: [], meta: { noData: true } };
-            }
-
-            // Lọc bars trong khoảng thời gian yêu cầu
-            let bars = allBars.filter(bar => {
-                const barTimeSec = Math.floor(bar.time / 1000);
-                return barTimeSec >= from && barTimeSec <= adjustedTo;
-            });
-
-            // Nếu không có bars trong range (ví dụ: weekend/holiday)
-            // Tìm bars gần nhất TRƯỚC khoảng thời gian yêu cầu
-            if (bars.length === 0) {
-                console.log(`${OANDA_CONFIG.logPrefix} No bars in range, finding nearest bars before ${from}`);
-
-                // Tìm bars có time < from
-                const barsBefore = allBars.filter(bar => {
-                    const barTimeSec = Math.floor(bar.time / 1000);
-                    return barTimeSec < from;
-                });
-
-                if (barsBefore.length > 0) {
-                    // Lấy 50 bars gần nhất trước khoảng thời gian yêu cầu
-                    bars = barsBefore.slice(-50);
-                    console.log(`${OANDA_CONFIG.logPrefix} Returning ${bars.length} bars before requested range`);
+            // Initialize cache on first request or if cache expired (> 5 min)
+            if (!cache || (firstDataRequest && Date.now() - cache.timestamp > 300000)) {
+                if (this.inFlightRequests.has(cacheKey)) {
+                    await this.inFlightRequests.get(cacheKey);
+                    cache = this.barsCache[cacheKey];
                 } else {
-                    // Nếu không có bars trước đó, lấy bars đầu tiên
-                    bars = allBars.slice(0, 50);
-                    console.log(`${OANDA_CONFIG.logPrefix} Returning first ${bars.length} bars available`);
+                    const initPromise = (async () => {
+                        console.log(`${OANDA_CONFIG.logPrefix} Fetching initial 5000 bars for ${cleanSymbol} (${resolution})...`);
+                        const initialBars = await this.fetchBatch(oandaSymbol, granularity, nowSec);
+                        this.barsCache[cacheKey] = {
+                            bars: initialBars,
+                            noMoreHistoricalData: initialBars.length < 5000,
+                            timestamp: Date.now()
+                        };
+                        console.log(`${OANDA_CONFIG.logPrefix} Loaded ${initialBars.length} initial bars for ${cleanSymbol}`);
+                    })();
+                    this.inFlightRequests.set(cacheKey, initPromise);
+                    try {
+                        await initPromise;
+                    } finally {
+                        this.inFlightRequests.delete(cacheKey);
+                    }
+                    cache = this.barsCache[cacheKey];
                 }
             }
 
-            // Fill gaps cho daily và higher timeframes
-            if (['1D', '1W', '1M'].includes(resolution)) {
-                bars = this.fillGaps(bars);
+            if (!cache || !cache.bars || cache.bars.length === 0) {
+                console.log(`${OANDA_CONFIG.logPrefix} No bars available for ${cleanSymbol}`);
+                return { bars: [], meta: { noData: true } };
             }
 
-            console.log(`${OANDA_CONFIG.logPrefix} Returning ${bars.length} bars for ${symbol} (${resolution})`);
-            return { bars, meta: { noData: false } };
+            // If TradingView requests historical data older than our earliest cached bar,
+            // fetch older batches (up to MAX_BARS = 30000 bars, matching Crypto)
+            let oldestBar = cache.bars[0];
+            while (fromMs < oldestBar.time && !cache.noMoreHistoricalData && cache.bars.length < MAX_BARS) {
+                const olderToSec = Math.floor(oldestBar.time / 1000);
+                const inFlightKey = `${cacheKey}_older_${olderToSec}`;
+
+                let olderBatch;
+                if (this.inFlightRequests.has(inFlightKey)) {
+                    olderBatch = await this.inFlightRequests.get(inFlightKey);
+                } else {
+                    const olderPromise = (async () => {
+                        console.log(`${OANDA_CONFIG.logPrefix} Fetching older batch before ${new Date(oldestBar.time).toISOString()} (current total: ${cache.bars.length})...`);
+                        return await this.fetchBatch(oandaSymbol, granularity, olderToSec);
+                    })();
+                    this.inFlightRequests.set(inFlightKey, olderPromise);
+                    try {
+                        olderBatch = await olderPromise;
+                    } finally {
+                        this.inFlightRequests.delete(inFlightKey);
+                    }
+                }
+
+                if (!olderBatch || olderBatch.length === 0) {
+                    console.log(`${OANDA_CONFIG.logPrefix} Reached earliest history from API for ${cleanSymbol}`);
+                    cache.noMoreHistoricalData = true;
+                    break;
+                }
+
+                // Filter out any bars that overlap with already cached bars (time >= oldestBar.time)
+                const newOlderBars = olderBatch.filter(b => b.time < oldestBar.time);
+                if (newOlderBars.length === 0) {
+                    cache.noMoreHistoricalData = true;
+                    break;
+                }
+
+                // Prepend new older bars to cache
+                cache.bars = newOlderBars.concat(cache.bars);
+                oldestBar = cache.bars[0];
+                console.log(`${OANDA_CONFIG.logPrefix} Extended history to ${cache.bars.length} bars (oldest: ${new Date(oldestBar.time).toISOString()})`);
+
+                if (olderBatch.length < 5000) {
+                    cache.noMoreHistoricalData = true;
+                    break;
+                }
+
+                // If oldest bar is already <= requested fromMs, we have enough bars for this request
+                if (oldestBar.time <= fromMs) {
+                    break;
+                }
+            }
+
+            // Filter bars in requested range [fromMs, toMs]
+            const bars = cache.bars.filter(bar => bar.time >= fromMs && bar.time <= toMs);
+
+            if (bars.length > 0) {
+                return { bars, meta: { noData: false } };
+            }
+
+            // CRITICAL FIX:
+            // When no bars are in range (e.g. scrolled past available data or weekend gap),
+            // ALWAYS return meta: { noData: true } so TradingView stops querying.
+            // NEVER return future bars with noData: false, which causes the infinite loop and crash!
+            const meta = { noData: true };
+            if (cache.bars.length > 0 && fromMs < cache.bars[0].time) {
+                meta.nextTime = Math.floor(cache.bars[0].time / 1000);
+            }
+
+            return { bars: [], meta };
+
         } catch (error) {
             console.error(`${OANDA_CONFIG.logPrefix} Error in getBars:`, error);
             return { bars: [], meta: { noData: true } };

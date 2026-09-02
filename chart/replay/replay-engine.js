@@ -450,18 +450,29 @@ class ReplayEngine {
                     'header_widget',
                 ],
                 custom_indicators_getter: function (PineJS) {
-                    return Promise.resolve([
-                        ...(typeof createATRBot !== 'undefined' ? [createATRBot(PineJS)] : []),
-                        ...(typeof createATRVector !== 'undefined' ? [createATRVector(PineJS)] : []),
-                        ...(typeof createATRHMM !== 'undefined' ? [createATRHMM(PineJS)] : []),
-                        ...(typeof createVSR !== 'undefined' ? [createVSR(PineJS)] : []),
-                        ...(typeof createForexFlowSupplyDemand !== 'undefined'
-                            ? [createForexFlowSupplyDemand(PineJS)]
-                            : []),
-                        ...(typeof createForexFlowTrend !== 'undefined'
-                            ? [createForexFlowTrend(PineJS)]
-                            : []),
-                    ]);
+                    const studyNames = [
+                        'createATRBot', 'createATRBotVP', 'createATRBotER', 'createATRMoving', 'createATRVector', 'createATRHMM',
+                        'createVSR', 'createVSRDual', 'createVSR_1', 'createVSROriginal', 'createVSRBeta', 'createVIDYA',
+                        'createSessionVP', 'createSwingPoints', 'createKAMA',
+                        'createSMC', 'createSR_1', 'createMarketStructure', 'createAdaptiveZigZag', 'createFVG',
+                        'createForexFlowSupplyDemand', 'createForexFlowTrend'
+                    ];
+                    const studies = [];
+                    studyNames.forEach(name => {
+                        const fn = (typeof window !== 'undefined' && typeof window[name] === 'function')
+                            ? window[name]
+                            : (typeof globalThis !== 'undefined' && typeof globalThis[name] === 'function')
+                                ? globalThis[name]
+                                : null;
+                        if (fn) {
+                            try {
+                                studies.push(fn(PineJS));
+                            } catch (e) {
+                                console.warn('[ReplayEngine] Error initializing study ' + name, e);
+                            }
+                        }
+                    });
+                    return Promise.resolve(studies);
                 },
             });
 
