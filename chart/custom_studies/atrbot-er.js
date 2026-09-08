@@ -105,10 +105,10 @@
 
                 inputs: [
                     // Source & MA
-                    { id: "source", name: "Source", defval: "close", type: "source", options: ["open", "high", "low", "close", "hl2", "hlc3", "ohlc4"] },
+                    { id: "source", name: "Source", defval: "close", type: "source" },
                     { id: "maLen", name: "MA Length", defval: 30, type: "integer", min: 1, max: 1000 },
                     { id: "maType", name: "MA Type", defval: "EMA", type: "text", options: ["EMA", "VWMA", "VIDYA"] },
-                    { id: "vidyaCmoLen", name: "VIDYA — CMO Period", defval: 9, type: "integer", min: 2, max: 500 },
+                    { id: "vidyaCmoLen", name: "VIDYA CMO Period", defval: 9, type: "integer", min: 2, max: 500 },
 
                     // ATR & Multiplier
                     { id: "atrLen", name: "ATR Length", defval: 14, type: "integer", min: 1, max: 500 },
@@ -119,8 +119,8 @@
                     // Efficiency Ratio
                     { id: "erLen", name: "ER Period", defval: 20, type: "integer", min: 2, max: 500 },
                     { id: "erSmooth", name: "ER Smooth (EMA)", defval: 5, type: "integer", min: 1, max: 100 },
-                    { id: "erPower", name: "ER Curve Power (1=linear, 2=quadratic)", defval: 2.0, type: "float", min: 1.0, max: 4.0, step: 0.5 },
-                    { id: "erSlopeGuard", name: "ER Slope Guard (avoid trend exhaustion trap)", defval: true, type: "bool" },
+                    { id: "erPower", name: "ER Curve Power (1: linear, 2: quadratic)", defval: 2.0, type: "float", min: 1.0, max: 4.0, step: 0.5 },
+                    { id: "erSlopeGuard", name: "ER Slope Guard", defval: true, type: "bool" },
                     { id: "erSlopeLen", name: "Slope Lookback", defval: 3, type: "integer", min: 1, max: 50 }
                 ],
 

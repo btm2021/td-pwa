@@ -3,7 +3,8 @@ import { Icon } from './Icon';
 import {
     DEFAULT_BIAS_ATRBOT_ER,
     DEFAULT_ENTRY_ATRBOT_ER,
-    hexToRgba
+    hexToRgba,
+    rgbaToHex
 } from '../utils/indicators';
 
 export function ATRBotSettingsModal({ isOpen, onClose, config, onSave }) {
@@ -111,7 +112,7 @@ export function ATRBotSettingsModal({ isOpen, onClose, config, onSave }) {
                                 background: 'rgba(255,255,255,0.1)',
                                 color: '#aaa'
                             }}>
-                                {biasConfig.params.maType} {biasConfig.params.atrLen}-{biasConfig.params.multBase}-{biasConfig.params.maLen}
+                                {biasConfig?.params?.maType || 'VIDYA'} {biasConfig?.params?.atrLen || 14}-{biasConfig?.params?.multBase || 2.0}-{biasConfig?.params?.maLen || 55}
                             </span>
                         </div>
                         <span style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>Chỉ hiện vùng mây (Cloud Fill)</span>
@@ -144,7 +145,7 @@ export function ATRBotSettingsModal({ isOpen, onClose, config, onSave }) {
                                 background: 'rgba(255,255,255,0.1)',
                                 color: '#aaa'
                             }}>
-                                {entryConfig.params.maType} {entryConfig.params.atrLen}-{entryConfig.params.multBase}-{entryConfig.params.maLen}
+                                {entryConfig?.params?.maType || 'VIDYA'} {entryConfig?.params?.atrLen || 14}-{entryConfig?.params?.multBase || 2.0}-{entryConfig?.params?.maLen || 21}
                             </span>
                         </div>
                         <span style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>Hiện Trail Xanh / Đỏ</span>
@@ -516,11 +517,11 @@ export function ATRBotSettingsModal({ isOpen, onClose, config, onSave }) {
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                         <input
                                             type="color"
-                                            value={style.trail1Color}
+                                            value={rgbaToHex(style.trail1Color, '#00ff88')}
                                             onChange={(e) => handleStyleChange('trail1Color', e.target.value)}
                                             style={{ width: '28px', height: '28px', border: 'none', borderRadius: '4px', cursor: 'pointer', background: 'transparent' }}
                                         />
-                                        <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontFamily: 'monospace' }}>{style.trail1Color}</span>
+                                        <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontFamily: 'monospace' }}>{rgbaToHex(style.trail1Color, '#00ff88')}</span>
                                     </div>
                                 </div>
 
@@ -575,11 +576,11 @@ export function ATRBotSettingsModal({ isOpen, onClose, config, onSave }) {
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                         <input
                                             type="color"
-                                            value={style.trail2Color}
+                                            value={rgbaToHex(style.trail2Color, '#ff4444')}
                                             onChange={(e) => handleStyleChange('trail2Color', e.target.value)}
                                             style={{ width: '28px', height: '28px', border: 'none', borderRadius: '4px', cursor: 'pointer', background: 'transparent' }}
                                         />
-                                        <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontFamily: 'monospace' }}>{style.trail2Color}</span>
+                                        <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontFamily: 'monospace' }}>{rgbaToHex(style.trail2Color, '#ff4444')}</span>
                                     </div>
                                 </div>
 
@@ -636,11 +637,11 @@ export function ATRBotSettingsModal({ isOpen, onClose, config, onSave }) {
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                             <input
                                                 type="color"
-                                                value={style.fillBullColor?.startsWith('#') ? style.fillBullColor : '#00ff88'}
+                                                value={rgbaToHex(style.fillBullColor, '#00ff88')}
                                                 onChange={(e) => handleStyleChange('fillBullColor', hexToRgba(e.target.value, 0.12))}
                                                 style={{ width: '28px', height: '28px', border: 'none', borderRadius: '4px', cursor: 'pointer', background: 'transparent' }}
                                             />
-                                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>Bullish</span>
+                                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontFamily: 'monospace' }}>{rgbaToHex(style.fillBullColor, '#00ff88')}</span>
                                         </div>
                                     </div>
 
@@ -649,11 +650,11 @@ export function ATRBotSettingsModal({ isOpen, onClose, config, onSave }) {
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                             <input
                                                 type="color"
-                                                value={style.fillBearColor?.startsWith('#') ? style.fillBearColor : '#ff4444'}
+                                                value={rgbaToHex(style.fillBearColor, '#ff4444')}
                                                 onChange={(e) => handleStyleChange('fillBearColor', hexToRgba(e.target.value, 0.12))}
                                                 style={{ width: '28px', height: '28px', border: 'none', borderRadius: '4px', cursor: 'pointer', background: 'transparent' }}
                                             />
-                                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>Bearish</span>
+                                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontFamily: 'monospace' }}>{rgbaToHex(style.fillBearColor, '#ff4444')}</span>
                                         </div>
                                     </div>
                                 </div>

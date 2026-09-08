@@ -52,6 +52,7 @@ export function SymbolInfoPanel() {
     const [error, setError] = useState(null);
     const [indicators, setIndicators] = useState(null);
 
+    // 1. Fetch OHLCV data on symbol or interval change
     useEffect(() => {
         let isMounted = true;
         async function loadData() {
@@ -63,55 +64,6 @@ export function SymbolInfoPanel() {
 
                 if (history && history.length > 50) {
                     setData(history);
-
-                    // Dual ATRBot ER (Bias & Entry)
-                    const biasParams = atrConfig?.bias?.params || DEFAULT_BIAS_ATRBOT_ER.params;
-                    const entryParams = atrConfig?.entry?.params || DEFAULT_ENTRY_ATRBOT_ER.params;
-
-                    const biasRes = calcATRBotER(history, biasParams);
-                    const entryRes = calcATRBotER(history, entryParams);
-                    const vsr = calcVSR(history, 10, 5);
-
-                    const lastIdx = history.length - 1;
-
-                    const seriesData = history.map((d, i) => {
-                        return {
-                            time: d.time,
-                            biasTrail1: biasRes.trail1[i],
-                            biasTrail2: biasRes.trail2[i],
-                            biasTrend: biasRes.trend[i],
-                            entryTrail1: entryRes.trail1[i],
-                            entryTrail2: entryRes.trail2[i],
-                            entryTrend: entryRes.trend[i],
-                            vsrUp: vsr.up[i],
-                            vsrLo: vsr.lo[i]
-                        };
-                    });
-
-                    setIndicators({
-                        bot: {
-                            biasTrailing: biasRes.trail2[lastIdx],
-                            biasMa: biasRes.trail1[lastIdx],
-                            biasTrend: biasRes.trend[lastIdx],
-                            entryTrailing: entryRes.trail2[lastIdx],
-                            entryMa: entryRes.trail1[lastIdx],
-                            entryTrend: entryRes.trend[lastIdx],
-                        },
-                        vsr: {
-                            up: vsr.up[lastIdx],
-                            lo: vsr.lo[lastIdx],
-                            isSpike: vsr.beg[lastIdx]
-                        },
-                        series: {
-                            biasTrail1: seriesData.map(d => ({ time: d.time, value: d.biasTrail1 })).filter(d => Number.isFinite(d.value)),
-                            biasTrail2: seriesData.map(d => ({ time: d.time, value: d.biasTrail2 })).filter(d => Number.isFinite(d.value)),
-                            entryTrail1: seriesData.map(d => ({ time: d.time, value: d.entryTrail1 })).filter(d => Number.isFinite(d.value)),
-                            entryTrail2: seriesData.map(d => ({ time: d.time, value: d.entryTrail2 })).filter(d => Number.isFinite(d.value)),
-                        },
-                        history: history,
-                        vsrRes: vsr,
-                        aligned: seriesData
-                    });
                 } else {
                     setError("Not enough history data");
                 }
@@ -123,7 +75,60 @@ export function SymbolInfoPanel() {
         }
         loadData();
         return () => { isMounted = false; };
-    }, [symbol, interval, atrConfig?.bias?.params, atrConfig?.entry?.params]);
+    }, [symbol, interval]);
+
+    // 2. Compute Indicators (Dual ATRBot ER Bias & Entry) in-memory
+    useEffect(() => {
+        if (!data || data.length <= 50) return;
+
+        const biasParams = atrConfig?.bias?.params || DEFAULT_BIAS_ATRBOT_ER.params;
+        const entryParams = atrConfig?.entry?.params || DEFAULT_ENTRY_ATRBOT_ER.params;
+
+        const biasRes = calcATRBotER(data, biasParams);
+        const entryRes = calcATRBotER(data, entryParams);
+        const vsr = calcVSR(data, 10, 5);
+
+        const lastIdx = data.length - 1;
+
+        const seriesData = data.map((d, i) => {
+            return {
+                time: d.time,
+                biasTrail1: biasRes.trail1[i],
+                biasTrail2: biasRes.trail2[i],
+                biasTrend: biasRes.trend[i],
+                entryTrail1: entryRes.trail1[i],
+                entryTrail2: entryRes.trail2[i],
+                entryTrend: entryRes.trend[i],
+                vsrUp: vsr.up[i],
+                vsrLo: vsr.lo[i]
+            };
+        });
+
+        setIndicators({
+            bot: {
+                biasTrailing: biasRes.trail2[lastIdx],
+                biasMa: biasRes.trail1[lastIdx],
+                biasTrend: biasRes.trend[lastIdx],
+                entryTrailing: entryRes.trail2[lastIdx],
+                entryMa: entryRes.trail1[lastIdx],
+                entryTrend: entryRes.trend[lastIdx],
+            },
+            vsr: {
+                up: vsr.up[lastIdx],
+                lo: vsr.lo[lastIdx],
+                isSpike: vsr.beg[lastIdx]
+            },
+            series: {
+                biasTrail1: seriesData.map(d => ({ time: d.time, value: d.biasTrail1 })).filter(d => Number.isFinite(d.value)),
+                biasTrail2: seriesData.map(d => ({ time: d.time, value: d.biasTrail2 })).filter(d => Number.isFinite(d.value)),
+                entryTrail1: seriesData.map(d => ({ time: d.time, value: d.entryTrail1 })).filter(d => Number.isFinite(d.value)),
+                entryTrail2: seriesData.map(d => ({ time: d.time, value: d.entryTrail2 })).filter(d => Number.isFinite(d.value)),
+            },
+            history: data,
+            vsrRes: vsr,
+            aligned: seriesData
+        });
+    }, [data, atrConfig?.bias?.params, atrConfig?.entry?.params]);
 
     // Derived State for Header Meta
     let bias = 'NEUTRAL';
@@ -236,12 +241,12 @@ export function SymbolInfoPanel() {
                             </button>
 
                             <button
-                                className="pnl-tool-btn"
+                                className={`chart-cog-btn ${showSettings ? 'active' : ''}`}
                                 onClick={() => setShowSettings(true)}
-                                title="ATRBot ER Settings"
+                                title="Cài đặt ATRBot ER (Dual Bias & Entry)"
+                                aria-label="ATRBot ER Settings"
                             >
                                 <Icon name="settings" size={16} />
-                                <span>ATRBot</span>
                             </button>
 
                             <button
@@ -278,6 +283,7 @@ export function SymbolInfoPanel() {
                         pnlMode={pnlMode}
                         setPnlMode={setPnlMode}
                         atrConfig={atrConfig}
+                        onOpenSettings={() => setShowSettings(true)}
                     />
                 </div>
             </div>
@@ -295,7 +301,7 @@ export function SymbolInfoPanel() {
     );
 }
 
-function IndicatorChart({ data, indicators, loading, error, symbol, pnlMode, setPnlMode, atrConfig }) {
+function IndicatorChart({ data, indicators, loading, error, symbol, pnlMode, setPnlMode, atrConfig, onOpenSettings }) {
     if (loading) {
         return (
             <div className="premium-loading-overlay">
@@ -339,12 +345,13 @@ function IndicatorChart({ data, indicators, loading, error, symbol, pnlMode, set
                 pnlModeExternal={pnlMode}
                 setPnlModeExternal={setPnlMode}
                 atrConfig={atrConfig}
+                onOpenSettings={onOpenSettings}
             />
         </div>
     );
 }
 
-function MiniChart({ data, indicators, history, vsrRes, symbol, pnlModeExternal, setPnlModeExternal, atrConfig }) {
+function MiniChart({ data, indicators, history, vsrRes, symbol, pnlModeExternal, setPnlModeExternal, atrConfig, onOpenSettings }) {
     const chartContainerRef = useRef();
     const chartRef = useRef(null);
     const candleSeriesRef = useRef(null);
@@ -355,6 +362,17 @@ function MiniChart({ data, indicators, history, vsrRes, symbol, pnlModeExternal,
     const markersPluginRef = useRef(null); // LC v5: Series markers plugin
     const [pnlPoints, setPnlPoints] = useState([]);
     const [livePnl, setLivePnl] = useState(null);
+
+    // Live refs to prevent closure stale states
+    const atrConfigRef = useRef(atrConfig);
+    atrConfigRef.current = atrConfig;
+    const indicatorsRef = useRef(indicators);
+    indicatorsRef.current = indicators;
+    const historyRef = useRef(history);
+    historyRef.current = history;
+    const vsrResRef = useRef(vsrRes);
+    vsrResRef.current = vsrRes;
+    const drawOverlaysRef = useRef(null);
 
     // 1. Initialize Chart
     useEffect(() => {
@@ -385,14 +403,14 @@ function MiniChart({ data, indicators, history, vsrRes, symbol, pnlModeExternal,
             wickUpColor: '#00ff88', wickDownColor: '#ff4444',
         });
 
-        const biasStyle = atrConfig?.bias?.style || DEFAULT_BIAS_ATRBOT_ER.style;
-        const entryStyle = atrConfig?.entry?.style || DEFAULT_ENTRY_ATRBOT_ER.style;
+        const initialBiasStyle = atrConfigRef.current?.bias?.style || DEFAULT_BIAS_ATRBOT_ER.style;
+        const initialEntryStyle = atrConfigRef.current?.entry?.style || DEFAULT_ENTRY_ATRBOT_ER.style;
 
         // Entry Trail 1 (MA line - green)
         const entryTrail1 = chart.addSeries(LineSeries, {
-            color: entryStyle?.trail1Color || '#00ff88',
-            lineWidth: entryStyle?.trail1Width || 2,
-            visible: entryStyle?.showTrail1 !== false,
+            color: initialEntryStyle?.trail1Color || '#00ff88',
+            lineWidth: initialEntryStyle?.trail1Width || 2,
+            visible: initialEntryStyle?.showTrail1 !== false,
             crosshairMarkerVisible: false,
             lastValueVisible: false,
             priceLineVisible: false
@@ -400,9 +418,9 @@ function MiniChart({ data, indicators, history, vsrRes, symbol, pnlModeExternal,
 
         // Entry Trail 2 (ATR Trailing Stop - red)
         const entryTrail2 = chart.addSeries(LineSeries, {
-            color: entryStyle?.trail2Color || '#ff4444',
-            lineWidth: entryStyle?.trail2Width || 2,
-            visible: entryStyle?.showTrail2 !== false,
+            color: initialEntryStyle?.trail2Color || '#ff4444',
+            lineWidth: initialEntryStyle?.trail2Width || 2,
+            visible: initialEntryStyle?.showTrail2 !== false,
             crosshairMarkerVisible: false,
             lastValueVisible: false,
             priceLineVisible: false
@@ -410,9 +428,9 @@ function MiniChart({ data, indicators, history, vsrRes, symbol, pnlModeExternal,
 
         // Bias Trail 1 (MA line - default hidden)
         const biasTrail1 = chart.addSeries(LineSeries, {
-            color: biasStyle?.trail1Color || '#00ff88',
-            lineWidth: biasStyle?.trail1Width || 2,
-            visible: !!biasStyle?.showTrail1,
+            color: initialBiasStyle?.trail1Color || '#00ff88',
+            lineWidth: initialBiasStyle?.trail1Width || 2,
+            visible: !!initialBiasStyle?.showTrail1,
             crosshairMarkerVisible: false,
             lastValueVisible: false,
             priceLineVisible: false
@@ -420,9 +438,9 @@ function MiniChart({ data, indicators, history, vsrRes, symbol, pnlModeExternal,
 
         // Bias Trail 2 (ATR Trailing Stop - default hidden)
         const biasTrail2 = chart.addSeries(LineSeries, {
-            color: biasStyle?.trail2Color || '#ff4444',
-            lineWidth: biasStyle?.trail2Width || 2,
-            visible: !!biasStyle?.showTrail2,
+            color: initialBiasStyle?.trail2Color || '#ff4444',
+            lineWidth: initialBiasStyle?.trail2Width || 2,
+            visible: !!initialBiasStyle?.showTrail2,
             crosshairMarkerVisible: false,
             lastValueVisible: false,
             priceLineVisible: false
@@ -451,7 +469,12 @@ function MiniChart({ data, indicators, history, vsrRes, symbol, pnlModeExternal,
 
             const timeScale = chart.timeScale();
             const series = candleSeriesRef.current;
-            const aligned = indicators?.aligned;
+            const currentAtrConfig = atrConfigRef.current;
+            const biasStyle = currentAtrConfig?.bias?.style || DEFAULT_BIAS_ATRBOT_ER.style;
+            const entryStyle = currentAtrConfig?.entry?.style || DEFAULT_ENTRY_ATRBOT_ER.style;
+            const aligned = indicatorsRef.current?.aligned;
+            const curHistory = historyRef.current;
+            const curVsrRes = vsrResRef.current;
 
             // 1. Bias Cloud Fill (Default Active: Cloud between biasTrail1 & biasTrail2)
             const showBiasFill = biasStyle?.showFill !== false;
@@ -524,13 +547,13 @@ function MiniChart({ data, indicators, history, vsrRes, symbol, pnlModeExternal,
             }
 
             // VSR Zones
-            if (history && vsrRes) {
+            if (curHistory && curVsrRes) {
                 let zones = [];
                 let cur = null;
-                for (let i = 0; i < history.length; i++) {
-                    if (vsrRes.beg[i]) {
-                        if (cur) { cur.endTime = history[i - 1].time; zones.push(cur); }
-                        cur = { startTime: history[i].time, endTime: history[history.length - 1].time, zh: vsrRes.up[i], zl: vsrRes.lo[i] };
+                for (let i = 0; i < curHistory.length; i++) {
+                    if (curVsrRes.beg[i]) {
+                        if (cur) { cur.endTime = curHistory[i - 1].time; zones.push(cur); }
+                        cur = { startTime: curHistory[i].time, endTime: curHistory[curHistory.length - 1].time, zh: curVsrRes.up[i], zl: curVsrRes.lo[i] };
                     }
                 }
                 if (cur) zones.push(cur);
@@ -551,6 +574,8 @@ function MiniChart({ data, indicators, history, vsrRes, symbol, pnlModeExternal,
                 });
             }
         };
+
+        drawOverlaysRef.current = drawOverlays;
 
         const handleResize = () => {
             if (container && chart) {
@@ -595,6 +620,7 @@ function MiniChart({ data, indicators, history, vsrRes, symbol, pnlModeExternal,
             entryTrail2SeriesRef.current = null;
             biasTrail1SeriesRef.current = null;
             biasTrail2SeriesRef.current = null;
+            drawOverlaysRef.current = null;
         };
     }, [symbol]); // Recreate on symbol change
 
@@ -631,6 +657,9 @@ function MiniChart({ data, indicators, history, vsrRes, symbol, pnlModeExternal,
                 visible: !!biasStyle?.showTrail2
             });
         }
+        requestAnimationFrame(() => {
+            drawOverlaysRef.current?.();
+        });
     }, [atrConfig?.bias?.style, atrConfig?.entry?.style]);
 
     // 3. Clear PnL on reactivation or deactivation
@@ -690,6 +719,10 @@ function MiniChart({ data, indicators, history, vsrRes, symbol, pnlModeExternal,
         if (indicators.series.biasTrail2 && biasTrail2SeriesRef.current && typeof biasTrail2SeriesRef.current.setData === 'function') {
             biasTrail2SeriesRef.current.setData(indicators.series.biasTrail2);
         }
+
+        requestAnimationFrame(() => {
+            drawOverlaysRef.current?.();
+        });
     }, [data, indicators]);
 
     // 4. Markers Effect (LC v5: Use createSeriesMarkers plugin)
@@ -821,6 +854,25 @@ function MiniChart({ data, indicators, history, vsrRes, symbol, pnlModeExternal,
 
     return (
         <div className="mini-chart-wrapper" style={{ flex: 1, width: '100%', display: 'flex', flexDirection: 'column', position: 'relative', minHeight: '300px' }}>
+            {/* Top-left Indicator Legend Overlay with Setting Cog Button */}
+            <div className="mini-chart-indicator-legend">
+                <span className="legend-dot" style={{ background: '#00ff88' }}></span>
+                <span className="legend-name">ATRBot-ER Dual</span>
+                <span className="legend-desc">Bias & Entry</span>
+                <button
+                    type="button"
+                    className="legend-cog-btn"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onOpenSettings?.();
+                    }}
+                    title="Cài đặt ATRBot ER (Dual Bias & Entry)"
+                    aria-label="Cài đặt ATRBot ER"
+                >
+                    <Icon name="settings" size={14} />
+                </button>
+            </div>
+
             <div
                 ref={chartContainerRef}
                 className="mini-chart-container"

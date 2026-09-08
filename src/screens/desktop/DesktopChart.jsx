@@ -20,9 +20,11 @@ function getCustomStudies() {
     if (typeof createVSRDual !== 'undefined') studies.push(createVSRDual);
     if (typeof createVSR_1 !== 'undefined') studies.push(createVSR_1);
     if (typeof createVSRBeta !== 'undefined') studies.push(createVSRBeta);
+    if (typeof createVSR2 !== 'undefined') studies.push(createVSR2);
     if (typeof createVIDYA !== 'undefined') studies.push(createVIDYA);
     if (typeof createSessionVP !== 'undefined') studies.push(createSessionVP);
     if (typeof createSwingPoints !== 'undefined') studies.push(createSwingPoints);
+    if (typeof createSMCRange !== 'undefined') studies.push(createSMCRange);
     if (typeof createKAMA !== 'undefined') studies.push(createKAMA);
     if (typeof createSMC !== 'undefined') studies.push(createSMC);
     if (typeof createSR_1 !== 'undefined') studies.push(createSR_1);

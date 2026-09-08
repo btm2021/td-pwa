@@ -452,7 +452,7 @@ class ReplayEngine {
                 custom_indicators_getter: function (PineJS) {
                     const studyNames = [
                         'createATRBot', 'createATRBotVP', 'createATRBotER', 'createATRMoving', 'createATRVector', 'createATRHMM',
-                        'createVSR', 'createVSRDual', 'createVSR_1', 'createVSROriginal', 'createVSRBeta', 'createVIDYA',
+                        'createVSR', 'createVSRDual', 'createVSR_1', 'createVSROriginal', 'createVSRBeta', 'createVSR2', 'createVIDYA',
                         'createSessionVP', 'createSwingPoints', 'createKAMA',
                         'createSMC', 'createSR_1', 'createMarketStructure', 'createAdaptiveZigZag', 'createFVG',
                         'createForexFlowSupplyDemand', 'createForexFlowTrend'

@@ -2281,6 +2281,91 @@ html.desktop-mode #app {
     box-shadow: 0 4px 15px rgba(41, 121, 255, 0.3);
 }
 
+.chart-cog-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border-radius: 9px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    color: var(--text-secondary);
+    background: transparent;
+}
+
+.chart-cog-btn:hover {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.08);
+    transform: rotate(30deg);
+}
+
+.chart-cog-btn.active {
+    background: var(--accent-blue);
+    color: #fff;
+    box-shadow: 0 4px 15px rgba(41, 121, 255, 0.3);
+}
+
+.mini-chart-indicator-legend {
+    position: absolute;
+    top: 10px;
+    left: 12px;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 8px;
+    border-radius: 6px;
+    background: rgba(11, 11, 14, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(8px);
+    font-size: 11px;
+    color: var(--text-secondary);
+    pointer-events: auto;
+    user-select: none;
+}
+
+.mini-chart-indicator-legend .legend-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+}
+
+.mini-chart-indicator-legend .legend-name {
+    font-weight: 700;
+    color: #fff;
+    font-size: 11px;
+}
+
+.mini-chart-indicator-legend .legend-desc {
+    font-size: 10px;
+    color: var(--text-tertiary);
+}
+
+.mini-chart-indicator-legend .legend-cog-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    border-radius: 4px;
+    border: none;
+    background: transparent;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-left: 2px;
+}
+
+.mini-chart-indicator-legend .legend-cog-btn:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.12);
+    transform: rotate(30deg);
+}
+
 .open-chart-btn {
     background: rgba(0, 255, 136, 0.1);
     color: #00ff88;

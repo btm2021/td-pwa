@@ -183,6 +183,23 @@ export function hexToRgba(hex, alpha = 0.12) {
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
+export function rgbaToHex(color, fallback = '#00ff88') {
+    if (!color) return fallback;
+    if (typeof color !== 'string') return fallback;
+    if (color.startsWith('#')) {
+        if (color.length === 4) {
+            return `#${color[1]}${color[1]}${color[2]}${color[2]}${color[3]}${color[3]}`;
+        }
+        return color.slice(0, 7);
+    }
+    const match = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+    if (!match) return fallback;
+    const r = Math.max(0, Math.min(255, parseInt(match[1]))).toString(16).padStart(2, '0');
+    const g = Math.max(0, Math.min(255, parseInt(match[2]))).toString(16).padStart(2, '0');
+    const b = Math.max(0, Math.min(255, parseInt(match[3]))).toString(16).padStart(2, '0');
+    return `#${r}${g}${b}`;
+}
+
 /**
  * Calculates ATRBot ER-Adaptive (Version 2)
  * Matches PineScript v5 indicator "ATRBot ER-Adaptive"
