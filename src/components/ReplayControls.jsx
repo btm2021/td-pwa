@@ -308,7 +308,7 @@ export function useReplayEngine(tvWidgetRef, datafeedRef) {
             // Get custom studies creators (same as original chart)
             const studyNames = [
                 'createATRBot', 'createATRBotVP', 'createATRBotER', 'createATRMoving', 'createATRVector', 'createATRHMM',
-                'createVSR', 'createVSRDual', 'createVSR_1', 'createVSROriginal', 'createVSRBeta', 'createVSR2', 'createVIDYA',
+                'createVSR', 'createVSRDual', 'createVSR_1', 'createVSROriginal', 'createVSRBeta', 'createVSR2', 'createVSR3', 'createVIDYA',
                 'createSessionVP', 'createSwingPoints', 'createSMCRange', 'createKAMA',
                 'createSMC', 'createSR_1', 'createMarketStructure', 'createAdaptiveZigZag', 'createFVG',
                 'createForexFlowSupplyDemand', 'createForexFlowTrend'
