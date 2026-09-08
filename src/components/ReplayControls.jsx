@@ -36,7 +36,17 @@ const SPEEDS = [
  * Manages bar replay functionality
  */
 export function useReplayEngine(tvWidgetRef, datafeedRef) {
-    const [allBars, setAllBars] = useState([]);
+    const [allBars, setAllBarsState] = useState([]);
+    // Nguồn sự thật DUY NHẤT cho dữ liệu nến của replay.
+    // Bắt buộc phải là ref: addNextBar() được bắt giữ (capture) một lần duy nhất
+    // bởi onmessage của Web Worker và bởi listener của nút "Step Forward" trên
+    // header — cả hai được đăng ký trong onChartReady. Nếu đọc allBars từ state,
+    // closure đó giữ mãi giá trị của lần render lúc đăng ký (thường là [] vì
+    // stopReplay() vừa setAllBars([])), khiến newBar === undefined nên KHÔNG
+    // bao giờ gọi realtimeCallback: bộ đếm visibleBarsCount vẫn tăng còn chart
+    // đứng im => replay "chạy" mà dữ liệu không nhúc nhích.
+    const allBarsRef = useRef([]);
+    const setAllBars = (bars) => { allBarsRef.current = bars || []; setAllBarsState(bars || []); };
     const timerRef = useRef(null);
     const workerRef = useRef(null);
     const realtimeCallbackRef = useRef(null);
@@ -173,9 +183,20 @@ export function useReplayEngine(tvWidgetRef, datafeedRef) {
                 }, 0);
             },
             getBars: (symbolInfo, resolution, periodParams, onHistoryCallback, onErrorCallback) => {
-                const state = replayState.value;
-                const visibleBars = bars.slice(0, state.visibleBarsCount);
-                onHistoryCallback(visibleBars, { noData: visibleBars.length === 0 });
+                // Cắt tại điểm replay: KHÔNG BAO GIỜ trả về nến sau visibleBarsCount.
+                // Đây là chỗ bảo đảm indicator chỉ nhìn thấy quá khứ.
+                const source = allBarsRef.current.length ? allBarsRef.current : bars;
+                const visibleBars = source.slice(0, replayState.value.visibleBarsCount);
+
+                if (periodParams.firstDataRequest) {
+                    // Giao toàn bộ lịch sử khả dụng ngay lần đầu để indicator có
+                    // đủ warmup (VSR3 cần lenRef+lenDisp = 150 nến).
+                    onHistoryCallback(visibleBars, { noData: visibleBars.length === 0 });
+                    return;
+                }
+                // Đã giao hết ở lần đầu => không còn lịch sử cũ hơn. Phải báo
+                // noData, nếu không thư viện sẽ hỏi lại mãi và nhận trùng nến.
+                onHistoryCallback([], { noData: true });
             },
             subscribeBars: (symbolInfo, resolution, onRealtimeCallback, subscriberUID) => {
                 realtimeCallbackRef.current = onRealtimeCallback;
@@ -308,7 +329,7 @@ export function useReplayEngine(tvWidgetRef, datafeedRef) {
             // Get custom studies creators (same as original chart)
             const studyNames = [
                 'createATRBot', 'createATRBotVP', 'createATRBotER', 'createATRMoving', 'createATRVector', 'createATRHMM',
-                'createVSR', 'createVSRDual', 'createVSR_1', 'createVSROriginal', 'createVSRBeta', 'createVSR2', 'createVSR3', 'createVIDYA',
+                'createVSR', 'createVSRDual', 'createVSR_1', 'createVSROriginal', 'createVSRBeta', 'createVSR2', 'createVSR3', 'createVIDYA', 'createSMCLux',
                 'createSessionVP', 'createSwingPoints', 'createSMCRange', 'createKAMA',
                 'createSMC', 'createSR_1', 'createMarketStructure', 'createAdaptiveZigZag', 'createFVG',
                 'createForexFlowSupplyDemand', 'createForexFlowTrend'
@@ -572,7 +593,16 @@ export function useReplayEngine(tvWidgetRef, datafeedRef) {
         }
 
         const newCount = state.visibleBarsCount + 1;
-        const newBar = allBars[newCount - 1];
+        const newBar = allBarsRef.current[newCount - 1];
+
+        if (!newBar) {
+            // Không có nến để phát -> KHÔNG tăng bộ đếm. Nếu vẫn tăng thì
+            // visibleBarsCount sẽ chạy trước dữ liệu thật của chart, và lần
+            // resetData() kế tiếp sẽ nhảy vọt nhiều nến cùng lúc.
+            console.warn('[ReplayEngine] addNextBar: thiếu nến tại index', newCount - 1,
+                '- tổng nến hiện có:', allBarsRef.current.length);
+            return;
+        }
 
         replayState.value = {
             ...replayState.value,
@@ -620,7 +650,7 @@ export function useReplayEngine(tvWidgetRef, datafeedRef) {
         }
 
         const newCount = state.visibleBarsCount - 1;
-        const newBar = allBars[newCount - 1];
+        const newBar = allBarsRef.current[newCount - 1];
 
         replayState.value = {
             ...replayState.value,
@@ -651,9 +681,10 @@ export function useReplayEngine(tvWidgetRef, datafeedRef) {
     const jumpToPosition = (percent) => {
         if (!replayState.value.isActive) return;
 
-        const newCount = Math.floor(allBars.length * (percent / 100));
-        const clampedCount = Math.max(50, Math.min(newCount, allBars.length));
-        const newBar = allBars[clampedCount - 1];
+        const total = allBarsRef.current.length;
+        const newCount = Math.floor(total * (percent / 100));
+        const clampedCount = Math.max(50, Math.min(newCount, total));
+        const newBar = allBarsRef.current[clampedCount - 1];
 
         replayState.value = {
             ...replayState.value,

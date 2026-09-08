@@ -106,6 +106,7 @@ async function initTradingView() {
                 createVSRBeta(PineJS),
                 createVSR2(PineJS),
                 createVSR3(PineJS),
+                createSMCLux(PineJS),
                 createSessionVP(PineJS),
                 createSwingPoints(PineJS),
                 createSMCRange(PineJS),

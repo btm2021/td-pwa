@@ -22,6 +22,7 @@ function getCustomStudies() {
     if (typeof createVSRBeta !== 'undefined') studies.push(createVSRBeta);
     if (typeof createVSR2 !== 'undefined') studies.push(createVSR2);
     if (typeof createVSR3 !== 'undefined') studies.push(createVSR3);
+    if (typeof createSMCLux !== 'undefined') studies.push(createSMCLux);
     if (typeof createVIDYA !== 'undefined') studies.push(createVIDYA);
     if (typeof createSessionVP !== 'undefined') studies.push(createSessionVP);
     if (typeof createSwingPoints !== 'undefined') studies.push(createSwingPoints);

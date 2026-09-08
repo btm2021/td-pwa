@@ -402,6 +402,10 @@
                     // Giới hạn HISTORY_CAP nến: đo được ATR/VIDYA (bộ lọc IIR) hội tụ
                     // tới mức khớp bit sau ~600 nến, nên 5000 là thừa an toàn.
                     self.barHistory = [];
+
+                    // Giá trị đã phát của từng biên vùng ở nến trước — để cắt đường
+                    // khi vùng nhảy sang mức giá khác (tránh đoạn chéo).
+                    self.lastZoneEmit = {};
                 }
                 const HISTORY_CAP = 5000;
 
@@ -563,12 +567,22 @@
                     // self.zoneAbsorb/zoneCont/zoneClimax (bộ nhớ vùng vẫn cập nhật
                     // đầy đủ dù đang tắt hiển thị, để bật lại là thấy ngay vùng
                     // gần nhất) và không đụng labelCounts/diag_* phía dưới.
-                    const outAbsorbHi = showAbsorbZone ? self.zoneAbsorb.hi : NaN;
-                    const outAbsorbLo = showAbsorbZone ? self.zoneAbsorb.lo : NaN;
-                    const outContHi = showContZone ? self.zoneCont.hi : NaN;
-                    const outContLo = showContZone ? self.zoneCont.lo : NaN;
-                    const outClimaxHi = showClimaxZone ? self.zoneClimax.hi : NaN;
-                    const outClimaxLo = showClimaxZone ? self.zoneClimax.lo : NaN;
+                    // Line plot nối hai điểm liền nhau, nên khi một vùng bị thay bằng
+                    // vùng mới ở mức giá khác, TradingView vẽ một đoạn CHÉO nối hai
+                    // mức và phần tô nền bị kéo thành dải lớn. Chặn bằng cách để
+                    // trống đúng nến xảy ra thay đổi; nến kế tiếp mới vẽ mức mới.
+                    const brk = (key, v) => {
+                        const prev = self.lastZoneEmit[key];
+                        self.lastZoneEmit[key] = v;
+                        if (Number.isFinite(prev) && Number.isFinite(v) && prev !== v) return NaN;
+                        return v;
+                    };
+                    const outAbsorbHi = brk('ahi', showAbsorbZone ? self.zoneAbsorb.hi : NaN);
+                    const outAbsorbLo = brk('alo', showAbsorbZone ? self.zoneAbsorb.lo : NaN);
+                    const outContHi = brk('chi', showContZone ? self.zoneCont.hi : NaN);
+                    const outContLo = brk('clo', showContZone ? self.zoneCont.lo : NaN);
+                    const outClimaxHi = brk('xhi', showClimaxZone ? self.zoneClimax.hi : NaN);
+                    const outClimaxLo = brk('xlo', showClimaxZone ? self.zoneClimax.lo : NaN);
 
                     return [
                         outAbsorbHi, outAbsorbLo,

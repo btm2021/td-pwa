@@ -365,7 +365,7 @@ class ReplayEngine {
             },
 
             getBars: (symbolInfo, resolution, periodParams, onHistoryCallback, onErrorCallback) => {
-                // Return only visible bars
+                // Cắt tại điểm replay: không bao giờ trả về nến sau visibleBarsCount
                 const visibleBars = self.allBars.slice(0, self.visibleBarsCount);
 
                 if (visibleBars.length === 0) {
@@ -373,7 +373,15 @@ class ReplayEngine {
                     return;
                 }
 
-                onHistoryCallback(visibleBars, { noData: false });
+                if (!periodParams || periodParams.firstDataRequest) {
+                    onHistoryCallback(visibleBars, { noData: false });
+                    return;
+                }
+
+                // Toàn bộ lịch sử đã được giao ở lần đầu. Nếu không báo noData,
+                // thư viện sẽ hỏi tiếp khi cuộn sang trái và nhận lại đúng tập
+                // nến đó -> trùng lặp/lặp vô hạn.
+                onHistoryCallback([], { noData: true });
             },
 
             subscribeBars: (symbolInfo, resolution, onRealtimeCallback, subscriberUID) => {
@@ -452,7 +460,7 @@ class ReplayEngine {
                 custom_indicators_getter: function (PineJS) {
                     const studyNames = [
                         'createATRBot', 'createATRBotVP', 'createATRBotER', 'createATRMoving', 'createATRVector', 'createATRHMM',
-                        'createVSR', 'createVSRDual', 'createVSR_1', 'createVSROriginal', 'createVSRBeta', 'createVSR2', 'createVSR3', 'createVIDYA',
+                        'createVSR', 'createVSRDual', 'createVSR_1', 'createVSROriginal', 'createVSRBeta', 'createVSR2', 'createVSR3', 'createVIDYA', 'createSMCLux',
                         'createSessionVP', 'createSwingPoints', 'createKAMA',
                         'createSMC', 'createSR_1', 'createMarketStructure', 'createAdaptiveZigZag', 'createFVG',
                         'createForexFlowSupplyDemand', 'createForexFlowTrend'

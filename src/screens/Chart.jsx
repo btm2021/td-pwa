@@ -23,7 +23,7 @@ import {
 function getCustomStudies() {
     const studies = [];
     const names = [
-        'createATRBot', 'createATRBotVP', 'createATRBotER', 'createATRMoving', 'createATRVector', 'createATRHMM', 'createVSR', 'createVSRDual', 'createVSR_1', 'createVSRBeta', 'createVSR2', 'createVSR3', 'createVIDYA',
+        'createATRBot', 'createATRBotVP', 'createATRBotER', 'createATRMoving', 'createATRVector', 'createATRHMM', 'createVSR', 'createVSRDual', 'createVSR_1', 'createVSRBeta', 'createVSR2', 'createVSR3', 'createVIDYA', 'createSMCLux',
         'createSessionVP', 'createSwingPoints', 'createSMCRange', 'createKAMA',
         'createSMC', 'createSR_1', 'createMarketStructure', 'createAdaptiveZigZag', 'createFVG', 'createForexFlowSupplyDemand', 'createForexFlowTrend'
     ];
