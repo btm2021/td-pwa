@@ -356,43 +356,54 @@
                 this.init = function (context, inputCallback) {
                     this._context = context;
                     this._input = inputCallback;
+                    resetState(this);
+                };
 
+                // Đưa toàn bộ accumulator về trạng thái ban đầu. Tách riêng khỏi
+                // init() để guard tua ngược (§R2) dùng lại được.
+                function resetState(self) {
                     // --- Nhận diện nến mới (thay barstate.isconfirmed, xem G5) ---
-                    this.lastTime = NaN;
-                    this.curBar = null;       // snapshot nến đang hình thành
-                    this.pendingOutput = null; // output đã "chốt" của nến đã đóng gần nhất
+                    self.lastTime = NaN;
+                    self.curBar = null;       // snapshot nến đang hình thành
+                    self.pendingOutput = null; // output đã "chốt" của nến đã đóng gần nhất
 
                     // --- ATRBot (§1) ---
-                    this.vidyaPrev = NaN;
-                    this.cmoGains = [];
-                    this.cmoLosses = [];
-                    this.atrPrev = NaN;
-                    this.prevClose = NaN;      // close[1] dùng chung cho TR và log-return BVC
-                    this.trail1PrevBar = NaN;
-                    this.trail2Prev = NaN;
-                    this.trendPrev = null;
-                    this.trail1AtFlip = NaN;
+                    self.vidyaPrev = NaN;
+                    self.cmoGains = [];
+                    self.cmoLosses = [];
+                    self.atrPrev = NaN;
+                    self.prevClose = NaN;      // close[1] dùng chung cho TR và log-return BVC
+                    self.trail1PrevBar = NaN;
+                    self.trail2Prev = NaN;
+                    self.trendPrev = null;
+                    self.trail1AtFlip = NaN;
 
                     // --- Dò sự kiện khối lượng (§2, kế thừa VSR2) ---
-                    this.volWindow = [];
-                    this.rWindow = [];
-                    this.closedBarCount = 0;
+                    self.volWindow = [];
+                    self.rWindow = [];
+                    self.closedBarCount = 0;
 
                     // --- BVC (§3) ---
-                    this.logRetWindow = [];
+                    self.logRetWindow = [];
 
                     // --- Vùng nến trước (cho zoneSrc = "Nến trước") ---
-                    this.prevBarHigh = NaN;
-                    this.prevBarLow = NaN;
+                    self.prevBarHigh = NaN;
+                    self.prevBarLow = NaN;
 
                     // --- Vùng đã lưu theo nhóm màu (§5.1), valuewhen-style ---
-                    this.zoneAbsorb = { hi: NaN, lo: NaN };
-                    this.zoneCont = { hi: NaN, lo: NaN };
-                    this.zoneClimax = { hi: NaN, lo: NaN };
+                    self.zoneAbsorb = { hi: NaN, lo: NaN };
+                    self.zoneCont = { hi: NaN, lo: NaN };
+                    self.zoneClimax = { hi: NaN, lo: NaN };
 
                     // --- Đếm dồn nhãn (thay bảng §5.4, xem G2) ---
-                    this.labelCounts = { REJECTION: 0, ABSORPTION_REV: 0, ABSORPTION_CONT: 0, CLIMAX: 0, INITIATION: 0, CHURN: 0, UNCLASSIFIED: 0 };
-                };
+                    self.labelCounts = { REJECTION: 0, ABSORPTION_REV: 0, ABSORPTION_CONT: 0, CLIMAX: 0, INITIATION: 0, CHURN: 0, UNCLASSIFIED: 0 };
+
+                    // --- Lịch sử nến đã đóng, chỉ dùng để dựng lại state khi tua ngược ---
+                    // Giới hạn HISTORY_CAP nến: đo được ATR/VIDYA (bộ lọc IIR) hội tụ
+                    // tới mức khớp bit sau ~600 nến, nên 5000 là thừa an toàn.
+                    self.barHistory = [];
+                }
+                const HISTORY_CAP = 5000;
 
                 // Tính toán đầy đủ cho MỘT nến đã đóng (bar), cập nhật mọi state,
                 // trả về mảng output theo đúng thứ tự plots trong buildMetainfo().
@@ -545,6 +556,9 @@
                     self.prevBarLow = l;
                     self.prevClose = c;
 
+                    self.barHistory.push(bar);
+                    if (self.barHistory.length > HISTORY_CAP) self.barHistory.shift();
+
                     // Lọc hiển thị theo toggle — chỉ ở bước xuất plot, không đụng
                     // self.zoneAbsorb/zoneCont/zoneClimax (bộ nhớ vùng vẫn cập nhật
                     // đầy đủ dù đang tắt hiển thị, để bật lại là thấy ngay vùng
@@ -602,6 +616,23 @@
                         c: PineJS.Std.close(this._context),
                         v: PineJS.Std.volume(this._context),
                     };
+
+                    // --- Guard tua ngược ---
+                    // Nếu time đi LÙI (replay tua ngược, hoặc datafeed sửa dữ liệu),
+                    // các cửa sổ trượt sẽ bị nhét trùng nến nếu cứ chạy tiếp => số
+                    // liệu sai âm thầm. Dựng lại state CHÍNH XÁC bằng cách cắt lịch
+                    // sử tới trước mốc time mới rồi phát lại. Đo được: không làm thế
+                    // thì 200/200 nến sau điểm tua có giá trị lệch.
+                    if (!isNaN(this.lastTime) && time < this.lastTime) {
+                        const keep = this.barHistory.filter(b => b.time < time);
+                        resetState(this);
+                        let rebuilt = null;
+                        for (const b of keep) rebuilt = finalizeClosedBar(this, inputs, b);
+                        this.pendingOutput = rebuilt || new Array(27).fill(NaN);
+                        this.curBar = bar;
+                        this.lastTime = time;
+                        return this.pendingOutput;
+                    }
 
                     const isNewBar = isNaN(this.lastTime) || time !== this.lastTime;
 
