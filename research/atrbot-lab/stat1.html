@@ -1,0 +1,1046 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stat1 · ATRBot VWAP KC</title>
+<script src="https://unpkg.com/lightweight-charts@5.1.0/dist/lightweight-charts.standalone.production.js"></script>
+<style>
+:root {
+    --bg: #0b0e14;
+    --panel: #11151e;
+    --panel-2: #161b26;
+    --line: #1e2431;
+    --text: #c9cfdb;
+    --muted: #6b7386;
+    --accent: #4c8dff;
+    --up: #26a69a;
+    --down: #ef5350;
+    --warn: #e5a50a;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+    font: 12px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif; overflow: hidden; }
+button, input, select { font: inherit; color: inherit; }
+
+/* ---------- thanh trên ---------- */
+#bar { height: 40px; display: flex; align-items: center; gap: 10px; padding: 0 12px;
+    background: var(--panel); border-bottom: 1px solid var(--line); }
+.brand { font-weight: 700; letter-spacing: .08em; color: var(--muted); font-size: 11px; }
+#sym { width: 112px; height: 26px; padding: 0 8px; background: var(--panel-2); border: 1px solid var(--line);
+    border-radius: 6px; text-transform: uppercase; font-weight: 600; letter-spacing: .02em; outline: none; }
+#sym:focus { border-color: var(--accent); }
+.seg { display: flex; background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; padding: 2px; }
+.seg button { border: 0; background: none; padding: 2px 8px; border-radius: 4px; color: var(--muted); cursor: pointer; }
+.seg button.on { background: #222a39; color: var(--text); }
+.sp { flex: 1; }
+.ohlc { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ohlc b { color: var(--text); font-weight: 500; margin-right: 8px; }
+.status { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 11px; white-space: nowrap; }
+.status i { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
+.status[data-s="live"] i { background: var(--up); box-shadow: 0 0 6px var(--up); }
+.status[data-s="load"] i { background: var(--warn); }
+.status[data-s="err"] i { background: var(--down); }
+.icon { width: 26px; height: 26px; border: 1px solid var(--line); background: var(--panel-2); border-radius: 6px; cursor: pointer;
+    display: grid; place-items: center; color: var(--muted); }
+.icon:hover { color: var(--text); border-color: #2c3445; }
+
+/* ---------- chart + legend ---------- */
+#wrap { position: relative; height: calc(100% - 40px); }
+#chart { position: absolute; inset: 0; }
+#legend { position: absolute; top: 8px; left: 8px; z-index: 3; display: flex; flex-direction: column; gap: 2px; pointer-events: none; }
+.row { display: flex; align-items: center; gap: 6px; height: 20px; padding: 0 4px 0 6px; border-radius: 4px;
+    pointer-events: auto; background: rgba(11, 14, 20, .55); font-variant-numeric: tabular-nums; }
+.row:hover { background: rgba(22, 27, 38, .9); }
+.row.off .nm, .row.off .val { opacity: .35; }
+.sw { width: 10px; height: 3px; border-radius: 2px; flex: none; }
+.nm { color: var(--muted); white-space: nowrap; }
+.val { color: var(--text); white-space: nowrap; min-width: 40px; }
+.val .u { color: var(--up); } .val .d { color: var(--down); }
+.row .ic { width: 18px; height: 18px; border: 0; background: none; color: var(--muted); cursor: pointer; padding: 0;
+    display: grid; place-items: center; opacity: 0; border-radius: 3px; }
+.row:hover .ic, .row.off .ic.eye { opacity: 1; }
+.row .ic:hover { color: var(--text); background: #222a39; }
+@media (hover: none) { .row .ic { opacity: 1; } }
+
+/* ---------- popover cài đặt ---------- */
+#pop { position: absolute; z-index: 5; width: 248px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, .45); padding: 10px; }
+#pop h4 { margin: 0 0 8px; font-size: 12px; font-weight: 600; display: flex; align-items: center; }
+#pop h4 button { margin-left: auto; border: 0; background: none; color: var(--muted); cursor: pointer; font-size: 11px; }
+#pop h4 button:hover { color: var(--text); }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 8px; margin-bottom: 8px; }
+.f { display: flex; flex-direction: column; gap: 2px; }
+.f label, .ln > span { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .04em; }
+.f input, .f select, .ln select { height: 24px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 4px; padding: 0 6px; outline: none; min-width: 0; }
+.f input:focus, .f select:focus { border-color: var(--accent); }
+.chk { flex-direction: row; align-items: center; gap: 6px; padding-top: 14px; }
+.sec { border-top: 1px solid var(--line); padding-top: 8px; margin-top: 2px; display: flex; flex-direction: column; gap: 6px; }
+.ln { display: grid; grid-template-columns: 54px 26px 54px 1fr 16px; gap: 6px; align-items: center; }
+.ln select { padding: 0 2px; }
+.ln input[type=color], .cl input[type=color] { width: 26px; height: 22px; padding: 0; border: 1px solid var(--line); border-radius: 4px; background: none; cursor: pointer; }
+.ln input[type=checkbox] { margin: 0; }
+.cl { display: flex; align-items: center; gap: 6px; }
+.cl > span { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .04em; width: 58px; }
+.cl input[type=range] { flex: 1; accent-color: var(--accent); }
+
+#toast { position: absolute; right: 12px; bottom: 34px; z-index: 6; background: var(--panel-2); border: 1px solid var(--line);
+    border-radius: 6px; padding: 6px 10px; color: var(--text); }
+/* ---------- modal cài đặt ---------- */
+#modal { position: fixed; inset: 0; z-index: 20; background: rgba(4, 6, 10, .62); display: grid; place-items: center; padding: 12px; }
+#modal[hidden] { display: none; }
+.dlg { width: min(600px, 100%); max-height: calc(100vh - 48px); display: flex; flex-direction: column; background: var(--panel);
+    border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 24px 64px rgba(0, 0, 0, .55); }
+.dlg-h { display: flex; align-items: center; padding: 8px 8px 0 12px; border-bottom: 1px solid var(--line); }
+.tabs { display: flex; gap: 4px; }
+.tabs button { border: 0; background: none; color: var(--muted); padding: 8px 10px 9px; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.tabs button.on { color: var(--text); border-bottom-color: var(--accent); }
+.tabs button:hover { color: var(--text); }
+.dlg-h .ib { margin-left: auto; margin-bottom: 4px; }
+.dlg-b { padding: 14px; overflow: auto; }
+.dlg-f { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+.frow { display: flex; align-items: center; gap: 10px; min-height: 34px; }
+.frow > label:first-child { width: 132px; flex: none; color: var(--muted); }
+.frow .seg { padding: 2px; }
+.inp, .frow input[type=number] { height: 28px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; padding: 0 8px; outline: none; }
+.inp { flex: 1; min-width: 0; }
+.frow input[type=number] { width: 110px; }
+.inp:focus, .frow input[type=number]:focus { border-color: var(--accent); }
+.frow input[type=color] { width: 28px; height: 24px; padding: 0; border: 1px solid var(--line); border-radius: 4px; background: none; cursor: pointer; }
+.frow input[type=range] { width: 120px; accent-color: var(--accent); }
+.hint { color: var(--muted); font-size: 11px; }
+.sw2 { position: relative; width: 32px; height: 18px; flex: none; cursor: pointer; }
+.sw2 input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.sw2 i { position: absolute; inset: 0; background: #262e3d; border-radius: 9px; transition: background .15s; pointer-events: none; }
+.sw2 i::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #9aa3b5; transition: transform .15s; }
+.sw2 input:checked + i { background: var(--accent); }
+.sw2 input:checked + i::after { transform: translateX(14px); background: #fff; }
+.sw2 input:focus-visible + i { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btn { height: 28px; padding: 0 12px; border: 1px solid var(--line); background: var(--panel-2); border-radius: 6px; cursor: pointer; white-space: nowrap; }
+.btn:hover { border-color: #2c3445; }
+.btn.pri { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn.danger:hover, .ib.danger:hover { color: var(--down); border-color: rgba(239, 83, 80, .5); }
+.ib { width: 26px; height: 26px; border: 1px solid transparent; background: none; border-radius: 6px; cursor: pointer; color: var(--muted);
+    display: inline-grid; place-items: center; }
+.ib:hover { color: var(--text); background: var(--panel-2); border-color: var(--line); }
+.ib.busy svg { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.plist { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+.pitem { display: flex; align-items: center; gap: 10px; padding: 8px 10px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; }
+.pitem > div:first-child { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.pitem b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.acts { display: flex; gap: 4px; justify-content: flex-end; }
+.empty { color: var(--muted); text-align: center; padding: 18px 0; }
+.usage { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; color: var(--muted); font-size: 11px; }
+.usage .meter { flex: 1; height: 4px; background: #1c2230; border-radius: 2px; overflow: hidden; }
+.usage .meter i { display: block; height: 100%; background: var(--accent); }
+.dt { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.dt th { text-align: left; color: var(--muted); font-weight: 500; font-size: 11px; padding: 0 6px 6px; border-bottom: 1px solid var(--line); }
+.dt td { padding: 5px 6px; border-bottom: 1px solid #171c27; white-space: nowrap; }
+.dt .r { text-align: right; }
+.dt .ok { color: var(--up); } .dt .warn { color: var(--warn); }
+.dt .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); margin-left: 6px; vertical-align: middle; }
+.tw { overflow-x: auto; }
+@media (max-width: 640px) { .frow > label:first-child { width: 104px; } .dt .rng { display: none; } }
+
+@media (max-width: 640px) { .ohlc { display: none; } .brand { display: none; } #bar { gap: 6px; padding: 0 8px; } .seg button { padding: 2px 6px; } }
+</style>
+</head>
+<body>
+<header id="bar">
+    <div class="brand">STAT1</div>
+    <input id="sym" spellcheck="false" autocomplete="off" title="Symbol Binance Futures (Enter)">
+    <div id="tfs" class="seg"></div>
+    <div class="sp"></div>
+    <div id="ohlc" class="ohlc"></div>
+    <div id="status" class="status" data-s="load"><i></i><span></span></div>
+    <button id="settings" class="icon" title="Cài đặt">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>
+    </button>
+    <button id="reload" class="icon" title="Xoá cache symbol này và tải lại">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+    </button>
+</header>
+<main id="wrap">
+    <div id="chart"></div>
+    <div id="legend"></div>
+    <div id="pop" hidden></div>
+    <div id="toast" hidden></div>
+</main>
+<div id="modal" hidden>
+    <div class="dlg" role="dialog" aria-modal="true" aria-label="Cài đặt">
+        <div class="dlg-h">
+            <div class="tabs"><button data-tab="gen">Chung</button><button data-tab="pre">Preset</button><button data-tab="data">Dữ liệu</button></div>
+            <button class="ib" data-close title="Đóng">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+            </button>
+        </div>
+        <div class="dlg-b" id="dlgBody"></div>
+    </div>
+</div>
+
+<script>
+'use strict';
+
+// ==== INDICATORS ====
+// Port 1:1 từ chart/custom_studies/atr-bot.js (ATRBot) + VWAP neo phiên/tuần (UTC) + Keltner (built-in TV).
+function srcOf(B, type) {
+    const n = B.t.length, out = new Array(n);
+    for (let i = 0; i < n; i++) {
+        const o = B.o[i], h = B.h[i], l = B.l[i], c = B.c[i];
+        out[i] = type === 'open' ? o : type === 'high' ? h : type === 'low' ? l : type === 'hl2' ? (h + l) / 2
+            : type === 'hlc3' ? (h + l + c) / 3 : type === 'ohlc4' ? (o + h + l + c) / 4 : c;
+    }
+    return out;
+}
+function trueRange(B) {
+    const n = B.t.length, tr = new Array(n);
+    for (let i = 0; i < n; i++) tr[i] = i === 0 ? B.h[i] - B.l[i]
+        : Math.max(B.h[i] - B.l[i], Math.abs(B.h[i] - B.c[i - 1]), Math.abs(B.l[i] - B.c[i - 1]));
+    return tr;
+}
+function ema(x, len) {
+    const a = 2 / (len + 1), out = new Array(x.length);
+    for (let i = 0; i < x.length; i++) out[i] = i === 0 ? x[i] : a * x[i] + (1 - a) * out[i - 1];
+    return out;
+}
+function rma(x, len) {
+    const out = new Array(x.length);
+    for (let i = 0; i < x.length; i++) out[i] = i === 0 ? x[i] : (out[i - 1] * (len - 1) + x[i]) / len;
+    return out;
+}
+// WMA trên buffer tối đa `len` phần tử (đầu chuỗi dùng buffer ngắn hơn), giống atr-bot.js
+function wmaBuf(x, len) {
+    if (len < 1) return x.slice(); // buffer rỗng -> atr-bot.js trả về chính nguồn
+    const out = new Array(x.length);
+    for (let i = 0; i < x.length; i++) {
+        const s = Math.max(0, i - len + 1);
+        let num = 0, den = 0;
+        for (let j = s, w = 1; j <= i; j++, w++) { num += x[j] * w; den += w; }
+        out[i] = num / den;
+    }
+    return out;
+}
+const MA = {
+    EMA: (x, len) => ema(x, len),
+    VIDYA: (x, len) => {
+        const out = new Array(x.length), base = 2 / (len + 1);
+        for (let i = 0; i < x.length; i++) {
+            let up = 0, dn = 0;
+            for (let j = Math.max(1, i - len + 1); j <= i; j++) { const d = x[j] - x[j - 1]; if (d > 0) up += d; else dn -= d; }
+            const tot = up + dn, k = base * (tot > 0 ? Math.abs((up - dn) / tot) : 0);
+            out[i] = i === 0 ? x[i] : k * x[i] + (1 - k) * out[i - 1];
+        }
+        return out;
+    },
+    WMA: (x, len) => wmaBuf(x, len),
+    HMA: (x, len) => {
+        const w1 = wmaBuf(x, Math.floor(len / 2)), w2 = wmaBuf(x, len);
+        return wmaBuf(w1.map((v, i) => 2 * v - w2[i]), Math.floor(Math.sqrt(len)));
+    },
+    KAMA: (x, len) => {
+        const out = new Array(x.length), fast = 2 / 3, slow = 2 / 31;
+        let prev = NaN;
+        for (let i = 0; i < x.length; i++) {
+            if (i < len) { out[i] = isNaN(prev) ? x[i] : prev; continue; }
+            const change = Math.abs(x[i] - x[i - len]);
+            let vol = 0; for (let j = i - len + 1; j <= i; j++) vol += Math.abs(x[j] - x[j - 1]);
+            const sc = Math.pow((vol > 0 ? change / vol : 0) * (fast - slow) + slow, 2);
+            out[i] = isNaN(prev) ? x[i] : prev + sc * (x[i] - prev);
+            prev = out[i];
+        }
+        return out;
+    },
+    SMMA: (x, len) => {
+        const out = new Array(x.length);
+        let prev = NaN, sum = 0;
+        for (let i = 0; i < x.length; i++) {
+            if (isNaN(prev)) {
+                sum += x[i];
+                if (i + 1 >= len) { out[i] = prev = sum / len; } else out[i] = x[i];
+            } else out[i] = prev = (prev * (len - 1) + x[i]) / len;
+        }
+        return out;
+    },
+};
+function atrBot(B, p) {
+    const t1 = (MA[p.ma] || MA.EMA)(srcOf(B, p.src), p.maLen);
+    const atr = rma(trueRange(B), p.atrLen);
+    const n = t1.length, t2 = new Array(n), st = new Array(n);
+    for (let i = 0; i < n; i++) {
+        const a = t1[i], ap = i === 0 ? a : t1[i - 1], bp = i === 0 ? 0 : t2[i - 1], sl = atr[i] * p.mult;
+        let b;
+        if (a > bp) b = ap > bp ? Math.max(bp, a - sl) : a - sl;
+        else b = a < bp && ap < bp ? Math.min(bp, a + sl) : a + sl;
+        t2[i] = b;
+        st[i] = a > b ? 1 : -1;
+    }
+    return { t1, t2, st };
+}
+// VWAP neo: 'day' reset 00:00 UTC, 'week' reset thứ Hai 00:00 UTC. Trước lần reset đầu tiên trả NaN (chu kỳ chưa đủ).
+function vwap(B, anchor, src) {
+    const DAY = 864e5, n = B.t.length, out = new Array(n), s = srcOf(B, src);
+    const period = (ms) => (anchor === 'week' ? Math.floor((ms / DAY + 3) / 7) : Math.floor(ms / DAY));
+    const startOf = (p) => (anchor === 'week' ? (p * 7 - 3) * DAY : p * DAY);
+    let pv = 0, vv = 0, cur = n ? period(B.t[0]) : 0, full = n && B.t[0] === startOf(cur);
+    for (let i = 0; i < n; i++) {
+        const p = period(B.t[i]);
+        if (p !== cur) { pv = 0; vv = 0; cur = p; full = true; }
+        pv += s[i] * B.v[i]; vv += B.v[i];
+        out[i] = full ? (vv > 0 ? pv / vv : s[i]) : NaN;
+    }
+    return out;
+}
+function keltner(B, p) {
+    const basis = ema(srcOf(B, p.src), p.len);
+    const rng = ema(p.tr ? trueRange(B) : B.h.map((h, i) => h - B.l[i]), p.len);
+    return { basis, upper: basis.map((b, i) => b + p.mult * rng[i]), lower: basis.map((b, i) => b - p.mult * rng[i]) };
+}
+// ==== END INDICATORS ====
+
+// ---------- lưu trữ ----------
+const LS = {
+    get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } },
+    del(k) { try { localStorage.removeItem(k); } catch { /* bỏ qua */ } },
+    keys(prefix) { const r = []; try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k.startsWith(prefix)) r.push(k); } } catch { /* bỏ qua */ } return r; },
+};
+
+const API = 'https://fapi.binance.com/fapi/v1/klines';
+// Binance đã tách luồng futures: kline nằm ở /market; /ws cũ vẫn mở kết nối nhưng không gửi dữ liệu
+const WS_BASES = ['wss://fstream.binance.com/market/ws/', 'wss://fstream.binance.com/ws/'];
+let wsBase = 0;
+const TF_MS = { '1m': 6e4, '5m': 3e5, '15m': 9e5, '1h': 36e5, '4h': 144e5, '1d': 864e5 };
+const STEP = 50;        // thiếu < 50 nến: 1 request 50 nến; thiếu ≥ 50: tải bù theo trang
+const BARS_MIN = 500, BARS_MAX = 50000;
+const KEY = (s, tf) => `stat1:bars:${s}:${tf}`;
+
+const SRC = ['close', 'open', 'high', 'low', 'hl2', 'hlc3', 'ohlc4'];
+const MAS = Object.keys(MA);
+const DEFAULTS = {
+    _v: 2,
+    candle: { show: true, up: '#0ecb81', down: '#f6465d', opacity: 1 },   // màu chuẩn Binance
+    bot: { show: true, atrLen: 14, mult: 2, src: 'hlc3', ma: 'VIDYA', maLen: 14,
+        t1: { color: '#26a69a', width: 2, style: 0 }, t2: { color: '#ef5350', width: 2, style: 0 },
+        fillUp: '#26a69a', fillDn: '#ef5350', fillOp: 0.15 },
+    vd: { show: true, src: 'hlc3', line: { color: '#22c55e', width: 2, style: 0 } },
+    vw: { show: true, src: 'hlc3', line: { color: '#f43f5e', width: 2, style: 0 } },
+    kc: { show: true, len: 9, mult: 0.5, tr: true, src: 'close',
+        band: { color: '#5b8def', width: 1, style: 0 }, basis: { show: false, color: '#5b8def', width: 1, style: 2 },
+        fill: '#5b8def', fillOp: 0.12 },
+};
+// [khoá, nhãn, kiểu]; lines: [khoá, nhãn, có công tắc hiện/ẩn]
+const SCHEMA = {
+    candle: { name: 'Nến', params: [], lines: [], colors: [['up', 'Tăng'], ['down', 'Giảm']], op: ['opacity', 'Độ đậm'] },
+    bot: { name: 'ATRBot', params: [['atrLen', 'ATR', 'int'], ['mult', 'Mult', 'num'], ['src', 'Source', SRC], ['ma', 'MA', MAS], ['maLen', 'MA len', 'int']],
+        lines: [['t1', 'Trail 1'], ['t2', 'Trail 2']], colors: [['fillUp', 'Nền ▲'], ['fillDn', 'Nền ▼']], op: ['fillOp', 'Độ đậm'] },
+    vd: { name: 'VWAP phiên', params: [['src', 'Source', SRC]], lines: [['line', 'Line']] },
+    vw: { name: 'VWAP tuần', params: [['src', 'Source', SRC]], lines: [['line', 'Line']] },
+    kc: { name: 'Keltner', params: [['len', 'Length', 'int'], ['mult', 'Mult', 'num'], ['src', 'Source', SRC], ['tr', 'True range', 'bool']],
+        lines: [['band', 'Biên'], ['basis', 'Basis', true]], colors: [['fill', 'Nền']], op: ['fillOp', 'Độ đậm'] },
+};
+const ORDER = ['candle', 'bot', 'vd', 'vw', 'kc'];
+const STYLES = [['──', 0], ['···', 1], ['- -', 2], ['— —', 3]];
+
+const clone = (x) => JSON.parse(JSON.stringify(x));
+function merge(base, over) {
+    if (!over || typeof over !== 'object') return base;
+    for (const k of Object.keys(base)) {
+        if (base[k] && typeof base[k] === 'object') base[k] = merge(base[k], over[k]);
+        else if (over[k] !== undefined && typeof over[k] === typeof base[k]) base[k] = over[k];
+    }
+    return base;
+}
+const storedS = LS.get('stat1:settings');
+let S = merge(clone(DEFAULTS), storedS);
+if (storedS && storedS._v !== DEFAULTS._v) S.candle = clone(DEFAULTS.candle); // bản cũ dùng nến xám -> chuyển sang màu Binance
+const saveSettings = () => LS.set('stat1:settings', S);
+
+// tuỳ chọn của trang
+const PG_DEF = { bars: 10000, tz: 'utc', grid: true, log: false, magnet: false };
+const clampBars = (n) => Math.max(BARS_MIN, Math.min(BARS_MAX, Math.round(+n || PG_DEF.bars)));
+let PG = merge(clone(PG_DEF), LS.get('stat1:page'));
+PG.bars = clampBars(PG.bars);
+const savePage = () => LS.set('stat1:page', PG);
+
+// ---------- tiện ích ----------
+const $ = (s) => document.querySelector(s);
+const rgba = (hex, a) => { const n = parseInt(hex.slice(1), 16); return `rgba(${n >> 16 & 255},${n >> 8 & 255},${n & 255},${a})`; };
+let PREC = 2;
+const fmt = (x) => (Number.isFinite(x) ? x.toFixed(PREC) : '–');
+const decOf = (s) => { const t = String(s).replace(/0+$/, ''); const i = t.indexOf('.'); return i < 0 ? 0 : t.length - i - 1; };
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+function setStatus(s, text) { const el = $('#status'); el.dataset.s = s; el.querySelector('span').textContent = text; }
+let toastTimer;
+function toast(msg) { const el = $('#toast'); el.textContent = msg; el.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => (el.hidden = true), 3500); }
+
+// ---------- dữ liệu ----------
+const empty = () => ({ t: [], o: [], h: [], l: [], c: [], v: [] });
+// ctx.p: số chữ số thập phân của giá (theo tick), gom từ chuỗi Binance trả về
+async function fetchK(sym, tf, params, ctx) {
+    const qs = new URLSearchParams({ symbol: sym, interval: tf, ...params });
+    for (let a = 0; a < 5; a++) {
+        const res = await fetch(`${API}?${qs}`);
+        if (res.ok) {
+            const rows = await res.json();
+            if (ctx) for (const k of rows.slice(-200)) ctx.p = Math.max(ctx.p, decOf(k[1]), decOf(k[2]), decOf(k[3]), decOf(k[4]));
+            return rows.map((k) => [k[0], +k[1], +k[2], +k[3], +k[4], +k[5]]);
+        }
+        if (res.status === 429 || res.status === 418) { await sleep((+res.headers.get('retry-after') || 10) * 1000); continue; }
+        let msg = `HTTP ${res.status}`;
+        try { msg = (await res.json()).msg || msg; } catch { /* bỏ qua */ }
+        throw new Error(msg);
+    }
+    throw new Error('Rate limit');
+}
+// tải lùi `count` nến kết thúc trước `end` (bỏ trống = tới hiện tại). Trả về ít hơn count nếu đã chạm nến đầu tiên của symbol.
+async function fetchBack(sym, tf, count, end, ctx, onProgress) {
+    const map = new Map();
+    while (map.size < count) {
+        const limit = Math.min(1500, count - map.size);
+        const rows = await fetchK(sym, tf, { limit, ...(end ? { endTime: end } : {}) }, ctx);
+        for (const r of rows) map.set(r[0], r);
+        if (onProgress) onProgress(map.size, count);
+        if (rows.length < limit) break;
+        end = rows[0][0] - 1;
+    }
+    return [...map.values()];
+}
+// tải tiến từ startTime tới hiện tại
+async function fetchForward(sym, tf, start, ctx) {
+    const out = [];
+    for (let from = start; ;) {
+        const rows = await fetchK(sym, tf, { startTime: from, limit: 1500 }, ctx);
+        out.push(...rows);
+        if (rows.length < 1500) break;
+        from = rows[rows.length - 1][0] + 1;
+    }
+    return out;
+}
+function mergeRows(B, rows, keep) {
+    const map = new Map();
+    for (let i = 0; i < B.t.length; i++) map.set(B.t[i], [B.t[i], B.o[i], B.h[i], B.l[i], B.c[i], B.v[i]]);
+    let added = 0;
+    for (const r of rows) { if (!map.has(r[0])) added++; map.set(r[0], r); }
+    const all = [...map.values()].sort((a, b) => a[0] - b[0]).slice(-keep);
+    const out = empty();
+    for (const r of all) { out.t.push(r[0]); out.o.push(r[1]); out.h.push(r[2]); out.l.push(r[3]); out.c.push(r[4]); out.v.push(r[5]); }
+    return { B: out, added };
+}
+
+// ---- nén cache (v2): giá -> số nguyên chênh lệch base36, thời gian -> t0 + bước + các chỗ hở.
+// Giải nén ra đúng từng bit giá trị gốc (số nguyên / 10^p là phép chia làm tròn chuẩn).
+function pack(B, prec, step) {
+    const n = B.t.length;
+    const isInt = (x) => Math.abs(x - Math.round(x)) <= 1e-7 * Math.max(1, Math.abs(x));
+    const fits = (arrs, d) => { const m = 10 ** d; for (const a of arrs) for (let i = 0; i < n; i++) if (!isInt(a[i] * m)) return false; return true; };
+    let p = prec;
+    while (p < 12 && !fits([B.o, B.h, B.l, B.c], p)) p++;
+    let vd = 0;
+    while (vd < 8 && !fits([B.v], vd)) vd++;
+    const maxV = B.v.reduce((a, b) => Math.max(a, b), 0);
+    while (vd > 0 && maxV * 10 ** vd > 9e15) vd--; // giữ trong phạm vi số nguyên an toàn
+    const m = 10 ** p, vm = 10 ** vd, gaps = [], parts = new Array(n * 5);
+    let pc = 0;
+    for (let i = 0; i < n; i++) {
+        if (i && B.t[i] - B.t[i - 1] !== step) gaps.push([i, B.t[i] - B.t[i - 1]]);
+        const O = Math.round(B.o[i] * m), H = Math.round(B.h[i] * m), L = Math.round(B.l[i] * m), C = Math.round(B.c[i] * m), k = i * 5;
+        parts[k] = (O - pc).toString(36); parts[k + 1] = (H - O).toString(36); parts[k + 2] = (O - L).toString(36);
+        parts[k + 3] = (C - O).toString(36); parts[k + 4] = Math.round(B.v[i] * vm).toString(36);
+        pc = C;
+    }
+    return { v: 2, p, vd, step, t0: n ? B.t[0] : 0, gaps, d: parts.join(',') };
+}
+function unpack(o) {
+    const vals = o.d ? o.d.split(',') : [], n = vals.length / 5, m = 10 ** o.p, vm = 10 ** o.vd, gaps = new Map(o.gaps);
+    const B = { t: new Array(n), o: new Array(n), h: new Array(n), l: new Array(n), c: new Array(n), v: new Array(n) };
+    let pc = 0, t = o.t0;
+    for (let i = 0; i < n; i++) {
+        if (i) t += gaps.get(i) ?? o.step;
+        const k = i * 5, O = pc + parseInt(vals[k], 36), C = O + parseInt(vals[k + 3], 36);
+        B.t[i] = t; B.o[i] = O / m; B.h[i] = (O + parseInt(vals[k + 1], 36)) / m; B.l[i] = (O - parseInt(vals[k + 2], 36)) / m;
+        B.c[i] = C / m; B.v[i] = parseInt(vals[k + 4], 36) / vm;
+        pc = C;
+    }
+    return B;
+}
+function readCache(sym, tf) {
+    const o = LS.get(KEY(sym, tf));
+    if (!o) return null;
+    if (o.v === 2) return { B: unpack(o), p: o.p, head: !!o.head };
+    if (o.t && o.t.length) return { B: { t: o.t, o: o.o, h: o.h, l: o.l, c: o.c, v: o.v }, p: o.p || 2, head: false }; // cache bản cũ
+    return null;
+}
+
+// đọc cache; chỉ tải phần thiếu. Trả về { B, head (đã chạm nến đầu tiên), p, info }
+async function loadBars(sym, tf, onProgress) {
+    const ms = TF_MS[tf], want = PG.bars, cache = readCache(sym, tf);
+    const ctx = { p: cache ? Math.max(2, cache.p) : 2 };
+    let B = empty(), head = false, info;
+    if (cache && cache.B.t.length) {
+        B = cache.B; head = cache.head;
+        const gap = Math.floor((Date.now() - B.t[B.t.length - 1]) / ms);
+        let rows, mode;
+        if (gap > want) { rows = await fetchBack(sym, tf, want, undefined, ctx, onProgress); B = empty(); head = rows.length < want; mode = 'mới'; }
+        else if (gap >= STEP) { rows = await fetchForward(sym, tf, B.t[B.t.length - 1], ctx); mode = 'bù'; }
+        else { rows = await fetchK(sym, tf, { limit: STEP }, ctx); mode = 'cập nhật'; }
+        const r = mergeRows(B, rows, want);
+        B = r.B; info = `cache · thiếu ${gap} · ${mode} +${r.added}`;
+    } else {
+        const rows = await fetchBack(sym, tf, want, undefined, ctx, onProgress);
+        head = rows.length < want;
+        B = mergeRows(empty(), rows, want).B; info = `tải mới ${rows.length}`;
+    }
+    // ít nến hơn cài đặt (vd. vừa tăng số nến) -> tải thêm lịch sử cũ hơn
+    if (B.t.length < want && !head && B.t.length) {
+        const have = B.t.length, need = want - have;
+        const older = await fetchBack(sym, tf, need, B.t[0] - 1, ctx, onProgress && ((a) => onProgress(have + a, want)));
+        head = older.length < need;
+        B = mergeRows(B, older, want).B; info += ` · lịch sử +${older.length}`;
+    }
+    return { B, head, p: ctx.p, info };
+}
+const META = 'stat1:meta';
+function saveBars(sym, tf, B, head, prec) {
+    if (!B.t.length) return false;
+    const key = KEY(sym, tf), str = JSON.stringify({ ...pack(B, prec, TF_MS[tf]), head });
+    const meta = LS.get(META) || {};
+    for (let attempt = 0; attempt < 12; attempt++) {
+        try {
+            localStorage.setItem(key, str);
+            meta[key] = { n: B.t.length, first: B.t[0], last: B.t[B.t.length - 1], size: str.length, at: Date.now() };
+            LS.set(META, meta);
+            return true;
+        } catch {
+            // hết dung lượng: xoá bộ dữ liệu dùng lâu nhất của symbol khác
+            const victim = LS.keys('stat1:bars:').filter((k) => k !== key).sort((a, b) => ((meta[a] || {}).at || 0) - ((meta[b] || {}).at || 0))[0];
+            if (!victim) break;
+            LS.del(victim); delete meta[victim];
+        }
+    }
+    toast('Không đủ dung lượng localStorage');
+    return false;
+}
+function removeBars(key) { const meta = LS.get(META) || {}; LS.del(key); delete meta[key]; LS.set(META, meta); }
+
+// ---------- chart ----------
+const LWC = LightweightCharts;
+const chart = LWC.createChart($('#chart'), {
+    autoSize: true,
+    layout: { background: { type: 'solid', color: '#0b0e14' }, textColor: '#6b7386', fontSize: 11,
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif' },
+    grid: { vertLines: { color: '#121722' }, horzLines: { color: '#121722' } },
+    rightPriceScale: { borderVisible: false, scaleMargins: { top: 0.08, bottom: 0.06 } },
+    timeScale: { borderVisible: false, timeVisible: true, secondsVisible: false, rightOffset: 8, barSpacing: 7 },
+    crosshair: { mode: LWC.CrosshairMode.Normal,
+        vertLine: { color: '#334055', labelBackgroundColor: '#1c2433' }, horzLine: { color: '#334055', labelBackgroundColor: '#1c2433' } },
+});
+
+// tuỳ chọn trang: múi giờ hiển thị (VWAP luôn neo theo UTC), lưới, thang log, crosshair hút giá
+const two = (x) => String(x).padStart(2, '0');
+function timeParts(sec) {
+    const d = new Date(sec * 1000);
+    return PG.tz === 'utc'
+        ? [d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), d.getUTCHours(), d.getUTCMinutes()]
+        : [d.getFullYear(), d.getMonth(), d.getDate(), d.getHours(), d.getMinutes()];
+}
+function applyPage() {
+    chart.applyOptions({
+        grid: { vertLines: { visible: PG.grid }, horzLines: { visible: PG.grid } },
+        rightPriceScale: { mode: PG.log ? LWC.PriceScaleMode.Logarithmic : LWC.PriceScaleMode.Normal },
+        crosshair: { mode: PG.magnet ? LWC.CrosshairMode.Magnet : LWC.CrosshairMode.Normal },
+        localization: { timeFormatter: (t) => { const [Y, M, D, h, m] = timeParts(t); return `${two(D)}/${two(M + 1)}/${String(Y).slice(2)} ${two(h)}:${two(m)}`; } },
+        timeScale: { tickMarkFormatter: (t, type) => {
+            const [Y, M, D, h, m] = timeParts(t);
+            return type === 0 ? String(Y) : type === 1 ? `T${M + 1}` : type === 2 ? String(D) : `${two(h)}:${two(m)}`;
+        } },
+    });
+}
+applyPage();
+
+// Vùng tô giữa 2 đường (cloud ATRBot, dải KC), vẽ dưới các series
+class BandFill {
+    constructor() {
+        this.d = null; this.on = true;
+        const renderer = { draw: (t) => this.draw(t) };
+        this.view = { zOrder: () => 'bottom', renderer: () => renderer };
+    }
+    attached(p) { this.chart = p.chart; this.series = p.series; this.req = p.requestUpdate; }
+    detached() { this.chart = null; }
+    paneViews() { return [this.view]; }
+    updateAllViews() { }
+    set(d) { this.d = d; this.req && this.req(); }   // d = { time[], a[], b[], col[] }
+    draw(target) {
+        const d = this.d;
+        if (!this.on || !d || !this.chart) return;
+        const ts = this.chart.timeScale(), lr = ts.getVisibleLogicalRange();
+        if (!lr) return;
+        const n = d.time.length, i0 = Math.max(1, Math.floor(lr.from) - 2), i1 = Math.min(n - 1, Math.ceil(lr.to) + 2);
+        target.useBitmapCoordinateSpace(({ context: ctx, horizontalPixelRatio: hr, verticalPixelRatio: vr }) => {
+            const pt = (i, v) => { const x = ts.timeToCoordinate(d.time[i]), y = this.series.priceToCoordinate(v); return x === null || y === null ? null : [x * hr, y * vr]; };
+            // gom các đoạn liên tiếp cùng màu thành 1 đa giác để không bị vệt nối
+            let s = i0;
+            while (s <= i1) {
+                const col = d.col[s];
+                let e = s;
+                while (e + 1 <= i1 && d.col[e + 1] === col && Number.isFinite(d.a[e + 1]) && Number.isFinite(d.b[e + 1])) e++;
+                const top = [], bot = [];
+                for (let i = s - 1; i <= e; i++) {
+                    if (!Number.isFinite(d.a[i]) || !Number.isFinite(d.b[i])) continue;
+                    const p = pt(i, d.a[i]), q = pt(i, d.b[i]);
+                    if (p && q) { top.push(p); bot.push(q); }
+                }
+                if (col && top.length > 1) {
+                    ctx.beginPath();
+                    ctx.moveTo(top[0][0], top[0][1]);
+                    for (const p of top) ctx.lineTo(p[0], p[1]);
+                    for (let k = bot.length - 1; k >= 0; k--) ctx.lineTo(bot[k][0], bot[k][1]);
+                    ctx.closePath();
+                    ctx.fillStyle = col;
+                    ctx.fill();
+                }
+                s = e + 1;
+            }
+        });
+    }
+}
+
+const lineOpts = { priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false };
+const SER = {
+    candle: chart.addSeries(LWC.CandlestickSeries, { borderVisible: false, priceLineVisible: true, priceLineWidth: 1, priceLineStyle: 2 }),
+    kcU: chart.addSeries(LWC.LineSeries, lineOpts),
+    kcL: chart.addSeries(LWC.LineSeries, lineOpts),
+    kcB: chart.addSeries(LWC.LineSeries, lineOpts),
+    vw: chart.addSeries(LWC.LineSeries, { ...lineOpts, lastValueVisible: true }),
+    vd: chart.addSeries(LWC.LineSeries, { ...lineOpts, lastValueVisible: true }),
+    t1: chart.addSeries(LWC.LineSeries, lineOpts),
+    t2: chart.addSeries(LWC.LineSeries, { ...lineOpts, lastValueVisible: true }),
+};
+const FILL = { kc: new BandFill(), bot: new BandFill() };
+SER.kcU.attachPrimitive(FILL.kc);
+SER.t2.attachPrimitive(FILL.bot);
+
+function applyStyles() {
+    const line = (ser, l, show) => ser.applyOptions({ visible: show, color: l.color, lineWidth: +l.width, lineStyle: +l.style });
+    const c = S.candle;
+    SER.candle.applyOptions({ visible: c.show, upColor: rgba(c.up, c.opacity), downColor: rgba(c.down, c.opacity),
+        wickUpColor: rgba(c.up, c.opacity), wickDownColor: rgba(c.down, c.opacity) });
+    line(SER.t1, S.bot.t1, S.bot.show); line(SER.t2, S.bot.t2, S.bot.show);
+    line(SER.vd, S.vd.line, S.vd.show); line(SER.vw, S.vw.line, S.vw.show);
+    line(SER.kcU, S.kc.band, S.kc.show); line(SER.kcL, S.kc.band, S.kc.show); line(SER.kcB, S.kc.basis, S.kc.show && S.kc.basis.show);
+    FILL.kc.on = S.kc.show; FILL.bot.on = S.bot.show;
+    const pf = { type: 'price', precision: PREC, minMove: 1 / 10 ** PREC };
+    for (const s of Object.values(SER)) s.applyOptions({ priceFormat: pf });
+}
+
+// ---------- tính & đẩy dữ liệu ----------
+let B = empty(), IND = null, VIEW = null;
+function compute() {
+    const bot = atrBot(B, S.bot), kc = keltner(B, S.kc);
+    IND = { ...bot, vd: vwap(B, 'day', S.vd.src), vw: vwap(B, 'week', S.vw.src), kcU: kc.upper, kcL: kc.lower, kcB: kc.basis };
+    const time = B.t.map((t) => t / 1000);
+    const up = rgba(S.bot.fillUp, S.bot.fillOp), dn = rgba(S.bot.fillDn, S.bot.fillOp), kf = rgba(S.kc.fill, S.kc.fillOp);
+    FILL.bot.set({ time, a: IND.t1, b: IND.t2, col: IND.st.map((s) => (s > 0 ? up : dn)) });
+    FILL.kc.set({ time, a: IND.kcU, b: IND.kcL, col: time.map(() => kf) });
+}
+const pt = (i, arr) => (Number.isFinite(arr[i]) ? { time: B.t[i] / 1000, value: arr[i] } : { time: B.t[i] / 1000 });
+const LINES = [['t1', 't1'], ['t2', 't2'], ['vd', 'vd'], ['vw', 'vw'], ['kcU', 'kcU'], ['kcL', 'kcL'], ['kcB', 'kcB']];
+function renderAll() {
+    compute();
+    SER.candle.setData(B.t.map((t, i) => ({ time: t / 1000, open: B.o[i], high: B.h[i], low: B.l[i], close: B.c[i] })));
+    for (const [s, k] of LINES) SER[s].setData(B.t.map((_, i) => pt(i, IND[k])));
+    applyStyles();
+    showValues(B.t.length - 1);
+}
+function renderLast() {
+    compute();
+    const i = B.t.length - 1;
+    SER.candle.update({ time: B.t[i] / 1000, open: B.o[i], high: B.h[i], low: B.l[i], close: B.c[i] });
+    for (const [s, k] of LINES) SER[s].update(pt(i, IND[k]));
+    if (!hoverIdx) showValues(i);
+}
+
+// ---------- legend ----------
+const ICON = {
+    eye: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',
+    off: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3l18 18M10.6 5.1A10 10 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4M6.6 6.6A17 17 0 0 0 2 12s3.5 7 10 7a9.7 9.7 0 0 0 5.4-1.6"/></svg>',
+    gear: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.8 1.2V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-2.8-1.2l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0-1.2-2.8H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.2-2.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 2.8-1.2V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 2.8 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0 1.2 2.8H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>',
+};
+function legendName(k) {
+    const p = S[k];
+    return k === 'candle' ? 'Nến' : k === 'bot' ? `ATRBot ${p.atrLen} ${p.mult} ${p.src} ${p.ma} ${p.maLen}`
+        : k === 'vd' ? `VWAP S ${p.src}` : k === 'vw' ? `VWAP W ${p.src}` : `KC ${p.len} ${p.mult}${p.tr ? ' TR' : ''}`;
+}
+function swatch(k) {
+    const p = S[k];
+    return k === 'candle' ? p.up : k === 'bot' ? `linear-gradient(90deg, ${p.t1.color} 50%, ${p.t2.color} 50%)` : k === 'kc' ? p.band.color : p.line.color;
+}
+function buildLegend() {
+    $('#legend').innerHTML = ORDER.map((k) => `
+        <div class="row${S[k].show ? '' : ' off'}" data-k="${k}">
+            <span class="sw" style="background:${swatch(k)}"></span><span class="nm">${legendName(k)}</span><span class="val" data-v="${k}"></span>
+            <button class="ic eye" title="Ẩn/hiện">${S[k].show ? ICON.eye : ICON.off}</button>
+            <button class="ic gear" title="Cài đặt">${ICON.gear}</button>
+        </div>`).join('');
+}
+let hoverIdx = null;
+function showValues(i) {
+    if (!IND || i < 0 || i >= B.t.length) return;
+    const set = (k, html) => { const el = document.querySelector(`[data-v="${k}"]`); if (el) el.innerHTML = html; };
+    const chg = i > 0 ? (B.c[i] / B.c[i - 1] - 1) * 100 : 0;
+    $('#ohlc').innerHTML = `<b>${VIEW ? VIEW.sym : ''}</b>O ${fmt(B.o[i])} H ${fmt(B.h[i])} L ${fmt(B.l[i])} C ${fmt(B.c[i])} `
+        + `<span class="${chg >= 0 ? 'u' : 'd'}" style="color:${chg >= 0 ? 'var(--up)' : 'var(--down)'}">${chg >= 0 ? '+' : ''}${chg.toFixed(2)}%</span>`;
+    set('candle', '');
+    set('bot', `${fmt(IND.t1[i])} <span class="${IND.st[i] > 0 ? 'u' : 'd'}">${IND.st[i] > 0 ? '▲' : '▼'} ${fmt(IND.t2[i])}</span>`);
+    set('vd', fmt(IND.vd[i]));
+    set('vw', fmt(IND.vw[i]));
+    set('kc', `${fmt(IND.kcU[i])} ${fmt(IND.kcL[i])}`);
+}
+chart.subscribeCrosshairMove((p) => {
+    hoverIdx = p && p.logical !== undefined && p.point ? Math.max(0, Math.min(B.t.length - 1, Math.round(p.logical))) : null;
+    showValues(hoverIdx ?? B.t.length - 1);
+});
+
+// ---------- popover cài đặt ----------
+let popKey = null;
+function field([key, label, type], obj) {
+    const id = `f_${key}`;
+    if (Array.isArray(type)) return `<div class="f"><label for="${id}">${label}</label><select id="${id}" data-p="${key}">${type.map((o) => `<option${o === obj[key] ? ' selected' : ''}>${o}</option>`).join('')}</select></div>`;
+    if (type === 'bool') return `<div class="f chk"><input type="checkbox" id="${id}" data-p="${key}"${obj[key] ? ' checked' : ''}><label for="${id}">${label}</label></div>`;
+    return `<div class="f"><label for="${id}">${label}</label><input id="${id}" type="number" data-p="${key}" value="${obj[key]}" ${type === 'int' ? 'step="1" min="1" max="500"' : 'step="0.1" min="0.1" max="20"'}></div>`;
+}
+function lineRow([key, label, toggle], l) {
+    return `<div class="ln" data-l="${key}"><span>${label}</span><input type="color" data-a="color" value="${l.color}">
+        <select data-a="width">${[1, 2, 3, 4].map((w) => `<option value="${w}"${+l.width === w ? ' selected' : ''}>${w}px</option>`).join('')}</select>
+        <select data-a="style">${STYLES.map(([g, v]) => `<option value="${v}"${+l.style === v ? ' selected' : ''}>${g}</option>`).join('')}</select>
+        ${toggle ? `<input type="checkbox" data-a="show" title="Hiện"${l.show ? ' checked' : ''}>` : '<i></i>'}</div>`;
+}
+function openPop(k, anchor) {
+    const sc = SCHEMA[k], p = S[k], pop = $('#pop');
+    popKey = k;
+    pop.innerHTML = `<h4>${sc.name}<button data-reset>Mặc định</button></h4>`
+        + (sc.params.length ? `<div class="grid">${sc.params.map((f) => field(f, p)).join('')}</div>` : '')
+        + (sc.lines.length || sc.colors ? `<div class="sec">${sc.lines.map((l) => lineRow(l, p[l[0]])).join('')}
+            ${(sc.colors || []).map(([key, label]) => `<div class="cl"><span>${label}</span><input type="color" data-c="${key}" value="${p[key]}"></div>`).join('')}
+            ${sc.op ? `<div class="cl"><span>${sc.op[1]}</span><input type="range" min="0" max="1" step="0.01" data-op="${sc.op[0]}" value="${p[sc.op[0]]}"></div>` : ''}</div>` : '');
+    const r = anchor.getBoundingClientRect(), w = $('#wrap').getBoundingClientRect();
+    pop.hidden = false;
+    pop.style.left = `${Math.min(r.right - w.left + 6, w.width - pop.offsetWidth - 8)}px`;
+    pop.style.top = `${Math.max(8, Math.min(r.top - w.top, w.height - pop.offsetHeight - 8))}px`;
+}
+function closePop() { $('#pop').hidden = true; popKey = null; }
+$('#pop').addEventListener('input', (e) => {
+    const el = e.target, p = S[popKey];
+    if (!p) return;
+    let recalc = false;
+    if (el.dataset.p) {
+        const key = el.dataset.p;
+        const v = el.type === 'checkbox' ? el.checked : el.type === 'number' ? +el.value : el.value;
+        if (el.type === 'number' && !(v > 0)) return;
+        p[key] = el.type === 'number' && el.step === '1' ? Math.round(v) : v;
+        recalc = true;
+    } else if (el.dataset.a) {
+        const l = p[el.closest('.ln').dataset.l], a = el.dataset.a;
+        l[a] = a === 'show' ? el.checked : a === 'color' ? el.value : +el.value;
+    } else if (el.dataset.c) { p[el.dataset.c] = el.value; recalc = true; }
+    else if (el.dataset.op) { p[el.dataset.op] = +el.value; recalc = true; }
+    saveSettings();
+    if (recalc) renderAll(); else applyStyles();
+    buildLegend(); showValues(hoverIdx ?? B.t.length - 1);
+});
+$('#pop').addEventListener('click', (e) => {
+    if (!e.target.closest('[data-reset]')) return;
+    const k = popKey;
+    S[k] = clone(DEFAULTS[k]); saveSettings();
+    renderAll(); buildLegend(); showValues(B.t.length - 1);
+    openPop(k, document.querySelector(`.row[data-k="${k}"]`));
+});
+$('#legend').addEventListener('click', (e) => {
+    const row = e.target.closest('.row');
+    if (!row) return;
+    const k = row.dataset.k;
+    if (e.target.closest('.eye')) {
+        S[k].show = !S[k].show; saveSettings(); applyStyles(); buildLegend(); showValues(hoverIdx ?? B.t.length - 1);
+    } else if (e.target.closest('.gear')) {
+        if (popKey === k) closePop(); else openPop(k, row);
+    }
+});
+document.addEventListener('mousedown', (e) => { if (popKey && !e.target.closest('#pop') && !e.target.closest('.gear')) closePop(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closePop(); closeModal(); } });
+
+// ---------- realtime ----------
+let ws = null, wsTimer = null, saveTimer = null, frame = 0, HEAD = false;
+function scheduleSave() {
+    clearTimeout(saveTimer);
+    const v = VIEW;
+    saveTimer = setTimeout(() => v && VIEW === v && saveBars(v.sym, v.tf, B, HEAD, PREC), 2000);
+}
+function connect() {
+    const v = VIEW;
+    clearTimeout(wsTimer);
+    if (ws) { ws.onclose = null; ws.close(); }
+    const sock = ws = new WebSocket(`${WS_BASES[wsBase]}${v.sym.toLowerCase()}@kline_${v.tf}`);
+    let got = false;
+    ws.onopen = () => {
+        setStatus('load', 'chờ dữ liệu');
+        // mở được nhưng im lặng quá lâu -> thử endpoint còn lại
+        wsTimer = setTimeout(() => { if (!got && ws === sock && VIEW === v) { wsBase = (wsBase + 1) % WS_BASES.length; connect(); } }, 30000);
+    };
+    ws.onmessage = (m) => {
+        if (VIEW !== v) return;
+        if (!got) { got = true; clearTimeout(wsTimer); setStatus('live', `${B.t.length} nến`); }
+        const k = JSON.parse(m.data).k;
+        if (!k) return;
+        const bar = [k.t, +k.o, +k.h, +k.l, +k.c, +k.v], last = B.t.length - 1;
+        if (bar[0] === B.t[last]) { B.o[last] = bar[1]; B.h[last] = bar[2]; B.l[last] = bar[3]; B.c[last] = bar[4]; B.v[last] = bar[5]; }
+        else if (bar[0] === B.t[last] + TF_MS[v.tf]) {
+            B.t.push(bar[0]); B.o.push(bar[1]); B.h.push(bar[2]); B.l.push(bar[3]); B.c.push(bar[4]); B.v.push(bar[5]);
+            if (B.t.length > PG.bars + 200) { for (const f of Object.keys(B)) B[f] = B[f].slice(-PG.bars); renderAll(); return; }
+        }
+        else if (bar[0] > B.t[last]) { open(v.sym, v.tf, true); return; } // hụt nến khi mất kết nối -> tải bù
+        else return;
+        if (k.x) scheduleSave();
+        if (!frame) frame = requestAnimationFrame(() => { frame = 0; renderLast(); });
+    };
+    ws.onclose = () => {
+        if (VIEW !== v) return;
+        setStatus('load', 'mất kết nối');
+        wsTimer = setTimeout(() => VIEW === v && open(v.sym, v.tf, true), 3000);
+    };
+}
+
+// ---------- mở symbol ----------
+let loading = 0;
+async function open(sym, tf, quiet = false) {
+    sym = sym.trim().toUpperCase();
+    if (!sym || !TF_MS[tf]) return;
+    const token = ++loading;
+    if (ws) { ws.onclose = null; ws.close(); ws = null; }
+    VIEW = { sym, tf };
+    LS.set('stat1:view', VIEW);
+    $('#sym').value = sym;
+    document.querySelectorAll('#tfs button').forEach((b) => b.classList.toggle('on', b.dataset.tf === tf));
+    if (!quiet) setStatus('load', '…');
+    const keepRange = quiet ? chart.timeScale().getVisibleLogicalRange() : null;
+    try {
+        const r = await loadBars(sym, tf, (a, b) => token === loading && setStatus('load', `${Math.round((a / b) * 100)}%`));
+        if (token !== loading) return;
+        B = r.B; HEAD = r.head; PREC = r.p;
+        saveBars(sym, tf, B, HEAD, PREC);
+        if (modalTab === 'data') renderTab();
+        renderAll();
+        if (keepRange) chart.timeScale().setVisibleLogicalRange(keepRange);
+        else chart.timeScale().scrollToRealTime();
+        $('#status').title = r.info;
+        setStatus('load', `${B.t.length} nến`);
+        connect();
+    } catch (e) {
+        if (token !== loading) return;
+        setStatus('err', 'lỗi');
+        toast(`${sym}: ${e.message}`);
+        if (quiet) wsTimer = setTimeout(() => VIEW && open(VIEW.sym, VIEW.tf, true), 10000);
+    }
+}
+
+// ---------- modal cài đặt ----------
+let modalTab = null;
+const PRESETS = 'stat1:presets';
+const fmtN = (n) => Number(n || 0).toLocaleString('vi-VN');
+const fmtKB = (chars) => (chars >= 1048576 ? `${(chars / 1048576).toFixed(2)} MB` : `${Math.max(1, Math.round(chars / 1024))} KB`);
+const fmtDate = (ms) => { const [Y, M, D, h, m] = timeParts(ms / 1000); return `${two(D)}/${two(M + 1)}/${String(Y).slice(2)} ${two(h)}:${two(m)}`; };
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const ICON_RELOAD = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>';
+const ICON_TRASH = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>';
+
+function openModal(tab) { modalTab = tab || modalTab || 'gen'; $('#modal').hidden = false; closePop(); renderTab(); }
+function closeModal() { $('#modal').hidden = true; modalTab = null; }
+function renderTab() {
+    if (!modalTab) return;
+    document.querySelectorAll('#modal .tabs button').forEach((b) => b.classList.toggle('on', b.dataset.tab === modalTab));
+    $('#dlgBody').innerHTML = modalTab === 'gen' ? tabGeneral() : modalTab === 'pre' ? tabPresets() : tabData();
+}
+// áp dụng toàn bộ cài đặt sau khi tải preset / nhập file / về mặc định
+function applyAll(prevBars) {
+    saveSettings(); savePage(); applyPage(); applyStyles(); buildLegend();
+    if (B.t.length) { renderAll(); showValues(hoverIdx ?? B.t.length - 1); }
+    if (VIEW && PG.bars !== prevBars) open(VIEW.sym, VIEW.tf, true);
+}
+
+const toggleRow = (k, label) => `<div class="frow"><label for="pg_${k}">${label}</label>
+    <label class="sw2"><input type="checkbox" id="pg_${k}" data-pgb="${k}"${PG[k] ? ' checked' : ''}><i></i></label></div>`;
+function tabGeneral() {
+    const tf = VIEW ? VIEW.tf : '15m', days = (PG.bars * TF_MS[tf]) / 864e5;
+    return `
+        <div class="frow"><label for="pgBars">Số nến tải</label>
+            <input id="pgBars" type="number" min="${BARS_MIN}" max="${BARS_MAX}" step="500" value="${PG.bars}">
+            <span class="hint">≈ ${days >= 2 ? `${fmtN(Math.round(days))} ngày` : `${Math.round(days * 24)} giờ`} ở ${tf}</span></div>
+        <div class="frow"><label>Múi giờ</label>
+            <div class="seg" data-pg="tz"><button data-v="utc" class="${PG.tz === 'utc' ? 'on' : ''}">UTC</button><button data-v="local" class="${PG.tz === 'local' ? 'on' : ''}">Giờ máy</button></div>
+            <span class="hint">VWAP luôn neo theo UTC</span></div>
+        ${toggleRow('grid', 'Lưới')}${toggleRow('log', 'Thang log')}${toggleRow('magnet', 'Crosshair hút giá')}
+        <div class="frow"><label>Nến</label>
+            <input type="color" data-cd="up" value="${S.candle.up}" title="Tăng"><input type="color" data-cd="down" value="${S.candle.down}" title="Giảm">
+            <input type="range" min="0.1" max="1" step="0.05" data-cd="opacity" value="${S.candle.opacity}" title="Độ đậm"></div>
+        <div class="dlg-f"><button class="btn" data-act="resetPage">Mặc định trang</button><button class="btn" data-act="resetInd">Mặc định indicator</button></div>`;
+}
+function tabPresets() {
+    const list = LS.get(PRESETS) || [];
+    return `
+        <div class="frow"><input id="preName" class="inp" placeholder="Tên preset" maxlength="40"><button class="btn pri" data-act="preSave">Lưu hiện tại</button></div>
+        <div class="plist">${list.length ? list.map((p, i) => `
+            <div class="pitem"><div><b>${esc(p.name)}</b><span class="hint">${fmtDate(p.at)} · ${fmtN((p.pg || PG_DEF).bars)} nến · ${(p.pg || PG_DEF).tz === 'utc' ? 'UTC' : 'giờ máy'}</span></div>
+                <div class="acts"><button class="btn" data-act="preLoad" data-i="${i}">Tải</button><button class="btn" data-act="preOver" data-i="${i}">Ghi đè</button>
+                <button class="ib danger" data-act="preDel" data-i="${i}" title="Xoá">${ICON_TRASH}</button></div></div>`).join('') : '<div class="empty">Chưa có preset</div>'}</div>
+        <div class="dlg-f"><button class="btn" data-act="export">Xuất file</button><button class="btn" data-act="import">Nhập file</button>
+            <input type="file" id="impFile" accept=".json,application/json" hidden></div>`;
+}
+function tabData() {
+    const meta = LS.get(META) || {}, keys = LS.keys('stat1:bars:').sort();
+    let dirty = false, total = 0;
+    for (const k of LS.keys('stat1:')) { try { total += k.length + (localStorage.getItem(k) || '').length; } catch { /* bỏ qua */ } }
+    const rows = keys.map((key) => {
+        const [, , sym, tf] = key.split(':');
+        let m = meta[key];
+        if (!m) { // cache tạo từ bản cũ chưa có metadata
+            const c = readCache(sym, tf);
+            if (!c || !c.B.t.length) return '';
+            m = meta[key] = { n: c.B.t.length, first: c.B.t[0], last: c.B.t[c.B.t.length - 1], size: (localStorage.getItem(key) || '').length, at: 0 };
+            dirty = true;
+        }
+        const miss = Math.max(0, Math.floor((Date.now() - m.last) / (TF_MS[tf] || 9e5)));
+        const cur = VIEW && VIEW.sym === sym && VIEW.tf === tf;
+        return `<tr data-key="${esc(key)}"><td><b>${esc(sym)}</b>${cur ? '<span class="dot" title="Đang xem"></span>' : ''}</td><td>${esc(tf)}</td>
+            <td class="r">${fmtN(m.n)}</td><td class="hint rng">${fmtDate(m.first)} → ${fmtDate(m.last)}</td>
+            <td class="${miss > 1 ? 'warn' : 'ok'}">${miss > 1 ? `thiếu ${fmtN(miss)}` : 'mới'}</td><td class="r">${fmtKB(m.size)}</td>
+            <td class="acts"><button class="ib" data-act="upd" title="Cập nhật">${ICON_RELOAD}</button><button class="ib danger" data-act="del" title="Xoá">${ICON_TRASH}</button></td></tr>`;
+    }).join('');
+    if (dirty) LS.set(META, meta);
+    const quota = 5 * 1048576;
+    return `
+        <div class="usage"><div class="meter"><i style="width:${Math.min(100, (total / quota) * 100).toFixed(1)}%"></i></div>
+            <span>${keys.length} bộ dữ liệu · ${fmtKB(total)} / ~5 MB</span></div>
+        <div class="tw"><table class="dt"><thead><tr><th>Symbol</th><th>TF</th><th class="r">Nến</th><th class="rng">Từ → đến</th><th>Trạng thái</th><th class="r">Dung lượng</th><th></th></tr></thead>
+            <tbody>${rows || '<tr><td colspan="7" class="empty">Chưa có dữ liệu</td></tr>'}</tbody></table></div>
+        <div class="dlg-f"><button class="btn" data-act="updAll">Cập nhật tất cả</button><button class="btn danger" data-act="delAll">Xoá tất cả</button></div>`;
+}
+
+async function updateKey(key) {
+    const [, , sym, tf] = key.split(':');
+    if (VIEW && VIEW.sym === sym && VIEW.tf === tf) return open(sym, tf, true);
+    const r = await loadBars(sym, tf);
+    saveBars(sym, tf, r.B, r.head, r.p);
+}
+function importJSON(j) {
+    if (!j || j.app !== 'stat1') throw new Error('File không đúng định dạng stat1');
+    const prev = PG.bars;
+    if (j.settings) { S = merge(clone(DEFAULTS), j.settings); S._v = DEFAULTS._v; }
+    if (j.page) { PG = merge(clone(PG_DEF), j.page); PG.bars = clampBars(PG.bars); }
+    let n = 0;
+    if (Array.isArray(j.presets)) {
+        const list = LS.get(PRESETS) || [];
+        for (const p of j.presets) {
+            if (!p || typeof p.name !== 'string') continue;
+            const i = list.findIndex((x) => x.name === p.name);
+            if (i >= 0) list[i] = p; else list.push(p);
+            n++;
+        }
+        LS.set(PRESETS, list);
+    }
+    applyAll(prev);
+    return n;
+}
+
+$('#modal').addEventListener('click', async (e) => {
+    if (e.target.id === 'modal' || e.target.closest('[data-close]')) return closeModal();
+    const tab = e.target.closest('.tabs button');
+    if (tab) { modalTab = tab.dataset.tab; return renderTab(); }
+    const seg = e.target.closest('[data-pg] button');
+    if (seg) { PG[seg.parentElement.dataset.pg] = seg.dataset.v; savePage(); applyPage(); return renderTab(); }
+    const btn = e.target.closest('[data-act]');
+    if (!btn) return;
+    const act = btn.dataset.act, list = LS.get(PRESETS) || [], i = +btn.dataset.i, prev = PG.bars;
+    if (act === 'resetPage') { PG = clone(PG_DEF); applyAll(prev); renderTab(); }
+    else if (act === 'resetInd') { S = clone(DEFAULTS); applyAll(prev); renderTab(); }
+    else if (act === 'preSave') {
+        const name = $('#preName').value.trim() || `Preset ${list.length + 1}`;
+        const p = { name, at: Date.now(), s: clone(S), pg: clone(PG) }, k = list.findIndex((x) => x.name === name);
+        if (k >= 0) list[k] = p; else list.push(p);
+        LS.set(PRESETS, list); renderTab(); toast(`Đã lưu "${name}"`);
+    } else if (act === 'preLoad' && list[i]) {
+        S = merge(clone(DEFAULTS), list[i].s); S._v = DEFAULTS._v;
+        PG = merge(clone(PG_DEF), list[i].pg); PG.bars = clampBars(PG.bars);
+        applyAll(prev); renderTab(); toast(`Đã tải "${list[i].name}"`);
+    } else if (act === 'preOver' && list[i]) {
+        list[i] = { ...list[i], at: Date.now(), s: clone(S), pg: clone(PG) };
+        LS.set(PRESETS, list); renderTab(); toast(`Đã ghi đè "${list[i].name}"`);
+    } else if (act === 'preDel' && list[i]) {
+        if (!confirm(`Xoá preset "${list[i].name}"?`)) return;
+        list.splice(i, 1); LS.set(PRESETS, list); renderTab();
+    } else if (act === 'export') {
+        const data = { app: 'stat1', v: 1, at: new Date().toISOString(), settings: S, page: PG, presets: list };
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
+        a.download = `stat1-settings-${new Date().toISOString().slice(0, 10)}.json`;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    } else if (act === 'import') $('#impFile').click();
+    else if (act === 'upd' || act === 'updAll') {
+        const keys = act === 'upd' ? [btn.closest('tr').dataset.key] : LS.keys('stat1:bars:').sort();
+        btn.classList.add('busy'); btn.disabled = true;
+        let ok = 0;
+        for (const key of keys) {
+            if (act === 'updAll') btn.textContent = `Đang cập nhật ${ok + 1}/${keys.length}…`;
+            try { await updateKey(key); ok++; } catch (err) { toast(`${key.split(':')[2]}: ${err.message}`); }
+        }
+        if (modalTab === 'data') renderTab();
+        if (act === 'updAll') toast(`Đã cập nhật ${ok}/${keys.length} bộ dữ liệu`);
+    } else if (act === 'del') {
+        removeBars(btn.closest('tr').dataset.key); renderTab();
+    } else if (act === 'delAll') {
+        const keys = LS.keys('stat1:bars:');
+        if (!keys.length || !confirm(`Xoá toàn bộ ${keys.length} bộ dữ liệu đã tải?`)) return;
+        for (const k of keys) removeBars(k);
+        renderTab(); toast('Đã xoá dữ liệu. Chart đang xem sẽ tải lại ở lần mở sau.');
+    }
+});
+$('#modal').addEventListener('change', (e) => {
+    const el = e.target;
+    if (el.id === 'pgBars') {
+        const prev = PG.bars;
+        PG.bars = clampBars(el.value); savePage(); renderTab();
+        if (VIEW && PG.bars !== prev) open(VIEW.sym, VIEW.tf, true);
+    } else if (el.dataset.pgb) { PG[el.dataset.pgb] = el.checked; savePage(); applyPage(); }
+    else if (el.id === 'impFile' && el.files[0]) {
+        const fr = new FileReader();
+        fr.onload = () => {
+            try { const n = importJSON(JSON.parse(fr.result)); renderTab(); toast(`Đã nhập cài đặt${n ? ` + ${n} preset` : ''}`); }
+            catch (err) { toast(err.message); }
+        };
+        fr.readAsText(el.files[0]);
+    }
+});
+$('#modal').addEventListener('input', (e) => {
+    const k = e.target.dataset.cd;
+    if (!k) return;
+    S.candle[k] = k === 'opacity' ? +e.target.value : e.target.value;
+    saveSettings(); applyStyles(); buildLegend(); showValues(hoverIdx ?? B.t.length - 1);
+});
+
+// ---------- khởi tạo ----------
+LS.del('stat1:lru'); // khoá của bản cũ, đã thay bằng stat1:meta
+$('#settings').addEventListener('click', () => ($('#modal').hidden ? openModal() : closeModal()));
+$('#tfs').innerHTML = Object.keys(TF_MS).map((tf) => `<button data-tf="${tf}">${tf}</button>`).join('');
+$('#tfs').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b && VIEW) open(VIEW.sym, b.dataset.tf); });
+$('#sym').addEventListener('keydown', (e) => { if (e.key === 'Enter') { open(e.target.value, VIEW ? VIEW.tf : '15m'); e.target.blur(); } });
+$('#reload').addEventListener('click', () => { if (!VIEW) return; LS.del(KEY(VIEW.sym, VIEW.tf)); open(VIEW.sym, VIEW.tf); });
+document.addEventListener('visibilitychange', () => {
+    // quay lại tab sau thời gian dài: tải phần thiếu
+    if (!document.hidden && VIEW && B.t.length && Date.now() - B.t[B.t.length - 1] > 2 * TF_MS[VIEW.tf]) open(VIEW.sym, VIEW.tf, true);
+});
+buildLegend();
+applyStyles();
+const v0 = LS.get('stat1:view') || { sym: 'IMXUSDT', tf: '15m' };
+open(v0.sym, TF_MS[v0.tf] ? v0.tf : '15m');
+</script>
+</body>
+</html>
